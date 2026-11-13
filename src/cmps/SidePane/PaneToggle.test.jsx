@@ -22,18 +22,18 @@ describe('PaneToggle', () => {
     it('open → "Hide …"; a press closes the pane; then "Show …" brings the same tabs back', () => {
         act(() => { openSurface('mentor'); openSurface('portfolio') })
         render(<PaneToggle floor="portfolio" surfaces={surfaces} />)
-        const btn = screen.getByRole('button', { name: 'Hide Atlas\'s work' })
+        const btn = screen.getByRole('button', { name: 'Hide Portfolio work' })
         expect(btn.getAttribute('aria-expanded')).toBe('true')
         fireEvent.click(btn)
         expect(sidePaneState().tabs).toEqual([])
-        fireEvent.click(screen.getByRole('button', { name: 'Show Atlas\'s work' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Show Portfolio work' }))
         expect(sidePaneState().tabs).toEqual(['mentor', 'portfolio'])
         expect(sidePaneState().active).toBe('portfolio')
     })
 
     it('nothing hidden but a desk holds the floor → it offers that desk\'s work', () => {
         render(<PaneToggle floor="mentor" surfaces={surfaces} />)
-        fireEvent.click(screen.getByRole('button', { name: 'Show Mentor\'s work' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Show Trade work' }))
         expect(sidePaneState().active).toBe('mentor')
     })
 
@@ -47,10 +47,10 @@ describe('PaneToggle', () => {
     it('a lowered sheet → "Show …" with the work dot; a press raises it, the desk never closed', () => {
         act(() => openSurface('mentor', { follow: true, collapse: true }))
         render(<PaneToggle floor="mentor" surfaces={surfaces} />)
-        const btn = screen.getByRole('button', { name: "Show Mentor's work" })
+        const btn = screen.getByRole('button', { name: 'Show Trade work' })
         expect(btn.className).toContain('has-work')
         fireEvent.click(btn)
         expect(sidePaneState()).toMatchObject({ tabs: ['mentor'], collapsed: false })
-        expect(screen.getByRole('button', { name: "Hide Mentor's work" }).className).not.toContain('has-work')
+        expect(screen.getByRole('button', { name: 'Hide Trade work' }).className).not.toContain('has-work')
     })
 })

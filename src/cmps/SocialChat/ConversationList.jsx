@@ -90,7 +90,8 @@ export function ConversationList({ conversations, activeId, currentUserId, onSel
                         const otherId = conv.participants.find(p => p !== currentUserId) ?? ''
                         const botMeta = botMetaFor(otherId)
                         const isBot   = !!botMeta
-                        const name    = isBot ? botMeta.brand : (conv.otherName ?? conv.otherUsername ?? otherId)
+                        // ONE AXL (one-axl.md D8): every bot thread is Axl's; a role thread not yet merged says which role.
+                        const name    = isBot ? (botMeta.role ? `Axl · ${botMeta.role}` : 'Axl') : (conv.otherName ?? conv.otherUsername ?? otherId)
                         const active  = conv.id === activeId
 
                         return (

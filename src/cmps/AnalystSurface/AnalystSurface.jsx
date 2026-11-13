@@ -51,7 +51,7 @@ const refusalText = (out) => (out.extra?.detail ? `${out.message} — ${out.extr
 export function AnalystSurface({ session, deskProps = {} }) {
     const { isAdmin } = useAuth()
     const { coverage = [], onSaved } = deskProps
-    const { pressing, note, press } = useSurfacePress(session, 'analyst', deskProps, { brand: 'Prometheus' })
+    const { pressing, note, press } = useSurfacePress(session, 'analyst', deskProps, { brand: 'The analyst' })
     const state   = session?.agentState?.analyst ?? null
     const turning = !!session?.live
 
@@ -81,12 +81,12 @@ export function AnalystSurface({ session, deskProps = {} }) {
                     {!draft
                         ? 'Buy-side research — a living thesis per name: a variant view, our price target vs the Street, and monitorable kill-criteria. Name a ticker in the chat to start.'
                         : turning
-                            ? `Prometheus is working on ${symbol ?? 'a name'} — the draft appears here once it stands.`
+                            ? `The analyst is working on ${symbol ?? 'a name'} — the draft appears here once it stands.`
                             // A turn that ended without a <coverage> block withdrew the draft's right to be saved (a pass,
                             // a question) — said, rather than "working" over a desk that has stopped.
-                            : `Prometheus's last answer on ${symbol ?? 'this name'} put up no draft to save — ask it for one when you are ready.`}
+                            : `The analyst's last answer on ${symbol ?? 'this name'} put up no draft to save — ask it for one when you are ready.`}
                 </p>
-                {draft && !turning && <DiscardButton what={`the ${symbol ?? ''} draft`} onDiscard={() => press('discard', { done: () => 'Discarded — Prometheus\'s table is clear.' })} disabled={pressing} />}
+                {draft && !turning && <DiscardButton what={`the ${symbol ?? ''} draft`} onDiscard={() => press('discard', { done: () => 'Discarded — the table is clear.' })} disabled={pressing} />}
             </div>
         )
     }
@@ -100,8 +100,8 @@ export function AnalystSurface({ session, deskProps = {} }) {
                 <p className="desk-surface__lead">
                     Revising {revising ?? symbol ?? 'this thesis'}
                     {another
-                        ? ` — Prometheus's draft is about ${proposal.symbol}, another company: saving it starts its own coverage, and Later keeps it.`
-                        : proposal ? '' : ' — Prometheus drafts the new view when you ask it to.'}
+                        ? ` — the analyst's draft is about ${proposal.symbol}, another company: saving it starts its own coverage, and Later keeps it.`
+                        : proposal ? '' : ' — the analyst drafts the new view when you ask.'}
                 </p>
             )}
             {proposal && <div className="analyst-panel__draft-wrap"><CoverageDraft coverage={proposal} /></div>}
@@ -122,8 +122,8 @@ export function AnalystSurface({ session, deskProps = {} }) {
                         <span className="analyst-panel__ask-hint">House coverage is saved by an admin.</span>
                     ))}
                     {editingId && <LaterButton onClick={() => commit('later')} disabled={pressing || turning} />}
-                    {editingId && turning && <span className="analyst-panel__ask-hint">Prometheus is answering…</span>}
-                    {!editingId && <DiscardButton what={`the ${symbol ?? ''} draft`} onDiscard={() => press('discard', { done: () => 'Discarded — Prometheus\'s table is clear.' })} disabled={pressing} />}
+                    {editingId && turning && <span className="analyst-panel__ask-hint">The analyst is answering…</span>}
+                    {!editingId && <DiscardButton what={`the ${symbol ?? ''} draft`} onDiscard={() => press('discard', { done: () => 'Discarded — the table is clear.' })} disabled={pressing} />}
                 </div></ChatActions>
             )}
         </div>
@@ -131,7 +131,7 @@ export function AnalystSurface({ session, deskProps = {} }) {
 }
 
 // What this pane is, said once under its tabs (SidePane — Roy, 2026-10-19: the pane was not clear to a user).
-AnalystSurface.paneHint = 'Prometheus’s draft coverage: the thesis and price target. It fills in while you talk; the button at the bottom saves it.'
+AnalystSurface.paneHint = 'Draft coverage: the thesis and price target. It fills in while you talk; the button at the bottom saves it.'
 
 AnalystSurface.propTypes = {
     session: PropTypes.shape({

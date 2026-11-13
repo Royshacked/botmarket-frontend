@@ -76,7 +76,7 @@ describe('SetupPage in the app', () => {
         const off = eventBus.on(SETUP_INVALIDATION_EDIT, heard)
         const onClose = await renderInline()
 
-        await act(async () => { fireEvent.click(screen.getByText(/Re-draw it in Mentor/i)) })
+        await act(async () => { fireEvent.click(screen.getByText(/Re-draw it in the chat/i)) })
 
         expect(heard).toHaveBeenCalledWith({ setupId: 's1' })
         expect(onClose).toHaveBeenCalled()

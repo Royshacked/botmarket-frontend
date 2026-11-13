@@ -87,7 +87,7 @@ test('a refused Accept says the server\'s words and each per-change reason once'
 test('a proposed change reads as what Accept will do', () => {
     const assetOf = (id) => ({ i1: 'MSFT' })[id] ?? id
     assert.equal(describeChange({ action: 'trim_item', itemId: 'i1', reduceFraction: 0.25, targetAllocationRatio: 0.1 }, assetOf), 'Trim MSFT by 25% → target 10%')
-    assert.equal(describeChange({ action: 'add_item', item: { asset: 'XOM', allocationRatio: 0.05 }, avoid: { industry: 'Oil & Gas' } }), 'Add XOM (long, target 5%) — Pythia rates Oil & Gas AVOID')
+    assert.equal(describeChange({ action: 'add_item', item: { asset: 'XOM', allocationRatio: 0.05 }, avoid: { industry: 'Oil & Gas' } }), 'Add XOM (long, target 5%) — the industry strategist rates Oil & Gas AVOID')
     assert.equal(describeChange({ action: 'exit_item', itemId: 'i1', reason: 'thesis broke' }, assetOf), 'Exit MSFT — thesis broke')
     assert.equal(describeChange({ action: 'mystery' }), 'mystery')
 })

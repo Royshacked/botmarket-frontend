@@ -10,19 +10,18 @@ import { fmtLevel, fmtEntry } from '../TradeIdeas/setupPlan.utils.js'
 import { formatPrice, formatCreatedAt } from '../TradeIdeas/tradeIdea.utils.js'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { useMicInput } from '../../customHooks/useMicInput.js'
-import { AGENTS, isBotId, CONVERSATIONAL_BOT_ID } from '../AxlHub/agentMeta.jsx'
+import { AGENTS, isBotId, CONVERSATIONAL_BOT_ID, ASSISTANT } from '../AxlHub/agentMeta.jsx'
 import { AgentGlyph } from '../AxlHub/AgentBadges.jsx'
 import { readResolution } from './cardResolution.js'
 import { formatTime } from './messageStamp.js'
 
-// Compact "from <agent>" attribution chip for notification cards: the agent's
-// sigil + brand, tinted by its hue. Makes a card read as coming from Idea / Atlas
-// (each specialist owns its own alerts and the card routes back to that agent).
+// Compact "from" chip for notification cards. ONE AXL (one-axl.md D8, 2026-11-13): every card is Axl's — his sigil and
+// name, with the role that wrote it ("Axl · Trader"); the card still routes back to that role's work.
 function CardAgentTag({ agent }) {
     return (
-        <span className={`social-chat__card-agent social-chat__card-agent--${agent.hue}`}>
-            <AgentGlyph agentKey={agent.tab} icon={agent.icon} size={16} />
-            <span>{agent.brand}</span>
+        <span className="social-chat__card-agent social-chat__card-agent--cyan">
+            <AgentGlyph agentKey="axl" icon={AGENTS.axl.icon} size={16} />
+            <span>{ASSISTANT}{agent.role ? ` · ${agent.role}` : ''}</span>
         </span>
     )
 }
@@ -323,7 +322,7 @@ function SetupPicker({ onPick, onClose }) {
             </div>
             {failed ? <div className="social-chat__setup-picker-empty">Could not load your setups.</div>
             : setups === null ? <div className="social-chat__setup-picker-empty">Loading…</div>
-            : setups.length === 0 ? <div className="social-chat__setup-picker-empty">No setups yet — build one with Mentor first.</div>
+            : setups.length === 0 ? <div className="social-chat__setup-picker-empty">No setups yet — build one first.</div>
             : setups.map(s => (
                 <button key={s.id} type="button" role="option" aria-selected={false} className="social-chat__setup-picker-row" onClick={() => onPick({ id: s.id, asset: s.asset, direction: s.direction, timeframe: s.timeframe })}>
                     <span className="social-chat__setup-picker-asset">{s.asset}</span>
@@ -664,9 +663,9 @@ export function SetupSharedBubble({ msg, mine = false, onClose, onResolve }) {
         <NotificationCard
             agent={AGENTS.mentor} kind="manage" heading={heading} asset={asset}
             qualifier={qualifier} body={body} actionless={mine || !msg.actions}
-            primaryLabel={msg.actions?.primary?.label ?? 'Open in Mentor'} onPrimary={handlePrimary}
+            primaryLabel={msg.actions?.primary?.label ?? 'Open the setup'} onPrimary={handlePrimary}
             onResolve={onResolve} msg={msg} reopenOnDone
-            resolvedLabels={{ opened: '✓ Opened in Mentor' }}
+            resolvedLabels={{ opened: '✓ Opened' }}
         />
     )
 }

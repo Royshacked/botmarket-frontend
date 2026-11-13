@@ -93,7 +93,7 @@ describe('ThemesView', () => {
         assessTheme.mockRejectedValueOnce({ response: { status: 409, data: { detail: 'already running' } } })
         running.add('propose_themes')
         render(<ThemesView themes={[APPROVED, { ...PROPOSED, name: null }]} />)
-        const propose = rtl.getByRole('button', { name: 'Pythia is looking…' })
+        const propose = rtl.getByRole('button', { name: 'Looking for themes…' })
         expect(propose.disabled).toBe(true)
         fireEvent.click(propose)
         expect(proposeThemes).not.toHaveBeenCalled()

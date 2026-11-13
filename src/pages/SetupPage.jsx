@@ -48,8 +48,8 @@ import './SetupPage.scss'     // setup-only bits (zones, watch list, timeline)
 // copy at all: an armed setup sitting in `looking` printed the raw status. Being in a zone is
 // `armed_leg_id`, not a rung, so there is deliberately no separate "in zone" line here.
 const STATUS_COPY = {
-    waiting: 'Not watched — generated but not armed, Talos is not looking at it yet',
-    looking: 'Armed — Talos is watching for price to reach a zone',
+    waiting: 'Not watched — generated but not armed, the trade monitor is not looking at it yet',
+    looking: 'Armed — the trade monitor is watching for price to reach a zone',
     hit:     'Triggered — the setup filled in and an order is awaiting your confirmation',
     long:    'In position (long)',
     short:   'In position (short)',
@@ -74,7 +74,7 @@ function ManagementCard({ pending, busy, onAccept, onDismiss }) {
     return (
         <div className={`setup-page__card setup-page__card--manage verdict--${v}`}>
             <div className="setup-page__card-head">
-                <span className="setup-page__card-status">Talos suggests</span>
+                <span className="setup-page__card-status">The trade monitor suggests</span>
                 <span className={`talos-journal__verdict verdict--${v}`}>{v}</span>
             </div>
             <div className="setup-page__card-row">{manageProposalLine(v, pending.proposal)}</div>
@@ -111,14 +111,14 @@ function StaleMapCard({ setup, onRedraw }) {
     return (
         <div className="setup-page__card setup-page__card--redraw">
             <div className="setup-page__card-head">
-                <span className="setup-page__card-status">Talos says this needs re-drawing</span>
+                <span className="setup-page__card-status">The trade monitor says this needs re-drawing</span>
             </div>
             {why && <div className="setup-page__card-note">{why}</div>}
             <div className="setup-page__card-actions">
                 {onRedraw
                     ? (
                         <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={onRedraw}>
-                            Re-draw it in Mentor
+                            Re-draw it in the chat
                         </button>
                     )
                     : (
@@ -293,7 +293,7 @@ export function SetupPage({ entityId = null, onClose = null }) {
                     </FoldSection>
 
                     {/* ── 3. Talos journal — the next call, then every read, newest first ── */}
-                    <FoldSection title="Talos journal" tail={journalTail(setup, journal.rows, journal.done)} open>
+                    <FoldSection title="Trade monitor journal" tail={journalTail(setup, journal.rows, journal.done)} open>
                         <TalosJournal setup={setup} rows={journal.rows} done={journal.done} loading={journal.loading} onOlder={journal.loadOlder} />
                     </FoldSection>
                 </div>

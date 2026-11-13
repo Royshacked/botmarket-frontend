@@ -113,12 +113,12 @@ export function HotlistScorecard() {
         hotlistService.getScorecard().then(c => { if (live) setCard(c ?? null) }, () => { if (live) setCard(null) })
         return () => { live = false }
     }, [])
-    if (card === undefined) return <p className="floor-empty">Loading Prometheus’s scorecard…</p>
+    if (card === undefined) return <p className="floor-empty">Loading the analyst’s scorecard…</p>
     if (card === null) return <p className="floor-empty">The scorecard could not be loaded.</p>
     const min = card.min_judge ?? 20
     return (
         <div className="hot-score">
-            <p className="hot-note">Every call Prometheus makes is <b>frozen the day he makes it</b> and graded against SPY — signed by his
+            <p className="hot-note">Every call the analyst makes is <b>frozen the day he makes it</b> and graded against SPY — signed by his
                 rating, so a sell that fell counts like a buy that rose. Calls from before the scorecard are seeded from his coverage’s
                 history and shown apart. Under {min} graded calls a number is shown dim: too few to judge.</p>
             <CoverageTable coverage={card.coverage} min={min} />

@@ -171,7 +171,7 @@ function DayDetail({ row, board, label, onBuild = null }) {
             <div className="hot-detail__actions">
                 {onBuild && (
                     <button type="button" className="floor-queued__btn" onClick={() => onBuild(row, board.checkpoint, { id: board.id })}
-                        title="Build an intraday setup with Mentor">Build with Mentor</button>
+                        title="Build an intraday setup in the chat">Build a setup</button>
                 )}
             </div>
         </div>

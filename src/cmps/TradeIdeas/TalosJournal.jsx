@@ -39,15 +39,15 @@ const NEXT_LABEL = {
 // The MAP, which a read now answers apart from the moment — it can be waiting on a plan that still
 // describes the chart, or waiting on one that has stopped.
 const PREMISE_TITLE = {
-    damaged: 'Talos says the premise is hurt — this may not be a trade any more',
-    stale:   'Talos says the levels no longer describe this chart — it wants re-drawing',
+    damaged: 'The trade monitor says the premise is hurt — this may not be a trade any more',
+    stale:   'The trade monitor says the levels no longer describe this chart — it wants re-drawing',
 }
 
 const MET_MARK  = { yes: '✓', no: '✗', unchecked: '?' }
 const MET_TITLE = {
-    yes:       'Talos checked this and it is happening',
-    no:        'Talos checked this and it is not happening',
-    unchecked: "Talos could NOT check this — not the same as 'no'",
+    yes:       'The trade monitor checked this and it is happening',
+    no:        'The trade monitor checked this and it is not happening',
+    unchecked: "The trade monitor could NOT check this — not the same as 'no'",
 }
 
 const fmtTime = (iso) => {
@@ -82,12 +82,12 @@ function JournalHead({ setup }) {
                     <span className="talos-journal__next">{when}</span>
                     {ms.timeframe && <span className="talos-journal__reason">{ms.timeframe} close</span>}
                     {properIn > 0 && (
-                        <span className="talos-journal__chip" title="A full read — chart, structure, news. Talos set this pace itself, from how far the setup is from being decidable.">
+                        <span className="talos-journal__chip" title="A full read — chart, structure, news. The trade monitor set this pace itself, from how far the setup is from being decidable.">
                             full read in {properIn} {properIn === 1 ? 'close' : 'closes'}
                         </span>
                     )}
                     {guards.length > 0 && (
-                        <span className="talos-journal__chip talos-journal__chip--guards" title="Prices that wake Talos ahead of the next candle">
+                        <span className="talos-journal__chip talos-journal__chip--guards" title="Prices that wake the trade monitor ahead of the next candle">
                             or at {guards.map(guardLabel).filter(Boolean).join(' · ')}
                         </span>
                     )}
@@ -217,10 +217,10 @@ function proposalLine(p) {
 export function TalosJournal({ setup, rows, done, loading, onOlder }) {
     const list = Array.isArray(rows) ? rows : []
     return (
-        <section className="talos-journal" aria-label="Talos journal">
+        <section className="talos-journal" aria-label="Trade monitor journal">
             <JournalHead setup={setup} />
             {list.length === 0
-                ? <p className="talos-journal__empty">No reads yet — the journal fills in as Talos reads this setup on every candle close.</p>
+                ? <p className="talos-journal__empty">No reads yet — the journal fills in as the trade monitor reads this setup on every candle close.</p>
                 : list.map(row => <JournalRow key={row.at} row={row} setup={setup} />)}
             {list.length > 0 && !done && (
                 <button type="button" className="talos-journal__older" onClick={onOlder} disabled={loading}>

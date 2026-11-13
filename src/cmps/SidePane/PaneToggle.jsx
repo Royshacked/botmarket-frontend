@@ -13,7 +13,7 @@ import { isHandheld } from '../EntityCard/entityPopup.js'
  */
 export function PaneToggle({ floor = null, surfaces }) {
     const { tabs, active, hidden, collapsed } = useSidePane()
-    const nameOf = (t) => surfaces[t]?.paneLabel ?? `${agentMeta(t).brand}'s work`
+    const nameOf = (t) => surfaces[t]?.paneLabel ?? agentMeta(t).work ?? 'Work'
     const anyTab = tabs.some(t => surfaces[t])
     // A phone's lowered sheet (2026-10-28): the desk is open, its sheet down — "Show", with a dot: there is work in it.
     const lowered = anyTab && collapsed

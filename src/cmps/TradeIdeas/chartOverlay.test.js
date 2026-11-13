@@ -277,7 +277,7 @@ test('setup: guards Talos armed are drawn, unless they sit on a level already th
     ] }
     const { levels } = deriveSetupOverlay(s)
     assert.equal(levels.filter(l => l.price === 100).length, 1)
-    assert.deepEqual(levels.filter(l => l.price === 97.5).map(l => l.label), ['Talos · invalidation'])
+    assert.deepEqual(levels.filter(l => l.price === 97.5).map(l => l.label), ['Monitor · invalidation'])
 })
 
 test('setup: indicators are read from every tier — root, scenario, and zone conditions', () => {

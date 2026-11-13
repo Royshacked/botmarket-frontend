@@ -12,14 +12,14 @@ export function ScannerSurface() {
     return (
         <div className="desk-surface scanner-surface">
             <p className="desk-surface__lead">
-                Argus is finding one name to trade — it goes on to Mentor by itself once it is settled.
+                Finding one name to trade — it goes on to the trader by itself once it is settled.
             </p>
         </div>
     )
 }
 
 // What this pane is, said once under its tabs (SidePane — Roy, 2026-10-19: the pane was not clear to a user).
-ScannerSurface.paneHint = 'Argus finds one name for you here and hands it back to Mentor to build.'
+ScannerSurface.paneHint = 'The stock picker finds one name for you here and hands it to the trader to build.'
 
 ScannerSurface.propTypes = {
     // The pane hands every surface the session and the page's desk props; this one reads neither.

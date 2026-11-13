@@ -9,7 +9,7 @@ import { RiskBasedInfo } from '../Floor/RiskBasedInfo.jsx'
 // chat, like History: who you are talking to and what they do, then every desk Axl can take you to. The copy is
 // agentMeta's — the same words the desks introduce themselves with, one source.
 
-const AXL_ABOUT = 'Axl is the front desk: say what you want to do and he takes you to the desk for it, or answers himself.'
+const AXL_ABOUT = 'I am Axl, your assistant: say what you want to do and I answer it, or put the right role to work on it.'
 
 export function ChatInfo({ floor = 'axl', onClose }) {
     const { isAdmin } = useAuth()
@@ -31,7 +31,7 @@ export function ChatInfo({ floor = 'axl', onClose }) {
             </div>
             <div className="chat-info__body">
                 <section className="chat-info__sec">
-                    <h3 className="chat-info__head">Talking with {agent?.brand ?? 'Axl'}{agent?.role ? <span className="chat-info__role"> · {agent.role}</span> : null}</h3>
+                    <h3 className="chat-info__head">Talking with Axl{agent?.role ? <span className="chat-info__role"> · {agent.role}</span> : null}</h3>
                     <p className="chat-info__text">{agent?.blurb ?? AXL_ABOUT}</p>
                     {agent?.hint && <p className="chat-info__text chat-info__text--dim">{agent.hint}</p>}
                 </section>
@@ -41,7 +41,7 @@ export function ChatInfo({ floor = 'axl', onClose }) {
                     <dl className="chat-info__desks">
                         {desks.map(d => (
                             <div key={d.key}>
-                                <dt>{d.label}<span className="chat-info__role"> · {AGENTS[d.agentKey]?.brand ?? d.agentKey}</span></dt>
+                                <dt>{d.label}<span className="chat-info__role"> · {AGENTS[d.agentKey]?.role ?? d.agentKey}</span></dt>
                                 <dd>{d.blurb}</dd>
                             </div>
                         ))}

@@ -54,7 +54,7 @@ describe('CoveragePage', () => {
         render(<CoveragePage entityId="cov_TSLA_1" onClose={onClose} />)
         await screen.findByText(/robotaxi option/)
 
-        fireEvent.click(screen.getByTitle('Re-open Prometheus on this thesis'))
+        fireEvent.click(screen.getByTitle('Reopen this thesis with the analyst'))
 
         expect(onClose).toHaveBeenCalled()
         expect(seen).toEqual([{ coverageId: 'cov_TSLA_1', symbol: 'TSLA', mode: 'revise' }])

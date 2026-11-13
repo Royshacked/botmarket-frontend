@@ -233,14 +233,14 @@ test("a book row's hand-off: Mentor gets the thesis in numbers and the chain's r
     const row = { symbol: 'CHN', rating: 'strong_buy', target: 130, target_date: '2027-03-01', upside_pct: 30,
         origin: { source: 'pythia', subject: 'Railroads', why: 'the leader' } }
     // "valued at", never "target": the sentence goes out as the user's, and Mentor built a "target" as their take-profit (NXST).
-    assert.equal(handoffRead(row, 'swing'), 'Prometheus strong buy, valued at 130.00 by 2027-03-01 (a swing name) — the leader')
+    assert.equal(handoffRead(row, 'swing'), 'rated strong buy by the analyst, valued at 130.00 by 2027-03-01 (a swing name) — the leader')
 })
 
 // Argus's weekly timing read (2026-11-02: it replaced "Ask Argus" on the book's rows).
 test("a book row's timing: Now, or Wait and for what — everything he said in the title and the page's line", () => {
     const wait = bookTiming({ timing: { verdict: 'wait', wait_for: 'a pullback to 41.20', why: 'stretched over its 20-day', wrong_if: 'it runs past 50', week: '2026-11-02' } })
     assert.deepEqual([wait.text, wait.cls, wait.week], ['Wait', 'hot-timing hot-timing--wait', 'week of 2026-11-02'])
-    assert.equal(wait.title, "Argus's timing read (week of 2026-11-02): wait — Wait for a pullback to 41.20. — stretched over its 20-day — Wrong if: it runs past 50")
+    assert.equal(wait.title, "The stock picker's timing read (week of 2026-11-02): wait — Wait for a pullback to 41.20. — stretched over its 20-day — Wrong if: it runs past 50")
     assert.equal(wait.line, 'Wait — for a pullback to 41.20. stretched over its 20-day Wrong if: it runs past 50')
     const now = bookTiming({ timing: { verdict: 'now', why: 'a base that held' } })
     assert.deepEqual([now.text, now.cls, now.line], ['Now', 'hot-timing hot-timing--now', 'Now. a base that held'])
@@ -334,18 +334,18 @@ test('a week name is confirmed when Prometheus set a target on it; an empty conf
     assert.equal(isConfirmedRead({ status: 'pass', target: null, pass_reason: 'company' }), false)
     assert.equal(isConfirmedRead(null), false)
     const argus = [{ symbol: 'A' }, { symbol: 'B' }]
-    assert.match(emptyNamesText({ shown: 'confirmed', column: 'week', argus, reads: new Map([['A', { status: 'pass' }]]) }), /Prometheus has 1 of Argus’s 2 names still to read/)
-    assert.match(emptyNamesText({ shown: 'confirmed', column: 'week', argus, reads: new Map([['A', {}], ['B', {}]]) }), /confirmed none of Argus’s 2 names/)
-    assert.match(emptyNamesText({ shown: 'confirmed', column: 'week', argus: [], screened: 4 }), /Argus picked no names for this week on this list — the screener let 4 through/)
+    assert.match(emptyNamesText({ shown: 'confirmed', column: 'week', argus, reads: new Map([['A', { status: 'pass' }]]) }), /The analyst has 1 of the 2 picks still to read/)
+    assert.match(emptyNamesText({ shown: 'confirmed', column: 'week', argus, reads: new Map([['A', {}], ['B', {}]]) }), /confirmed none of the 2 picks/)
+    assert.match(emptyNamesText({ shown: 'confirmed', column: 'week', argus: [], screened: 4 }), /The stock picker chose no names for this week on this list — the screener let 4 through/)
     assert.match(emptyNamesText({ shown: 'confirmed', column: 'week', argus, readsFailed: true }), /could not be loaded/)
-    assert.match(emptyNamesText({ shown: 'argus', column: 'open', screened: 2 }), /^Argus confirmed no names for open on this list — the screener let 2 through: see All screened\.$/)
+    assert.match(emptyNamesText({ shown: 'argus', column: 'open', screened: 2 }), /^The stock picker confirmed no names for open on this list — the screener let 2 through: see All screened\.$/)
 })
 
 test("his own target's cell title says it is his, off which yardstick, and the company", () => {
     const c = readCell({ status: 'active', verdict: 'credible', valid_until: '2026-10-29T21:00:00Z', company: { verdict: 'weak' },
         target: { value: 104.5, spot: 100, open_pct: 4.5, basis: 'prometheus', yardstick: { open_pct: 3, basis: 'run_up' } } })
     assert.equal(c.text, '104.50 · +4.5% from 100.00')
-    assert.match(c.title, /^Prometheus's swing target 104\.50/)
+    assert.match(c.title, /^The analyst's swing target 104\.50/)
     assert.match(c.title, /; yardstick \+3\.0%; company weak$/)
 })
 
@@ -367,7 +367,7 @@ test("the chain's survivors and where each pick stands", async () => {
     assert.equal(pickCell({ state: 'covered' }).text, 'covered — no longer live')
     assert.equal(pickCell({ state: 'passed', reason: 'horizon_off_book' }).text, 'pass — his target fell outside this book’s horizon')
     assert.equal(pickCell({ state: 'already_covered' }, row).text, 'covered at the desk: strong buy · target 54.20 (+12.5%)')
-    assert.equal(pickCell({ state: 'waiting' }).text, 'waiting for Prometheus')
+    assert.equal(pickCell({ state: 'waiting' }).text, 'waiting for the analyst')
 })
 
 // Roy, 2026-10-28: "if a name is not relevant anymore to swing or long term — leave it only in covered companies".
@@ -382,9 +382,9 @@ test('a name Pythia no longer calls leaves its list — and only its list', asyn
     assert.deepEqual(chainSurvivors(book, 'swing').map(r => r.symbol), ['CHN', 'OLD'], 'unknown stays; a pick the desk covered leaves by its pick')
     assert.deepEqual(chainLeft(book, 'swing').map(r => r.symbol), ['PGR', 'PRE'])
     assert.deepEqual(coveredRows(book).map(r => r.symbol), ['CHN', 'PGR', 'OLD', 'PRE'], 'Covered companies keeps every one')
-    assert.equal(pickCell(book.picks.swing[0]).text, 'covered at the desk · Pythia now: avoid — off this list')
+    assert.equal(pickCell(book.picks.swing[0]).text, 'covered at the desk · industry call now: avoid — off this list')
     assert.equal(bookOrigin(book.swing[1]).text, 'P&C · no longer called')
-    assert.match(bookOrigin(book.swing[1]).title, /she now rates it watch — off the Swing list/)
+    assert.match(bookOrigin(book.swing[1]).title, /it is now rated watch — off the Swing list/)
 })
 
 test('a server that marks each row\'s list is followed — the record is over the same rows', async () => {
@@ -427,13 +427,13 @@ test('run-up reads (backend runup-reads.md): confirmed without a target, a hold 
     assert.equal(isConfirmedRead({ ...exit, status: 'pass', run_up: { worth: false } }), false)
     assert.equal(isConfirmedRead({ status: 'active', target: null }), false, 'an event read with no target is no confirmation')
     assert.equal(readCell(exit).text, 'run-up')
-    assert.match(readCell(exit).title, /no target of his; out before the 2026-11-09 report\. three real beats/)
+    assert.match(readCell(exit).title, /no target set; out before the 2026-11-09 report\. three real beats/)
     assert.equal(readCell({ ...exit, status: 'closed' }).text, 'run-up · closed')
     const row = { next_earnings: '2026-11-09', cells: { week: { grade: 'R', exit_before: '2026-11-09' } } }
     assert.equal(earningsChip(row, exit).text, 'E 11-09 · out before')
     const hold = { ...exit, target: { value: 108, open_pct: 8 }, exit_before: null, through_report: { call: 'hold', why: 'gaps up after beats', report: '2026-11-09' } }
     assert.equal(holdsThrough(hold), true)
-    assert.deepEqual(earningsChip(row, hold), { text: 'E 11-09 · hold through', title: 'Earnings 2026-11-09 — Prometheus says hold through the report: gaps up after beats', exit: false, hold: true })
+    assert.deepEqual(earningsChip(row, hold), { text: 'E 11-09 · hold through', title: 'Earnings 2026-11-09 — the analyst says hold through the report: gaps up after beats', exit: false, hold: true })
     assert.equal(earningsChip(row, { ...hold, status: 'pass' }).text, 'E 11-09 · out before', 'a pass holds nothing')
     assert.match(PASS_WHY.not_worth, /not good enough/)
 })

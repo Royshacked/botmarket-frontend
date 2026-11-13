@@ -350,7 +350,7 @@ function setupActions(setup, onEdit, onDelete) {
     return (
         <>
             {onEdit && isPreEntry(setup.status ?? 'waiting') && (
-                <EditButton onClick={() => onEdit(setup)} title="Edit setup in Mentor chat" size="sm" />
+                <EditButton onClick={() => onEdit(setup)} title="Edit setup in the chat" size="sm" />
             )}
             {onDelete && (
                 <DeleteButton
@@ -366,7 +366,7 @@ function setupActions(setup, onEdit, onDelete) {
 
 function TradeRows({ setups, onEditSetup, onDeleteSetup, onSymbolClick }) {
     const items = tradeFloorItems(setups)
-    if (!items.length) return <Empty>No setups yet — build one with Mentor.</Empty>
+    if (!items.length) return <Empty>No setups yet — build one in the chat.</Empty>
 
     const actionsFor = it => setupActions(it.entity, onEditSetup, onDeleteSetup)
 
@@ -429,7 +429,7 @@ function PortfolioRows({ ideas, positions, sort, onEditPortfolio, onDeletePortfo
     // cards put in front of this — activating fires every leg at market at once, so the last thing
     // between a built book and real exposure is the offer of a final Atlas review.
     const [activating, setActivating] = useState(null)
-    if (!books.length) return <Empty>No portfolios yet — build one with Atlas.</Empty>
+    if (!books.length) return <Empty>No portfolios yet — build one in the chat.</Empty>
 
     const toggle = id => setOpenKey(cur => cur === id ? null : id)
 

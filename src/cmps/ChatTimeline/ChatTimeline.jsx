@@ -14,7 +14,8 @@ import { SuggestionChips } from '../SuggestionChips.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
 import { ChatChartDock } from '../ChatChartDock.jsx'
 import { TimelineRow, SpeakerTag } from './TimelineRow.jsx'
-import { startsRun, agentMeta, isEndedLine, isFreshEndedLine } from './timelineRows.js'
+import { startsRun, isEndedLine, isFreshEndedLine, isOffScreen } from './timelineRows.js'
+import { speakerOf } from '../AxlHub/agentMeta.jsx'
 import { AxlGreeting } from './AxlGreeting.jsx'
 import { SessionHistory } from './SessionHistory.jsx'
 import { ChatInfo } from './ChatInfo.jsx'
@@ -31,8 +32,8 @@ const firstName = (fullname = '') => String(fullname).trim().split(/\s+/)[0] || 
 const BRIEF_ASK = "Today's market brief, please."
 
 /**
- * THE chat (unified-chat plan phase 7): one timeline where every agent speaks under its own name, the
- * server runs the hand-offs, and the user just sees who is talking. Replaces Axl's hub.
+ * THE chat (unified-chat plan phase 7): one timeline where ONE assistant speaks — Axl, the role at work under his name
+ * (one-axl.md, 2026-11-13); the server runs the hand-offs, and the user never sees them. Replaces Axl's hub.
  *
  * An empty session is Axl's opening question with taps (J5). The live turn streams in place under its
  * speaker; Stop is the shared turn stop. A decision card's taps are live only while the chain waits on that
@@ -74,7 +75,7 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
     // only on the visit it was saved in (isFreshEndedLine, 2026-11-02): the session stays a fresh start either way.
     const empty = rows.every(isEndedLine) && !live
     const endedLines = rows.filter(r => isFreshEndedLine(r))
-    const thread = useMemo(() => rows.filter(r => !isEndedLine(r)), [rows])
+    const thread = useMemo(() => rows.filter(r => !isEndedLine(r) && !isOffScreen(r)), [rows])
 
     // The scroll follows rows AND the streaming text (the live bubble is not a row).
     const scrollItems = useMemo(() => (live ? [...rows, live] : rows), [rows, live])
@@ -145,7 +146,9 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
         : live.tool ? toolStatusLabel(live.tool, live.targets)
         : live.text ? ''
         : live.status === 'queued' ? 'sending…' : 'thinking…'
-    const floorName = agentMeta(floor ?? 'axl').brand
+    // ONE AXL (one-axl.md, 2026-11-13): the user is always talking with Axl; the role at work rides beside the name.
+    const floorRole = speakerOf(floor ?? 'axl').role
+    const floorName = floorRole ? `Axl · ${floorRole}` : 'Axl'
     const atDesk = (floor ?? 'axl') !== 'axl'
     const returnTo = useReturnTo()
     // The way back lives where the hand-off LANDED (code review 2026-10-24: it stayed on every chat until a reload) —
@@ -158,7 +161,7 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
     // Only while something renders the list (the Floor's lists): a Back with nothing to open would do nothing, and leave
     // the panel to spring open later, unasked.
     const showBack = Boolean(returnTo) && panelMounted(returnTo.panel)
-    const placeholder = !atDesk || toAxl ? 'Ask Axl anything, or say what you’d like to do…' : `Message ${floorName}…`
+    const placeholder = !atDesk || toAxl ? 'Ask Axl anything, or say what you’d like to do…' : 'Message Axl…'
 
     function handleKeyDown(e) {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendDraft() }
@@ -240,7 +243,7 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
                             <div className="chat-timeline__row chat-timeline__row--user chat-timeline__row--queued">
                                 <ChatBubble msg={{ role: 'user', content: queuedTurn.text }} />
                                 <span className="chat-timeline__note">
-                                    Sends when {agentMeta(live?.agent ?? floor).brand} finishes{chain?.status === 'running' ? ' — the chain will pause for it' : ''}.{' '}
+                                    Sends when Axl finishes{chain?.status === 'running' ? ' — the chain will pause for it' : ''}.{' '}
                                     <button type="button" className="chat-timeline__link" onClick={cancelQueued}>Cancel</button>
                                 </span>
                             </div>
@@ -273,7 +276,7 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
                     )}
                     {atDesk && !empty && (
                         <button type="button" className={`chat-timeline__address-btn${toAxl ? ' is-on' : ''}`} onClick={() => setToAxl(v => !v)} aria-pressed={toAxl}>
-                            {toAxl ? `Back to ${floorName}` : 'Ask Axl instead'}
+                            {toAxl ? `Back to ${floorRole?.toLowerCase() ?? 'the work'}` : 'Ask something else'}
                         </button>
                     )}
                 </div>

@@ -22,8 +22,8 @@ export const setupIcon = (status) => status
 // so every freshly generated setup — saved, explicitly NOT monitored — told the user "Armed", and an
 // armed (`looking`) one had no copy at all (driven live, 2026-10-01). Keyed to the real statuses now.
 const STATUS_COPY = {
-    waiting:  { label: 'Not watched', hint: 'Generated but not armed — Talos is not looking at it yet.' },
-    looking:  { label: 'Armed',       hint: 'Talos is watching for the setup to fill in. No action yet.' },
+    waiting:  { label: 'Not watched', hint: 'Generated but not armed — the trade monitor is not looking at it yet.' },
+    looking:  { label: 'Armed',       hint: 'The trade monitor is watching for the setup to fill in. No action yet.' },
     long:     { label: 'Long',        hint: 'In position.' },
     short:    { label: 'Short',       hint: 'In position.' },
     closed:   { label: 'Closed',      hint: 'Finished.' },

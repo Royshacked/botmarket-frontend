@@ -11,6 +11,13 @@ export function agentMeta(key) {
     return AGENTS[key] ?? { tab: key, brand: key ?? 'Agent', hue: 'accent' }
 }
 
+/**
+ * Rows the chat does not draw (one-axl.md, 2026-11-13) — the plumbing of one assistant changing hats: a HAND-OFF (the next
+ * row's role says who took over) and a route's OPENING (the receiving role's first turn, written as the user's message —
+ * the user typed once and sees it once). Both stay in the session, for the role and for History.
+ */
+export const isOffScreen = (row) => row?.kind === 'handoff' || (row?.role === 'user' && row?.ref?.opening === true)
+
 // Rows that name their own speaker: a hand-off names both sides.
 const SELF_NAMED = new Set(['handoff'])
 

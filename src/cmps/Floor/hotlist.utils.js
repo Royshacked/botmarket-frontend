@@ -130,19 +130,19 @@ export function emptyNamesText({ shown, column, argus = [], screened = 0, reads 
     // The run-up rule's week (2026-10-25): no Argus — `argus` is the rule's names, and Prometheus reads them overnight.
     if (rule && shown === 'confirmed') {
         // No Run-up names view to point at (Roy, 2026-10-31): the text says where his reads stand, and no more.
-        if (readsFailed) return 'Prometheus’s reads could not be loaded.'
-        if (readsLoading) return 'Loading Prometheus’s reads…'
+        if (readsFailed) return 'The analyst’s reads could not be loaded.'
+        if (readsLoading) return 'Loading the analyst’s reads…'
         const unread = argus.filter(r => !reads.get(r.symbol)).length
-        if (unread) return `Prometheus has ${unread} of the ${argus.length} run-up names still to read — he reads them after the list is built.`
-        return `Prometheus confirmed none of the ${argus.length} run-up names this week.`
+        if (unread) return `The analyst has ${unread} of the ${argus.length} run-up names still to read — they are read after the list is built.`
+        return `The analyst confirmed none of the ${argus.length} run-up names this week.`
     }
-    if (shown !== 'confirmed') return `Argus confirmed no names for ${label} on this list${screened ? ` — the screener let ${screened} through: see All screened` : ''}.`
-    if (readsFailed) return 'Prometheus’s reads could not be loaded — see Argus’s names.'
-    if (readsLoading) return 'Loading Prometheus’s reads…'
-    if (!argus.length) return `Argus picked no names for ${label} on this list${screened ? ` — the screener let ${screened} through: see All screened` : ''}.`
+    if (shown !== 'confirmed') return `The stock picker confirmed no names for ${label} on this list${screened ? ` — the screener let ${screened} through: see All screened` : ''}.`
+    if (readsFailed) return 'The analyst’s reads could not be loaded — see Picks.'
+    if (readsLoading) return 'Loading the analyst’s reads…'
+    if (!argus.length) return `The stock picker chose no names for ${label} on this list${screened ? ` — the screener let ${screened} through: see All screened` : ''}.`
     const unread = argus.filter(r => !reads.get(r.symbol)).length
-    if (unread) return `Prometheus has ${unread} of Argus’s ${argus.length} names still to read — he reads them after the 09:20 board. See Argus’s names meanwhile.`
-    return `Prometheus confirmed none of Argus’s ${argus.length} names — open them under Argus’s names to see why.`
+    if (unread) return `The analyst has ${unread} of the ${argus.length} picks still to read — they are read after the 09:20 board. See Picks meanwhile.`
+    return `The analyst confirmed none of the ${argus.length} picks — open them under Picks to see why.`
 }
 
 /** When a read was made, in New York time — "Oct 23, 15:51 ET". Pure; '' without one. */
@@ -155,14 +155,14 @@ export function readTime(iso) {
 /** A read's target as the list's short cell: "277.34 · +0.2% from 276.70", "hit", "pass", or null. Pure. */
 export function readCell(read) {
     if (!read) return null
-    if (read.status === 'pass') return { text: 'pass', title: `Prometheus: ${read.verdict} — no target${PASS_WHY[read.pass_reason] ? ` (${PASS_WHY[read.pass_reason]})` : ''}` }
+    if (read.status === 'pass') return { text: 'pass', title: `Analyst: ${read.verdict} — no target${PASS_WHY[read.pass_reason] ? ` (${PASS_WHY[read.pass_reason]})` : ''}` }
     const t = read.target
     // Confirmed for the run-up with no target of his (runup-reads.md §2): the rule's trade, out before the report.
     if (!t) {
         if (!isConfirmedRead(read)) return null
         const state = read.status === 'closed' ? 'closed' : null
         return { text: state ? 'run-up · closed' : 'run-up', state,
-            title: `Prometheus: worth the run-up — no target of his; out before the ${read.exit_before ?? ''} report${read.run_up?.why ? `. ${read.run_up.why}` : ''}` }
+            title: `Analyst: worth the run-up — no target set; out before the ${read.exit_before ?? ''} report${read.run_up?.why ? `. ${read.run_up.why}` : ''}` }
     }
     // Measured from the READ'S OWN PRICE, not the row's Last: Last is the price at the checkpoint that listed the name,
     // often hours before the read — RCL's 08:00 quote of 283.45 sat over a 15:51 target of 277.34 set from 276.70,
@@ -172,7 +172,7 @@ export function readCell(read) {
     const state = read.status === 'hit' ? 'hit' : read.status === 'expired' ? 'expired' : null
     return {
         text: [t.value.toFixed(2), state ?? open].filter(Boolean).join(' · '),
-        title: `Prometheus's ${t.basis === 'prometheus' ? 'swing' : 'catalyst'} target ${t.value.toFixed(2)}${hasBand(t) ? ` (band ${t.low.toFixed(2)}–${t.high.toFixed(2)})` : ''}`
+        title: `The analyst's ${t.basis === 'prometheus' ? 'swing' : 'catalyst'} target ${t.value.toFixed(2)}${hasBand(t) ? ` (band ${t.low.toFixed(2)}–${t.high.toFixed(2)})` : ''}`
             + `${from != null ? `, set from ${from.toFixed(2)} at the read (${readTime(read.set_at)})` : ''}, valid until ${String(read.valid_until).slice(0, 10)} — ${read.verdict}`
             // His own number (2026-10-24) says how far it sits from the tools' yardstick; the company rides along.
             + `${Number.isFinite(t.yardstick?.open_pct) ? `; yardstick ${t.yardstick.open_pct > 0 ? '+' : ''}${t.yardstick.open_pct.toFixed(1)}%` : ''}`
@@ -273,8 +273,8 @@ const _groupText = (x) => (x?.n ? `up ${Math.round(x.up_rate)}% · avg ${_sp(x.r
 export const BOOK_ORDER = Object.freeze(['swing', 'long_term'])
 export const BOOK_LABEL = Object.freeze({ swing: 'Swing', long_term: 'Long term' })
 export const BOOK_TITLE = Object.freeze({
-    swing:     "Swing — Prometheus's names with a 3–6 month price target",
-    long_term: "Long term — Prometheus's names with a 12–24 month price target",
+    swing:     "Swing — covered names with a 3–6 month price target",
+    long_term: "Long term — covered names with a 12–24 month price target",
 })
 /** COVERED COMPANIES (Roy, 2026-10-28: "4 tabs — week / swing / long term / covered companies"): the whole book, both
  *  horizons, and Prometheus's scorecard — the Hotlist's fourth tab. */
@@ -298,7 +298,7 @@ export function bookResult(row) {
     const moved = row.since_set_pct != null ? ` — ${since} since the target was set${row.vs_spy != null ? `, ${vs} vs SPY` : ''}` : ''
     switch (row.state) {
     case 'hit':     return { text: '✓ hit', tone: 'good', title: `The target was reached${moved}` }
-    case 'broken':  return { text: '✗ broken', tone: 'bad', title: `Prometheus marked the thesis broken${moved}` }
+    case 'broken':  return { text: '✗ broken', tone: 'bad', title: `The analyst marked the thesis broken${moved}` }
     case 'expired': return { text: 'expired', tone: 'bad', title: `The target date passed without a hit${moved}` }
     default:
         if (row.since_set_pct == null) return { text: '—', tone: 'dim', title: 'No price on the day the target was set yet — it is read in the background' }
@@ -326,7 +326,7 @@ export function bookTiming(row) {
     const said = [wait && t.wait_for ? `Wait for ${t.wait_for}.` : null, t.why, t.wrong_if ? `Wrong if: ${t.wrong_if}` : null].filter(Boolean)
     return {
         text: wait ? 'Wait' : 'Now', cls: wait ? 'hot-timing hot-timing--wait' : 'hot-timing hot-timing--now',
-        title: [`Argus's timing read${week ? ` (${week})` : ''}: ${wait ? 'wait' : 'a buy now'}`, ...said].join(' — '),
+        title: [`The stock picker's timing read${week ? ` (${week})` : ''}: ${wait ? 'wait' : 'a buy now'}`, ...said].join(' — '),
         line: [wait ? `Wait — for ${t.wait_for}.` : 'Now.', t.why, t.wrong_if ? `Wrong if: ${t.wrong_if}` : null].filter(Boolean).join(' '),
         week,
     }
@@ -338,10 +338,10 @@ export function bookOrigin(row) {
     if (o?.source !== 'pythia') return { text: 'desk', title: 'Researched at the desk (not from the weekly chain)' }
     // Pythia no longer calls what sent it (2026-10-28): off Swing / Long term, here in Covered companies.
     if (o.still === false) {
-        return { text: `${o.subject ?? 'Pythia'} · no longer called`,
-            title: `Sent by Pythia's ${o.verdict === 'long_term' ? 'long-term' : o.verdict ?? ''} call on ${o.subject ?? 'its industry'}; she now rates it ${VERDICT_WORDS[o.verdict_now] ?? o.verdict_now ?? '—'} — off the ${o.verdict === 'long_term' ? 'Long term' : 'Swing'} list, the coverage still live` }
+        return { text: `${o.subject ?? 'Industry call'} · no longer called`,
+            title: `Sent by the industry strategist's ${o.verdict === 'long_term' ? 'long-term' : o.verdict ?? ''} call on ${o.subject ?? 'its industry'}; it is now rated ${VERDICT_WORDS[o.verdict_now] ?? o.verdict_now ?? '—'} — off the ${o.verdict === 'long_term' ? 'Long term' : 'Swing'} list, the coverage still live` }
     }
-    return { text: o.subject ?? 'Pythia', title:`The weekly chain: Pythia's ${o.verdict === 'long_term' ? 'long-term' : o.verdict ?? ''} call on the ${o.kind ?? 'industry'} ${o.subject ?? ''} → Argus's pick → Prometheus` }
+    return { text: o.subject ?? 'Industry call', title:`The weekly chain: the industry strategist's ${o.verdict === 'long_term' ? 'long-term' : o.verdict ?? ''} call on the ${o.kind ?? 'industry'} ${o.subject ?? ''} → the stock picker's pick → the analyst` }
 }
 
 // ─── The weekly chain's survivors (Roy, 2026-10-24: "Pythia brings the industry → Argus brings names from it →
@@ -399,7 +399,7 @@ export function pickCell(pick, row = null) {
     const cell = _pickCell(pick, row)
     // A covered pick whose call Pythia has since dropped: off this list, in Covered companies only (2026-10-28).
     if (pick?.still === false && ['covered', 'already_covered'].includes(pick.state)) {
-        return { text: `${cell.text} · Pythia now: ${VERDICT_WORDS[pick.verdict_now] ?? pick.verdict_now ?? 'no call'} — off this list`, tone: 'dim' }
+        return { text: `${cell.text} · industry call now: ${VERDICT_WORDS[pick.verdict_now] ?? pick.verdict_now ?? 'no call'} — off this list`, tone: 'dim' }
     }
     return cell
 }
@@ -410,7 +410,7 @@ function _pickCell(pick, row) {
     case 'covered': return row ? { text: rated, tone: isBuy(row) ? 'good' : 'dim' } : { text: 'covered — no longer live', tone: 'dim' }
     case 'already_covered': return { text: row ? `covered at the desk: ${rated}` : 'covered at the desk', tone: row && isBuy(row) ? 'good' : 'dim' }
     case 'passed': return { text: `pass — ${PICK_PASS_WHY[pick.reason] ?? pick.reason ?? 'no coverage'}`, tone: 'bad' }
-    default: return { text: 'waiting for Prometheus', tone: 'dim' }
+    default: return { text: 'waiting for the analyst', tone: 'dim' }
     }
 }
 
@@ -563,7 +563,7 @@ export function earningsChip(row, read = null) {
     const date = row.next_earnings.slice(5)
     // Prometheus's HOLD (runup-reads.md §2 (b)): the report is part of the trade — the chip says so instead.
     if (exit && holdsThrough(read)) {
-        return { text: `E ${date} · hold through`, title: `Earnings ${row.next_earnings} — Prometheus says hold through the report${read.through_report.why ? `: ${read.through_report.why}` : ''}`, exit: false, hold: true }
+        return { text: `E ${date} · hold through`, title: `Earnings ${row.next_earnings} — the analyst says hold through the report${read.through_report.why ? `: ${read.through_report.why}` : ''}`, exit: false, hold: true }
     }
     return exit
         ? { text: `E ${date} · out before`, title: `Earnings ${row.next_earnings} — a run-up into the report: be out before it`, exit: true }
@@ -593,7 +593,7 @@ export function handoffRead(row, column) {
     // "valued at", not "target": this sentence is sent as the USER's, and a "target" in their mouth was built as their
     // take-profit (NXST, 2026-10-31). Prometheus's price is a valuation over its horizon; the take-profit is the chart's.
     if (BOOK_ORDER.includes(column)) {
-        const head = [row?.rating ? `Prometheus ${row.rating.replace('_', ' ')}` : null,
+        const head = [row?.rating ? `rated ${row.rating.replace('_', ' ')} by the analyst` : null,
             Number.isFinite(row?.target) ? `valued at ${row.target.toFixed(2)}${row.target_date ? ` by ${row.target_date}` : ''}` : null].filter(Boolean).join(', ')
         const why = row?.origin?.why ?? null
         return [head ? `${head} (a ${BOOK_LABEL[column].toLowerCase()} name)` : null, why].filter(Boolean).join(' — ') || null

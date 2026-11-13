@@ -70,7 +70,7 @@ describe('HotlistDayBoards', () => {
         expect(screen.getByText('Super Micro beats')).toBeTruthy()
         expect(screen.getByText('older')).toBeTruthy()
         expect(screen.getByText(/Since the last close: reported earnings\./)).toBeTruthy()
-        fireEvent.click(screen.getByRole('button', { name: 'Build with Mentor' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Build a setup' }))
         expect(onBuild).toHaveBeenCalledWith(expect.objectContaining({ symbol: 'SMCI' }), 'mid', { id: 'hd_2026-11-11_mid' })
     })
 

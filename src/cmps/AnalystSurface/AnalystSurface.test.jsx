@@ -54,7 +54,7 @@ describe('AnalystSurface', () => {
 
     it('8d CR: revising one name with a draft about ANOTHER — said, and saved as its own coverage; Later is not a save', async () => {
         mount({ draft: { ...DRAFT, symbol: 'MSFT' }, standing: true, editing: EDITING, editingSymbol: 'ZTS' })
-        expect(screen.getByText(/Revising ZTS — Prometheus's draft is about MSFT, another company/)).toBeTruthy()
+        expect(screen.getByText(/Revising ZTS — the analyst's draft is about MSFT, another company/)).toBeTruthy()
         fireEvent.click(screen.getByText('Initiate coverage on MSFT'))
         await waitFor(() => expect(session.commit).toHaveBeenCalledWith('analyst', 'generate', expect.any(Object)))
         cleanup()
@@ -72,7 +72,7 @@ describe('AnalystSurface', () => {
 
     it('revising a thesis: Update saves it, Later leaves it; before a new draft Update is there but dark (2026-10-18)', async () => {
         mount({ draft: DRAFT, standing: false, editing: EDITING, editingSymbol: 'ZTS' })
-        expect(screen.getByText(/Revising ZTS — Prometheus drafts the new view/)).toBeTruthy()
+        expect(screen.getByText(/Revising ZTS — the analyst drafts the new view/)).toBeTruthy()
         expect(screen.getByText('Update coverage on ZTS').closest('button').disabled).toBe(true)
         fireEvent.click(screen.getByText(/later/i))
         await waitFor(() => expect(session.commit).toHaveBeenCalledWith('analyst', 'later', expect.any(Object)))

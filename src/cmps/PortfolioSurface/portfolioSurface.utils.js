@@ -55,8 +55,8 @@ export function avoidQuestion(avoid, { proposal = false } = {}) {
     const what = (avoid ?? []).map(a => (a.industry ? `${a.asset} (${a.industry})` : a.asset)).join(', ')
     const them = avoid?.length === 1 ? 'it' : 'them'
     return proposal
-        ? `Pythia rates the industry of ${what} AVOID — the house expects it to go wrong.\n\nApply ${them} anyway? (Cancel applies the other changes without ${them}.)`
-        : `Pythia rates the industry of ${what} AVOID — the house expects it to go wrong.\n\nSave the book with ${them} anyway?`
+        ? `The industry strategist rates the industry of ${what} AVOID — the house expects it to go wrong.\n\nApply ${them} anyway? (Cancel applies the other changes without ${them}.)`
+        : `The industry strategist rates the industry of ${what} AVOID — the house expects it to go wrong.\n\nSave the book with ${them} anyway?`
 }
 
 /** "Technology (growth) and Energy sleeves" — the sleeves Atlas sent to be sourced this turn. */
@@ -64,7 +64,7 @@ export function sleeveLine(requests) {
     const names = (requests ?? []).filter(r => r?.sector).map(r => `${r.sector}${r.lens ? ` (${r.lens})` : ''}`)
     if (!names.length) return null
     const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
-    return `${list} ${names.length === 1 ? 'sleeve' : 'sleeves'} sent to Argus and Prometheus — a card brings you back to the build once the research is in.`
+    return `${list} ${names.length === 1 ? 'sleeve' : 'sleeves'} sent to the stock picker and the analyst — a card brings you back to the build once the research is in.`
 }
 
 const when = (ms) => (Number.isFinite(ms) ? new Date(ms).toLocaleDateString([], { month: 'short', day: 'numeric' }) : null)
@@ -119,7 +119,7 @@ export function describeChange(change, assetOf = (id) => id ?? '—') {
         case 'exit_item':   return `Exit ${assetOf(id)}${change.reason ? ` — ${change.reason}` : ''}`
         case 'trim_item':   return `Trim ${assetOf(id)} by ${pct(change.reduceFraction)}${target}`
         case 'add_to_item': return `Add to ${assetOf(id)}: +${pct(change.addFraction)}${target}`
-        case 'add_item':    return `Add ${spec?.asset ?? '?'} (${spec?.direction ?? 'long'}${spec?.allocationRatio != null ? `, target ${pct(spec.allocationRatio)}` : ''})${change.avoid ? ` — Pythia rates ${change.avoid.industry} AVOID` : ''}`
+        case 'add_item':    return `Add ${spec?.asset ?? '?'} (${spec?.direction ?? 'long'}${spec?.allocationRatio != null ? `, target ${pct(spec.allocationRatio)}` : ''})${change.avoid ? ` — the industry strategist rates ${change.avoid.industry} AVOID` : ''}`
         case 'update_item': return `Update ${assetOf(id)}: ${Object.keys(change.patch ?? {}).join(', ') || 'fields'}`
         case 'remove_item': return `Remove ${assetOf(id)} (pending)`
         default:            return String(change?.action ?? 'change')

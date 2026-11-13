@@ -6,12 +6,12 @@ export function RiskBasedInfo() {
     return (
         <div className="hot-info">
             <section>
-                <h3 className="hot-info__h">How Mentor builds a trade</h3>
-                <p>Say a name — &ldquo;let&apos;s trade TSLA&rdquo;. Prometheus reads the company and Proteus how its price behaves, and
-                    Mentor tells you whether it&apos;s worth a long now, and on which horizon. Bring levels of your own and he talks them
+                <h3 className="hot-info__h">How the trader builds a trade</h3>
+                <p>Say a name — &ldquo;let&apos;s trade TSLA&rdquo;. The analyst reads the company and the technical analyst how its price behaves, and
+                    the trader tells you whether it&apos;s worth a long now, and on which horizon. Bring levels of your own and he talks them
                     through with you.</p>
-                <p><b>Mentor asks you one thing</b>: your position size, your risk and the R:R you want. Then he builds the whole
-                    trade, judges the stop and the target from the chart, sets how long it waits, and saves and arms it, so Talos is
+                <p><b>The trader asks you one thing</b>: your position size, your risk and the R:R you want. Then he builds the whole
+                    trade, judges the stop and the target from the chart, sets how long it waits, and saves and arms it, so the trade monitor is
                     watching. Every choice is in his reply, for you to change. An entry still comes to you to confirm.</p>
                 <p>Described here for a long. A short is the mirror.</p>
             </section>
@@ -22,15 +22,15 @@ export function RiskBasedInfo() {
                     <div><dt>Target</dt><dd>where sellers last took over above. At the highs, with nothing overhead, a measured move: the current range&apos;s height added to its high.</dd></div>
                     <div><dt>Your numbers</dt><dd>your risk over your position size is how far the stop can be from the entry; your R:R is the minimum reward to risk. Together they set the highest entry price worth paying. Over today&apos;s price, the setup waits for price to come down to it.</dd></div>
                     <div><dt>Size</dt><dd>your position size, set at that level and kept on an entry under it. The risk is then smaller than planned.</dd></div>
-                    <div><dt>Entry</dt><dd>Talos waits for price at or under the level, showing strength on the 1h and 4h.</dd></div>
+                    <div><dt>Entry</dt><dd>The trade monitor waits for price at or under the level, showing strength on the 1h and 4h.</dd></div>
                 </dl>
             </section>
             <section>
-                <h3 className="hot-info__h">What Mentor builds, and what he offers</h3>
+                <h3 className="hot-info__h">What the trader builds, and what he offers</h3>
                 <dl className="hot-info__dl">
                     <div><dt>A deeper stop</dt><dd>under the low of the whole fall. More room, fewer shares for the same risk, and it may never fill.</dd></div>
                     <div><dt>A second target</dt><dd>half out at the target, half at the next level, with the stop unchanged.</dd></div>
-                    <div><dt>A break scenario (B)</dt><dd>a second way in, armed by a day close over the nearest high, with an assumed stop that stays where it is unless redrawn. Mentor builds A and B together; the first to fill takes the full size and the other is cancelled. One word from you drops either.</dd></div>
+                    <div><dt>A break scenario (B)</dt><dd>a second way in, armed by a day close over the nearest high, with an assumed stop that stays where it is unless redrawn. The trader builds A and B together; the first to fill takes the full size and the other is cancelled. One word from you drops either.</dd></div>
                 </dl>
             </section>
             <section>

@@ -52,7 +52,7 @@ export function CoverageActions({ coverage, onEdit, onRetire, onDelete }) {
     return (
         <div className="coverage-actions" onClick={e => e.stopPropagation()}>
             {onEdit && (
-                <button className="coverage-actions__btn" onClick={stop(() => onEdit(coverage))} title="Re-open Prometheus on this thesis">
+                <button className="coverage-actions__btn" onClick={stop(() => onEdit(coverage))} title="Reopen this thesis with the analyst">
                     Edit
                 </button>
             )}

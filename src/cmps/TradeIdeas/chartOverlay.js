@@ -224,7 +224,7 @@ export function deriveSetupOverlay(setup) {
         const price = num(g?.price)
         if (price == null || drawn.has(price.toFixed(4))) continue
         drawn.add(price.toFixed(4))
-        out.push({ kind: 'ref', price, label: `Talos${g.means ? ` · ${g.means}` : ''}` })
+        out.push({ kind: 'ref', price, label: `Monitor${g.means ? ` · ${g.means}` : ''}` })
     }
 
     return { levels: out, indicators: textToIndicators(setupIndicatorText(setup)) }

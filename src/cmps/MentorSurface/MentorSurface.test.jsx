@@ -39,7 +39,7 @@ afterEach(cleanup)
 describe('MentorSurface — the table', () => {
     it('with nothing on the table it says how to start — in the chat; no chips (Roy, 2026-11-12)', () => {
         const { container } = mount(null)
-        expect(screen.getByText(/Nothing on Mentor/)).toBeTruthy()
+        expect(screen.getByText(/Nothing on the table yet/)).toBeTruthy()
         expect(screen.getByText(/let.s trade TSLA/)).toBeTruthy()
         expect(screen.queryByText('I want to buy NVDA on a pullback')).toBeNull()
         expect(screen.queryByText(/I have my own setup/)).toBeNull()
@@ -49,7 +49,7 @@ describe('MentorSurface — the table', () => {
     it('the account picker is there from the empty table on — a trade’s account is chosen at its start (2026-10-19)', () => {
         const setSelectedAccounts = vi.fn()
         const { container, rerender } = render(<MentorSurface session={stub(null)} deskProps={{ ...desk(), setSelectedAccounts }} />)
-        expect(screen.getByText(/Nothing on Mentor/)).toBeTruthy()
+        expect(screen.getByText(/Nothing on the table yet/)).toBeTruthy()
         expect(container.querySelector('.mentor-surface__accounts')).toBeTruthy()
         rerender(<MentorSurface session={stub({ draft: SETUP, view: { readiness: READY } })} deskProps={{ ...desk(), setSelectedAccounts }} />)
         expect(container.querySelectorAll('.mentor-surface__accounts')).toHaveLength(1)
@@ -88,13 +88,13 @@ describe('MentorSurface — the Generate bar', () => {
     it('an A/B offer is asked in the chat, never put in the pane (Roy, 2026-11-12)', () => {
         const OFFER = { options: [{ id: 'A', label: 'the pullback', stop: 49.66, target: 60.15 }, { id: 'B', label: 'after the break', arm: 55.45, stop: 52.46, target: 58.47 }] }
         mount({ draft: SETUP, view: { offer: OFFER } })
-        expect(screen.queryByText(/Mentor is asking/)).toBeNull()
+        expect(screen.queryByText(/The trader is asking/)).toBeNull()
         expect(screen.queryByText(/after the break/)).toBeNull()
     })
 
     it('never shows a dark button with nothing to say', () => {
         mount({ draft: SETUP, view: { readiness: { ready: false, missing: [] } } })
-        expect(screen.getByText(/Not ready yet — ask Mentor/)).toBeTruthy()
+        expect(screen.getByText(/Not ready yet — ask the trader/)).toBeTruthy()
     })
 
     it('Generate is a COMMIT with the marked accounts — the plan is the server\'s copy, never one from here', async () => {
@@ -168,11 +168,11 @@ describe('MentorSurface — no gate cards, no tables, no candidates in the pane 
         const CANDIDATES = [{ label: 'Fade the high', pitch: 'other side', setup: { asset: 'NVDA', direction: 'short', type: 'day', trade_mode: 'institutional' } }]
         mount({ draft: null, coverage: ['direction'], view: { setups: { candidates: CANDIDATES } } })
         // Named, not pickable: no card, no button — the empty table says what he offered (CR 2026-11-12: it was blank).
-        expect(screen.getByText(/Mentor offered NVDA — Fade the high/)).toBeTruthy()
+        expect(screen.getByText(/The trader offered NVDA — Fade the high/)).toBeTruthy()
         expect(screen.queryByRole('button', { name: /Fade the high/ })).toBeNull()
         cleanup()
         mount({ draft: null, coverage: ['direction', 'horizon'] })
-        expect(screen.getByText(/Nothing on Mentor/)).toBeTruthy()
+        expect(screen.getByText(/Nothing on the table yet/)).toBeTruthy()
     })
 
     it('the bar waits while a turn runs', () => {
@@ -301,6 +301,6 @@ describe('MentorSurface — the edit bar is always there (Roy, 2026-10-18)', () 
         expect(bar).toBeTruthy()
         expect(screen.getByText('Update setup').closest('button').disabled).toBe(true)
         expect(screen.getByText(/later/i).closest('button').disabled).toBe(true)
-        expect(screen.getByText('Mentor is answering…')).toBeTruthy()
+        expect(screen.getByText('The trader is answering…')).toBeTruthy()
     })
 })

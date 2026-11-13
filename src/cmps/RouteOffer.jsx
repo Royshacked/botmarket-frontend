@@ -17,7 +17,7 @@ export function RouteOffer({ offer, busy = false, onGo, onDismiss }) {
     if (!offer || busy) return null
     const desk = DESKS.find(d => d.key === (offer.edit?.desk ?? offer.route))
     if (!desk) return null
-    const brand = AGENTS[desk.entryTab]?.brand ?? desk.label
+    const brand = AGENTS[desk.entryTab]?.role ? `the ${AGENTS[desk.entryTab].role.toLowerCase()}` : desk.label   // one-axl.md: a role, never a name
     return (
         <div className="portfolio-panel__action-bubble">
             <button

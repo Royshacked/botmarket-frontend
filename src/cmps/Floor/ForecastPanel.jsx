@@ -148,7 +148,7 @@ export function ForecastPanel({ coverage = [], themes = [], focus = null, onOpen
                 {code ? back(tile?.name ?? 'Industry', { level: 'industry', code, from }) : back('Map', MAP)}
             </div>
         )
-        body = cov ? <CoverageDetail coverage={cov} /> : <p className="fm-note">Prometheus has no thesis on {view.symbol}.</p>
+        body = cov ? <CoverageDetail coverage={cov} /> : <p className="fm-note">The analyst has no thesis on {view.symbol}.</p>
     } else if (view.level === 'industry') {
         title = tile?.name ?? companies.data?.name ?? 'Industry'
         const a = tile?.assessment
@@ -174,7 +174,7 @@ export function ForecastPanel({ coverage = [], themes = [], focus = null, onOpen
                     lists column (FloorLists' `board` desk), so the panel closes on the way. */}
                 {onOpenBoard && (
                     <button type="button" className="cal-nav__btn" onClick={() => { closePanel(FORECAST_PANEL_ID); onOpenBoard() }}
-                        title="Pythia's board: track record, the week, themes, structure">
+                        title="The industry strategist's board: track record, the week, themes, structure">
                         Board
                     </button>
                 )}
@@ -244,7 +244,7 @@ function HeatMap({ map, tiles, themes = [], win, filter, onFilter, onRetry, onPi
                 ))}
             </div>
             <p className="fm-note">
-                Colour: the {w.long} move against the S&amp;P{map.data.asof ? `, as of ${map.data.asof}` : ''}. Letter: Pythia’s verdict
+                Colour: the {w.long} move against the S&amp;P{map.data.asof ? `, as of ${map.data.asof}` : ''}. Letter: the industry strategist’s verdict
                 (S swing · L long term · W watch · A avoid), bolder with more confidence. Striped: the hype flag. Faded: due for reassessment.
             </p>
             {themeTiles.length > 0 && (
@@ -308,7 +308,7 @@ function Tile({ tile: t, win, dim, onPick }) {
             <span className="fm-tile__name">{t.name}</span>
             <span className="fm-tile__foot">
                 <span className="fm-tile__move">{pctText(v)}</span>
-                {t.covered > 0 && <span className="fm-tile__cov" title={`${t.covered} covered by Prometheus`}>◆{t.covered}</span>}
+                {t.covered > 0 && <span className="fm-tile__cov" title={`${t.covered} covered by the analyst`}>◆{t.covered}</span>}
             </span>
             {badge && <span className={`fm-tile__badge fm-tile__badge--${verdict} fm-tile__badge--${conf ?? 'low'}`} aria-label={VERDICT_LABEL[verdict]}>{badge}</span>}
             {/* The long term, its own call beside the near term (pythia-two-verdicts.md): left of the near-term letter. */}
@@ -325,8 +325,8 @@ function IndustryPage({ tile, companies, onRetry, onPick, bySymbol }) {
     return (
         <div className="fm-industry">
             <section className="fm-industry__sec">
-                <h3 className="fm-sector__head">Pythia</h3>
-                {a ? <AssessmentDetail row={a} open /> : <p className="fm-note">Pythia has not assessed this industry yet.</p>}
+                <h3 className="fm-sector__head">Industry strategist</h3>
+                {a ? <AssessmentDetail row={a} open /> : <p className="fm-note">The industry strategist has not assessed this industry yet.</p>}
                 {m && (
                     <p className="fm-note">
                         Against the S&amp;P: {WINDOWS.map(w => `${w.label} ${pctText(m[w.key])}`).join(' · ')}{m.hype ? ' · hype flag' : ''}{m.asof ? ` (as of ${m.asof})` : ''}
@@ -360,7 +360,7 @@ function IndustryPage({ tile, companies, onRetry, onPick, bySymbol }) {
                             return (
                                 <li key={c.symbol}>
                                     {c.covered
-                                        ? <button type="button" className="fm-co fm-co--covered" onClick={() => onPick(c.symbol)} title="Read Prometheus’s thesis">{inner}</button>
+                                        ? <button type="button" className="fm-co fm-co--covered" onClick={() => onPick(c.symbol)} title="Read the analyst’s thesis">{inner}</button>
                                         : <div className="fm-co">{inner}</div>}
                                 </li>
                             )

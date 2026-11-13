@@ -12,7 +12,7 @@ const COLUMNS = [
     ['ATR%', 'The average daily range, as % of price — how far it usually moves in a day.'],
     ['Earn', 'The report the run-up is into. Amber with "!": out at the close before it.'],
     ['Result', 'Did it work — once the five sessions close (below).'],
-    ['Target', 'Prometheus’s short-swing target and how much of it is still open, when he sets one; "run-up" when he confirmed the name without one. Valid until its window ends — the session before the report, or the session after it on a hold; graded then.'],
+    ['Target', 'The analyst’s short-swing target and how much of it is still open, when one is set; "run-up" when the name was confirmed without one. Valid until its window ends — the session before the report, or the session after it on a hold; graded then.'],
 ]
 
 export function HotlistInfo() {
@@ -22,7 +22,7 @@ export function HotlistInfo() {
                 <h3 className="hot-info__h">The Hotlist</h3>
                 <p>Four tabs, long side only. <b>This week</b> is built every night after the close by one tested rule.
                     <b> Swing</b> and <b>Long term</b> are the house&apos;s research (below). <b>Covered companies</b> is every company
-                    Prometheus covers, and his scorecard.</p>
+                    the analyst covers, with the analyst&apos;s scorecard.</p>
             </section>
             <section>
                 <h3 className="hot-info__h">This week — the run-up rule</h3>
@@ -36,23 +36,23 @@ export function HotlistInfo() {
                     than quiet ones. It was steadier in a calm market and lost when SPY was under its 200-day — then the list is empty
                     and says why. So the edge is small and per day, not per name: a fixed, small budget split across the day&apos;s
                     names, not a bet on one.</p>
-                <p>What it is not: a price target (Prometheus&apos;s is), a stop (the exit is the date), or a forecast for any one
+                <p>What it is not: a price target (the analyst&apos;s is), a stop (the exit is the date), or a forecast for any one
                     name — plenty of them still end down; the edge shows over many days, not in one.</p>
-                <p><b>Prometheus</b> reads every name overnight and answers two questions: <b>is it worth the run-up</b> — were
+                <p><b>The analyst</b> reads every name overnight and answers two questions: <b>is it worth the run-up</b> — were
                     the last reports good (real beats, revenue and guidance with them, estimates rising), and can the company carry
                     it — and <b>is the report worth holding</b>, from how the stock has moved through its past reports. Most names are
                     out before the report; a <b>hold</b> runs through it, with his target, and its Earn reads &quot;hold&quot;. The
                     list is the names he says are worth the run-up — a target is his option on those; a name he passes is
-                    not on it. Build with Mentor on a name
-                    hands Mentor his answers, any target, and the date to be out by.</p>
+                    not on it. Build a setup on a name
+                    hands the trader those answers, any target, and the date to be out by.</p>
             </section>
             <section>
                 <h3 className="hot-info__h">Swing and Long term</h3>
-                <p>Not a day&apos;s list: the <b>weekly chain</b>. Pythia calls an industry (or a theme) for swing or for the long
-                    term; Argus picks the names that best carry her thesis; Prometheus researches each — the thesis and a price
-                    target, 3–6 months out for <b>Swing</b>, 12–24 months for <b>Long term</b>. The list is what Prometheus
-                    confirmed: Argus&apos;s names that came out of research with a thesis and a target, whatever the rating — and a
-                    name Argus picked that the desk had already covered. When Pythia stops calling a name&apos;s industry or theme for
+                <p>Not a day&apos;s list: the <b>weekly chain</b>. The industry strategist calls an industry (or a theme) for swing or for the long
+                    term; the stock picker chooses the names that best carry that thesis; the analyst researches each — the thesis and a price
+                    target, 3–6 months out for <b>Swing</b>, 12–24 months for <b>Long term</b>. The list is what the analyst
+                    confirmed: the picks that came out of research with a thesis and a target, whatever the rating — and a
+                    name the stock picker chose that the desk had already covered. When the industry strategist stops calling a name&apos;s industry or theme for
                     that horizon, the name <b>leaves the list</b> (a line says which) — its coverage stays live, in Covered
                     companies.</p>
                 <dl className="hot-info__dl">
@@ -60,14 +60,14 @@ export function HotlistInfo() {
                     <div><dt>By</dt><dd>the target date, and the horizon it was set for.</dd></div>
                     <div><dt>Since set</dt><dd>the move since the target was set, and against SPY over the same days; ✓ hit, ✗ broken or expired once settled.</dd></div>
                     <div><dt>To target</dt><dd>how far it has come from the price that day toward the target.</dd></div>
-                    <div><dt>From</dt><dd>the weekly chain — Pythia&apos;s call on an industry or theme, Argus&apos;s pick, Prometheus — or the desk.</dd></div>
+                    <div><dt>From</dt><dd>the weekly chain — the industry strategist&apos;s call on an industry or theme, the stock picker&apos;s pick, the analyst — or the desk.</dd></div>
                 </dl>
                 <p>Their track record: how many targets came due and were hit, and how the live names are doing against SPY.</p>
             </section>
             <section>
                 <h3 className="hot-info__h">Covered companies</h3>
                 <p>The whole live book — swing and long term, the chain&apos;s names and the desk&apos;s, holds and sells too.
-                    Under it, <b>Prometheus&apos;s scorecard</b> grades every call he makes: frozen the day he makes it and
+                    Under it, <b>the analyst&apos;s scorecard</b> grades every call he makes: frozen the day he makes it and
                     measured against SPY at 1, 3, 6 and 12 months, a sell scored as right when the stock falls; holds apart. Under 20
                     graded calls a number is dim — too few to judge.</p>
             </section>
@@ -90,15 +90,15 @@ export function HotlistInfo() {
             <section>
                 <h3 className="hot-info__h">The day trades</h3>
                 <p>The session boards — Open, Mid-day, Into close, Tomorrow — were <b>archived on 2026-10-25</b>: replayed over past
-                    sessions, every one lost to the names it passed over, and Argus, replayed blind with the headlines and the chart,
+                    sessions, every one lost to the names it passed over, and the stock picker, replayed blind with the headlines and the chart,
                     picked no better than he avoided. Past days still show them, with their results, until they age out.</p>
             </section>
             <section>
                 <h3 className="hot-info__h">On a row</h3>
                 <p>Click a row for its page — its numbers, the daily chart, who read it and why — over the whole window; ‹ Back to the list returns.</p>
                 <dl className="hot-info__dl">
-                    <div><dt>Build with Mentor</dt><dd>A setup from the row&apos;s facts — and on This week, Prometheus&apos;s target and the date to be out by.</dd></div>
-                    <div><dt>Catalyst read</dt><dd>On This week, for a name with no read yet: Prometheus reads it now (about a minute).</dd></div>
+                    <div><dt>Build a setup</dt><dd>A setup from the row&apos;s facts — and on This week, the analyst&apos;s target and the date to be out by.</dd></div>
+                    <div><dt>Catalyst read</dt><dd>On This week, for a name with no read yet: the analyst reads it now (about a minute).</dd></div>
                 </dl>
             </section>
         </div>

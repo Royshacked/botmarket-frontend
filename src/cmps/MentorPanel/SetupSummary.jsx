@@ -177,7 +177,7 @@ export function SetupSummary({ setup, onChange, readOnly = false }) {
             )}
 
             {setup.event_risk?.length > 0 && (
-                <p className="setup-summary__events" title="Scheduled catalysts, stamped at Generate. Talos always checks these, whether or not the setup declares a news factor.">
+                <p className="setup-summary__events" title="Scheduled catalysts, stamped at Generate. The trade monitor always checks these, whether or not the setup declares a news factor.">
                     ⚑ {setup.event_risk.map(e => `${e.date} ${e.label}`).join(' · ')}
                 </p>
             )}

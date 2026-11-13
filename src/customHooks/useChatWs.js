@@ -32,7 +32,7 @@ const TYPE_LABELS = {
 // the server) so the toast shows who it's from.
 export function chatPreviewParts(msg) {
     const bot  = isBotId(msg?.senderId) ? (AGENTS[msg.senderId] ?? null) : null
-    const who  = bot ? (bot.brand ?? null) : (msg?.senderName ?? null)
+    const who  = bot ? (bot.role ? `Axl · ${bot.role}` : 'Axl') : (msg?.senderName ?? null)   // one-axl.md D8
     const body = (msg?.content && String(msg.content).trim())
         ? String(msg.content).replace(/\s+/g, ' ').slice(0, 80)
         : (TYPE_LABELS[msg?.type] ?? 'New message')

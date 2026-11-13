@@ -40,7 +40,7 @@ export function IdeaBadge(props) {
 
 export function AtlasBadge(props) {
     return (
-        <Badge {...props} title="Atlas">
+        <Badge {...props} title="Portfolio manager">
             <circle cx="100" cy="54" r="27" />
             <ellipse cx="100" cy="54" rx="27" ry="9.5" stroke="currentColor" />
             <ellipse cx="100" cy="54" rx="10.5" ry="27" />
@@ -57,7 +57,7 @@ export function AtlasBadge(props) {
 
 export function ArgusBadge(props) {
     return (
-        <Badge {...props} title="Argus">
+        <Badge {...props} title="Stock picker">
             <path d="M56,100 Q100,68 144,100 Q100,132 56,100 Z" />
             <circle cx="100" cy="100" r="17" />
             <circle cx="100" cy="100" r="7.5" fill="currentColor" stroke="none" />
@@ -77,7 +77,7 @@ export function ArgusBadge(props) {
 // in the set — nothing else here can be mistaken for it at a glance.
 export function MentorBadge(props) {
     return (
-        <Badge {...props} title="Mentor">
+        <Badge {...props} title="Trader">
             <path d="M100,60 C124,60 140,80 140,110 C140,144 122,164 100,164 C78,164 60,144 60,110 C60,80 76,60 100,60 Z" />
             <path d="M72,72 L66,44 L88,58" />
             <path d="M128,72 L134,44 L112,58" />
@@ -102,7 +102,7 @@ export function MentorBadge(props) {
 // at 13px in the hub steps as well as at 54px in the summon orb).
 export function PrometheusBadge(props) {
     return (
-        <Badge {...props} title="Prometheus">
+        <Badge {...props} title="Analyst">
             <path d="M100,32 C106,58 118,70 130,86 C140,99 145,112 145,126 C145,150 125,168 100,168 C75,168 55,150 55,126 C55,112 60,99 70,86 C82,70 94,58 100,32 Z" />
             <path d="M100,90 C103,105 114,113 114,128 C114,143 108,152 100,152 C92,152 86,143 86,128 C86,113 97,105 100,90 Z" />
         </Badge>
@@ -113,7 +113,7 @@ export function PrometheusBadge(props) {
 // price swing — how a stock moves is the desk's whole subject. The 200-space twin of the desk's line sigil.
 export function ProteusBadge(props) {
     return (
-        <Badge {...props} title="Proteus">
+        <Badge {...props} title="Technical analyst">
             <path d="M40,120 C58,120 66,96 82,78 C98,60 124,58 138,72 C150,84 146,104 130,106 C118,107 112,96 120,88" />
             <path d="M30,140 C50,128 70,152 100,140 C130,128 150,152 170,140" />
             <path d="M44,164 C64,154 80,172 100,164 C120,156 136,172 156,164" />
@@ -126,7 +126,7 @@ export function ProteusBadge(props) {
 // sigil, so the desk reads the same weight as the others wherever a glyph is drawn.
 export function PythiaBadge(props) {
     return (
-        <Badge {...props} title="Pythia">
+        <Badge {...props} title="Industry strategist">
             <path d="M52,86 H148 L138,112 C133,124 118,132 100,132 C82,132 67,124 62,112 Z" />
             <line x1="76" y1="128" x2="58" y2="174" />
             <line x1="124" y1="128" x2="142" y2="174" />
@@ -142,7 +142,7 @@ export function PythiaBadge(props) {
 // running it at all — so the figure says what the desk does rather than decorating it.
 export function AetherBadge(props) {
     return (
-        <Badge {...props} title="Aether">
+        <Badge {...props} title="Event analyst">
             <circle cx="100" cy="100" r="17" />
             <line x1="100"   y1="83"    x2="100" y2="56" />
             <line x1="114.7" y1="108.5" x2="138" y2="122" />
@@ -179,7 +179,7 @@ export function MinosBadge(props) {
 // fixed rotation: a sentinel figure inside its patrol ring, with the perimeter marks it watches.
 export function TalosBadge(props) {
     return (
-        <Badge {...props} title="Talos">
+        <Badge {...props} title="Trade monitor">
             <circle cx="100" cy="104" r="46" strokeDasharray="10 8" />
             <circle cx="100" cy="70" r="11" />
             <line x1="100" y1="81" x2="100" y2="120" />

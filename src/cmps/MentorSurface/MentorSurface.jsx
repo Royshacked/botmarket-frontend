@@ -124,7 +124,7 @@ function useDraftEditor(serverDraft, serverRev, push) {
 export function MentorSurface({ session, deskProps = {} }) {
     const { availableAccounts = [], selectedAccounts = [], setSelectedAccounts, setMainAccountId } = deskProps
     // The press mechanics every surface shares: the marked accounts, the note, one press at a time, the stale refusal.
-    const { accounts, mainAccountId, rev, pressing, note, setNote, press: commitPress } = useSurfacePress(session, 'mentor', deskProps, { brand: 'Mentor' })
+    const { accounts, mainAccountId, rev, pressing, note, setNote, press: commitPress } = useSurfacePress(session, 'mentor', deskProps, { brand: 'The trader' })
     const state = session?.agentState?.mentor ?? null
 
     const serverDraft = state?.draft ?? null
@@ -142,7 +142,7 @@ export function MentorSurface({ session, deskProps = {} }) {
         const out = await session.edit('mentor', { draft, accounts }, { rev: madeAt })
         if (!out.ok) {
             setNote(out.reason === 'stale_state'
-                ? { kind: 'error', sticky: true, text: 'Mentor moved on while you were typing — your edit was not saved.' }
+                ? { kind: 'error', sticky: true, text: 'The trader moved on while you were typing — your edit was not saved.' }
                 : { kind: 'error', text: out.message })
             resetEdit.current?.()
         }
@@ -177,9 +177,9 @@ export function MentorSurface({ session, deskProps = {} }) {
     const problems = live.blockers.filter(b => b.kind === 'problem')
     // Why Update is dark while editing — the bar is always on screen, so it says so rather than leaving a dead button.
     const editHint = !editingId ? null
-        : turning ? 'Mentor is answering…'
-        : !dirty ? 'Tell Mentor what to change — Update lights once the plan moves.'
-        : !live.ready ? (missing.length ? `Still needs: ${missing.map(b => b.text).join(', ')}` : 'Not ready yet — ask Mentor what’s outstanding.')
+        : turning ? 'The trader is answering…'
+        : !dirty ? 'Tell the trader what to change — Update lights once the plan moves.'
+        : !live.ready ? (missing.length ? `Still needs: ${missing.map(b => b.text).join(', ')}` : 'Not ready yet — ask the trader what’s outstanding.')
         : null
 
     // Which account the setup trades in. On the empty table too (Roy, 2026-10-19 — "the account icon is gone"): the start
@@ -208,10 +208,10 @@ export function MentorSurface({ session, deskProps = {} }) {
                     in the chat. */}
                 {candidates?.length ? (
                     <p className="desk-surface__lead">
-                        Mentor offered {candidates.map(c => [c.setup?.asset, c.label].filter(Boolean).join(' — ')).join(' · ')}. Tell him in the chat which one to build.
+                        The trader offered {candidates.map(c => [c.setup?.asset, c.label].filter(Boolean).join(' — ')).join(' · ')}. Say in the chat which one to build.
                     </p>
                 ) : (
-                    <p className="desk-surface__lead">Nothing on Mentor&apos;s table yet. Tell Mentor a name in the chat — &ldquo;let&apos;s trade TSLA&rdquo; — and the setup builds here.</p>
+                    <p className="desk-surface__lead">Nothing on the table yet. Name a stock in the chat — &ldquo;let&apos;s trade TSLA&rdquo; — and the setup builds here.</p>
                 )}
             </div>
         )
@@ -255,7 +255,7 @@ export function MentorSurface({ session, deskProps = {} }) {
                             {pressing ? 'Generating…' : `Generate all (${names.length})`}
                         </button>
                     )}
-                    <DiscardButton what={names.length > 1 ? 'these plans' : `the ${draft?.asset ?? ''} plan`} onDiscard={() => commitPress('discard', { before: async () => { editor.reset(); await editor.settle(); return true }, done: () => 'Discarded — Mentor\'s table is clear.' })} disabled={pressing} />
+                    <DiscardButton what={names.length > 1 ? 'these plans' : `the ${draft?.asset ?? ''} plan`} onDiscard={() => commitPress('discard', { before: async () => { editor.reset(); await editor.settle(); return true }, done: () => 'Discarded — the table is clear.' })} disabled={pressing} />
                     {!live.ready && missing.length > 0 && (
                         <span className="mentor-panel__missing">Still needs: {missing.map(b => b.text).join(', ')}</span>
                     )}
@@ -263,7 +263,7 @@ export function MentorSurface({ session, deskProps = {} }) {
                     {/* Warnings are never blockers — they show whether or not Generate is lit. */}
                     {live.warnings.length > 0 && <span className="mentor-panel__warning">{live.warnings.join(' · ')}</span>}
                     {!live.ready && live.blockers.length === 0 && (
-                        <span className="mentor-panel__missing">Not ready yet — ask Mentor what’s outstanding.</span>
+                        <span className="mentor-panel__missing">Not ready yet — ask the trader what’s outstanding.</span>
                     )}
                     {live.ready && <span className="mentor-panel__missing">Generates as <em>waiting</em> — arm it to start monitoring.</span>}
                 </div></ChatActions>
@@ -277,7 +277,7 @@ export function MentorSurface({ session, deskProps = {} }) {
                     </p>
                     <button
                         className="portfolio-panel__review-btn portfolio-panel__review-btn--update mentor-panel__btn"
-                        onClick={() => commit('arm', () => `${generated.asset} is armed — Talos is watching it.`)}
+                        onClick={() => commit('arm', () => `${generated.asset} is armed — the trade monitor is watching it.`)}
                         disabled={pressing}
                     >
                         {pressing ? 'Arming…' : 'Arm it — start monitoring'}
@@ -312,7 +312,7 @@ export function MentorSurface({ session, deskProps = {} }) {
 }
 
 // What this pane is, said once under its tabs (SidePane — Roy, 2026-10-19: the pane was not clear to a user).
-MentorSurface.paneHint = 'Your setup, as you build it with Mentor. It fills in while you talk; when it’s ready, the button at the bottom saves it.'
+MentorSurface.paneHint = 'Your setup, as you build it in the chat. It fills in while you talk; when it’s ready, the button at the bottom saves it.'
 
 MentorSurface.propTypes = {
     session:   PropTypes.shape({

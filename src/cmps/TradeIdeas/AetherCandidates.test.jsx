@@ -1070,7 +1070,7 @@ describe('tradable — the gate on the hand-off', () => {
         const t = tradable(quiet({ move_pct: -0.06, excess_pct: -0.055, extension: -2.4 }), NOW)
         expect(t.ok).toBe(false)
         expect(t.head).toBe('Already moved')
-        expect(t.why).toMatch(/-6\.0% since the event, the way Aether said — the excess move has already happened/)
+        expect(t.why).toMatch(/-6\.0% since the event, the way the event analyst said — the excess move has already happened/)
     })
 
     it('a name that has moved AGAINST the claim is not either — and says so, not "already happened"', () => {
@@ -1079,7 +1079,7 @@ describe('tradable — the gate on the hand-off', () => {
         const t = tradable(quiet({ move_pct: 0.135, excess_pct: 0.131, extension: 3.0 }), NOW)
         expect(t.ok).toBe(false)
         expect(t.head).toBe('Moved against')
-        expect(t.why).toMatch(/\+13\.5% since the event, against Aether's SHORT — the market disagrees so far/)
+        expect(t.why).toMatch(/\+13\.5% since the event, against the event analyst's SHORT — the market disagrees so far/)
         expect(t.why).not.toMatch(/already happened/)
     })
 
@@ -1124,17 +1124,17 @@ describe('buildAetherSeed — what the user says to Mentor', () => {
 
     it('opens with the ticker, the event and its kind and date', () => {
         const seed = buildAetherSeed(c, run)
-        expect(seed).toMatch(/^I want to build a swing setup on FRO \(Frontline plc\) off an Aether event — Strait of Hormuz \(disruption, 2026-09-13\): "Saudi Arabia shut/)
+        expect(seed).toMatch(/^I want to build a swing setup on FRO \(Frontline plc\) off an event — Strait of Hormuz \(disruption, 2026-09-13\): "Saudi Arabia shut/)
     })
 
     it("states the side as Aether's claim and the lean as the user's", () => {
         const seed = buildAetherSeed(c, run)
-        expect(seed).toMatch(/Aether has it LONG: Replacement barrels/)
+        expect(seed).toMatch(/The event analysis has it LONG: Replacement barrels/)
         expect(seed).toMatch(/My lean is long unless you see a reason not to/)
     })
 
     it('hurt is a short lean', () => {
-        expect(buildAetherSeed({ ...c, side: 'hurt' }, run)).toMatch(/Aether has it SHORT/)
+        expect(buildAetherSeed({ ...c, side: 'hurt' }, run)).toMatch(/The event analysis has it SHORT/)
         expect(buildAetherSeed({ ...c, side: 'hurt' }, run)).toMatch(/My lean is short/)
     })
 
@@ -1175,8 +1175,8 @@ describe('buildAetherSeed — what the user says to Mentor', () => {
 
     it('survives a run with no fields', () => {
         const seed = buildAetherSeed({ ticker: 'X', side: 'hurt' }, {})
-        expect(seed).toMatch(/off an Aether event — an event \(date unknown\)\./)
-        expect(seed).toMatch(/Aether has it SHORT\./)
+        expect(seed).toMatch(/off an event — an event \(date unknown\)\./)
+        expect(seed).toMatch(/The event analysis has it SHORT\./)
         expect(seed).not.toMatch(/undefined|null/)
     })
 })
@@ -1193,9 +1193,9 @@ describe('AetherCandidates — Trade with Mentor', () => {
         const onTradeWithMentor = vi.fn()
         render(<AetherCandidates runs={[NOW_RUN]} onTradeWithMentor={onTradeWithMentor} />)
         openEvent()
-        expect(screen.queryByRole('button', { name: /Trade with Mentor/ })).toBeNull()
+        expect(screen.queryByRole('button', { name: /Build the trade/ })).toBeNull()
         openName()
-        fireEvent.click(screen.getByRole('button', { name: /Trade with Mentor/ }))
+        fireEvent.click(screen.getByRole('button', { name: /Build the trade/ }))
         expect(onTradeWithMentor).toHaveBeenCalledTimes(1)
         const [ticker, message] = onTradeWithMentor.mock.calls[0]
         expect(ticker).toBe('NUE')
@@ -1209,7 +1209,7 @@ describe('AetherCandidates — Trade with Mentor', () => {
         render(<AetherCandidates runs={[moved]} onTradeWithMentor={vi.fn()} />)
         openEvent()
         openName()
-        const b = screen.getByRole('button', { name: /Trade with Mentor/ })
+        const b = screen.getByRole('button', { name: /Build the trade/ })
         expect(b.disabled).toBe(true)
         // Said twice on purpose: under the button, and as the conclusion up top.
         expect(screen.getAllByText(/already happened/).length).toBe(2)
@@ -1226,7 +1226,7 @@ describe('AetherCandidates — Trade with Mentor', () => {
         expect(cell.textContent).toBe('against +13%')
         expect(cell.className).toMatch(/floor-row__status--moved/)
         expect(cell.className).toMatch(/floor-row__status--against/)
-        expect(cell.title).toMatch(/\+13\.5% since the event · \+13\.1% vs SPY · 3\.0σ of its own daily move · against Aether's SHORT · as of 2026-09-18/)
+        expect(cell.title).toMatch(/\+13\.5% since the event · \+13\.1% vs SPY · 3\.0σ of its own daily move · against the event analyst's SHORT · as of 2026-09-18/)
     })
 
     it('a moved name that went the way Aether said reads `with`, in the ordinary hue', () => {
@@ -1251,7 +1251,7 @@ describe('AetherCandidates — Trade with Mentor', () => {
         render(<AetherCandidates runs={[NOW_RUN]} />)
         openEvent()
         openName()
-        expect(screen.queryByRole('button', { name: /Trade with Mentor/ })).toBeNull()
+        expect(screen.queryByRole('button', { name: /Build the trade/ })).toBeNull()
     })
 })
 
@@ -1338,14 +1338,14 @@ describe('AetherCandidates — Prometheus quick read', () => {
         render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} />)
         openEvent()
         openName()
-        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Ask the analyst' }))
         // The presser's menu model rides along; nothing stored → the client default.
         expect(quickRead).toHaveBeenCalledWith('Canada:2026-09-08', 'NUE', { model: expect.any(String) })
         await waitFor(() => expect(screen.getAllByText('contradicted').length).toBeGreaterThan(0))
         expect(screen.getByText('It hedged the exposure in the 10-Q.')).toBeTruthy()
         expect(screen.getByText(/Hedged 90% of 2026 volumes/)).toBeTruthy()
         expect(screen.getByText('80%')).toBeTruthy()
-        expect(screen.queryByRole('button', { name: 'Ask Prometheus' })).toBeNull()
+        expect(screen.queryByRole('button', { name: 'Ask the analyst' })).toBeNull()
     })
 
     it('the read is asked for on the AI-menu model, so a candidate can be compared on the same name', async () => {
@@ -1355,7 +1355,7 @@ describe('AetherCandidates — Prometheus quick read', () => {
             render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} />)
             openEvent()
             openName()
-            fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+            fireEvent.click(screen.getByRole('button', { name: 'Ask the analyst' }))
             expect(quickRead).toHaveBeenCalledWith('Canada:2026-09-08', 'NUE', { model: 'gpt-6-luna' })
         } finally {
             localStorage.removeItem('aiModel')
@@ -1367,7 +1367,7 @@ describe('AetherCandidates — Prometheus quick read', () => {
         openEvent()
         openName()
         expect(screen.getAllByText('priced in').length).toBeGreaterThan(0)
-        expect(screen.queryByRole('button', { name: 'Ask Prometheus' })).toBeNull()
+        expect(screen.queryByRole('button', { name: 'Ask the analyst' })).toBeNull()
     })
 
     it('the verdict sits on the collapsed row, so a run of reads can be scanned without reopening', async () => {
@@ -1377,7 +1377,7 @@ describe('AetherCandidates — Prometheus quick read', () => {
         openName()
         const row = () => within(document.querySelector('.floor-sub__body')).getByText('NUE').closest('button')
         expect(within(row()).queryByText(/reading/)).toBeNull()
-        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Ask the analyst' }))
         // In flight: the row says so, since it may be collapsed before the read lands.
         expect(within(row()).getByText('reading…').className).toMatch(/__read-chip--busy/)
         await waitFor(() => expect(within(row()).getByText('contradicted')).toBeTruthy())
@@ -1387,7 +1387,7 @@ describe('AetherCandidates — Prometheus quick read', () => {
         expect(screen.queryByText('It hedged the exposure in the 10-Q.')?.closest('.detail-panel:not(.detail-panel--leaving)') ?? null).toBeNull()
         const chip = within(row()).getByText('contradicted')
         expect(chip.className).toMatch(/__read-chip--contradicted/)
-        expect(chip.title).toMatch(/^Prometheus:/)
+        expect(chip.title).toMatch(/^Analyst:/)
     })
 
     it('a read already on the candidate shows its word on the row before the name is opened', () => {
@@ -1407,7 +1407,7 @@ describe('AetherCandidates — Prometheus quick read', () => {
         render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} onRead={onRead} />)
         openEvent()
         openName()
-        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Ask the analyst' }))
         await waitFor(() => expect(onRead).toHaveBeenCalledWith('Canada:2026-09-08', 'NUE', READ))
     })
 
@@ -1417,7 +1417,7 @@ describe('AetherCandidates — Prometheus quick read', () => {
         render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} onRead={onRead} />)
         openEvent()
         openName()
-        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Ask the analyst' }))
         await waitFor(() => expect(screen.getByText(/budget/)).toBeTruthy())
         expect(onRead).not.toHaveBeenCalled()
     })
@@ -1428,11 +1428,11 @@ describe('AetherCandidates — Prometheus quick read', () => {
         render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} onRead={onRead} />)
         openEvent()
         openName()
-        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Ask the analyst' }))
         await waitFor(() => expect(screen.getByText(/still reading/)).toBeTruthy())
         expect(screen.queryByText(/timeout of/)).toBeNull()
         expect(onRead).not.toHaveBeenCalled()
-        expect(screen.getByRole('button', { name: 'Ask Prometheus' })).toBeTruthy()
+        expect(screen.getByRole('button', { name: 'Ask the analyst' })).toBeTruthy()
     })
 
     it('a failed read keeps the button and says why', async () => {
@@ -1440,9 +1440,9 @@ describe('AetherCandidates — Prometheus quick read', () => {
         render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} />)
         openEvent()
         openName()
-        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Ask the analyst' }))
         await waitFor(() => expect(screen.getByText(/budget/)).toBeTruthy())
-        expect(screen.getByRole('button', { name: 'Ask Prometheus' })).toBeTruthy()
+        expect(screen.getByRole('button', { name: 'Ask the analyst' })).toBeTruthy()
     })
 
     it('the read rides in the Mentor seed', async () => {
@@ -1451,11 +1451,11 @@ describe('AetherCandidates — Prometheus quick read', () => {
         render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} onTradeWithMentor={onTradeWithMentor} />)
         openEvent()
         openName()
-        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Ask the analyst' }))
         await waitFor(() => expect(screen.getAllByText('contradicted').length).toBeGreaterThan(0))
-        fireEvent.click(screen.getByRole('button', { name: /Trade with Mentor/ }))
+        fireEvent.click(screen.getByRole('button', { name: /Build the trade/ }))
         const [, message] = onTradeWithMentor.mock.calls[0]
-        expect(message).toMatch(/Prometheus's quick read: contradicted \(80% confidence\) — It hedged the exposure in the 10-Q\./)
+        expect(message).toMatch(/The analyst's quick read: contradicted \(80% confidence\) — It hedged the exposure in the 10-Q\./)
     })
 
     it('a sized read shows what the event is worth against what has moved, and the seed carries it', async () => {
@@ -1470,14 +1470,14 @@ describe('AetherCandidates — Prometheus quick read', () => {
         render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} onTradeWithMentor={onTradeWithMentor} />)
         openEvent()
         openName()
-        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Ask the analyst' }))
         await waitFor(() => expect(screen.getAllByText('credible').length).toBeGreaterThan(0))
         const line = document.querySelector('.aether-candidates__read-size')
         expect(line.textContent).toBe('Sized: worth -11.3% at a constant multiple (-15.0% to -7.5%) · moved -2.0% · -9.3% open — 12% of revenue from the segment note; a 20–40% cut for two quarters at ~50% drop-through')
         expect(line.className).not.toMatch(/--past/)
-        fireEvent.click(screen.getByRole('button', { name: /Trade with Mentor/ }))
+        fireEvent.click(screen.getByRole('button', { name: /Build the trade/ }))
         const [, message] = onTradeWithMentor.mock.calls[0]
-        expect(message).toMatch(/Prometheus sizes this event alone at -11\.3% to the price at a constant multiple \(band -15\.0% to -7\.5%\); moved -2\.0% since, about -9\.3% still open\. Basis: 12% of revenue/)
+        expect(message).toMatch(/The analyst sizes this event alone at -11\.3% to the price at a constant multiple \(band -15\.0% to -7\.5%\); moved -2\.0% since, about -9\.3% still open\. Basis: 12% of revenue/)
     })
 
     it('an unsized read shows no sizing line at all — never a number that was not computed', async () => {
@@ -1485,7 +1485,7 @@ describe('AetherCandidates — Prometheus quick read', () => {
         render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} />)
         openEvent()
         openName()
-        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Ask the analyst' }))
         await waitFor(() => expect(screen.getAllByText('contradicted').length).toBeGreaterThan(0))
         expect(document.querySelector('.aether-candidates__read-size')).toBeNull()
     })
@@ -1499,21 +1499,21 @@ describe('AetherCandidates — Prometheus quick read', () => {
         render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} onTradeWithMentor={onTradeWithMentor} />)
         openEvent()
         openName()
-        const trade = () => screen.getByRole('button', { name: /Trade with Mentor/ })
+        const trade = () => screen.getByRole('button', { name: /Build the trade/ })
         expect(trade().disabled).toBe(false)
-        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Ask the analyst' }))
         expect(trade().disabled).toBe(true)
         // The ask button pulses while it waits, and stops the moment the read lands.
-        expect(screen.getByRole('button', { name: /Prometheus is reading/ }).className).toMatch(/__ask--busy/)
-        expect(screen.getByText(/waiting for Prometheus's read/)).toBeTruthy()
+        expect(screen.getByRole('button', { name: /The analyst is reading/ }).className).toMatch(/__ask--busy/)
+        expect(screen.getByText(/waiting for the analyst's read/)).toBeTruthy()
         fireEvent.click(trade())
         expect(onTradeWithMentor).not.toHaveBeenCalled()
         resolve(READ)
         await waitFor(() => expect(screen.getAllByText('contradicted').length).toBeGreaterThan(0))
         expect(trade().disabled).toBe(false)
-        expect(screen.queryByText(/waiting for Prometheus's read/)).toBeNull()
+        expect(screen.queryByText(/waiting for the analyst's read/)).toBeNull()
         fireEvent.click(trade())
-        expect(onTradeWithMentor.mock.calls[0][1]).toMatch(/Prometheus's quick read: contradicted/)
+        expect(onTradeWithMentor.mock.calls[0][1]).toMatch(/The analyst's quick read: contradicted/)
     })
 
     it('a failed read gives the trade back', async () => {
@@ -1522,16 +1522,16 @@ describe('AetherCandidates — Prometheus quick read', () => {
         render(<AetherCandidates runs={[{ ...RUN, candidates: [cand()] }]} onTradeWithMentor={onTradeWithMentor} />)
         openEvent()
         openName()
-        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Ask the analyst' }))
         await waitFor(() => expect(screen.getByText(/budget/)).toBeTruthy())
-        const trade = screen.getByRole('button', { name: /Trade with Mentor/ })
+        const trade = screen.getByRole('button', { name: /Build the trade/ })
         expect(trade.disabled).toBe(false)
         fireEvent.click(trade)
-        expect(onTradeWithMentor.mock.calls[0][1]).not.toMatch(/Prometheus/)
+        expect(onTradeWithMentor.mock.calls[0][1]).not.toMatch(/The analyst/)
     })
 
     it('the seed carries no Prometheus line when there was no read', () => {
-        expect(buildAetherSeed(cand(), RUN)).not.toMatch(/Prometheus/)
+        expect(buildAetherSeed(cand(), RUN)).not.toMatch(/The analyst/)
     })
 
     describe('judged against every event naming it', () => {
@@ -1555,13 +1555,13 @@ describe('AetherCandidates — Prometheus quick read', () => {
 
         it('the seed carries the net and the count', () => {
             const s = buildAetherSeed(cand({ quick_read: read({ net: 'hurt' }) }), RUN)
-            expect(s).toMatch(/Judged against 2 events naming NUE, Prometheus has it net short\./)
+            expect(s).toMatch(/Judged against 2 events naming NUE, the analyst has it net short\./)
         })
 
         it('a net against this event\'s side asks which mechanism dominates, and drops the lean', () => {
             // hurt row, but Prometheus has the name net long across its events
             const s = buildAetherSeed(cand({ side: 'hurt', quick_read: read({ net: 'helped' }) }), RUN)
-            expect(s).toMatch(/Prometheus has the name long on the whole, against this event's short — tell me which mechanism dominates from here, or to leave it\./)
+            expect(s).toMatch(/The analyst has the name long on the whole, against this event's short — tell me which mechanism dominates from here, or to leave it\./)
             expect(s).not.toMatch(/My lean is/)
         })
 
@@ -1589,7 +1589,7 @@ describe('AetherCandidates — Prometheus quick read', () => {
 
         it('contradicted asks whether to leave it, and drops the lean', () => {
             const s = seed('contradicted')
-            expect(s).toMatch(/Prometheus read that as contradicted — tell me whether there is still a short setup here, or to leave it\./)
+            expect(s).toMatch(/The analyst read that as contradicted — tell me whether there is still a short setup here, or to leave it\./)
             expect(s).not.toMatch(/My lean is/)
         })
 
@@ -1611,7 +1611,7 @@ describe('AetherCandidates — Prometheus quick read', () => {
 
         it('the verdict line still precedes the question, so Mentor has the reasoning', () => {
             const s = seed('contradicted')
-            expect(s.indexOf("Prometheus's quick read: contradicted")).toBeLessThan(s.indexOf('Prometheus read that as contradicted'))
+            expect(s.indexOf("The analyst's quick read: contradicted")).toBeLessThan(s.indexOf('The analyst read that as contradicted'))
         })
     })
 })
@@ -1666,7 +1666,7 @@ describe('AetherCandidates — a name with a setup already built', () => {
                                  onTradeWithMentor={onTradeWithMentor} onOpenSetup={onOpenSetup} />)
         openEvent()
         openName()
-        expect(screen.queryByRole('button', { name: /Trade with Mentor/ })).toBeNull()
+        expect(screen.queryByRole('button', { name: /Build the trade/ })).toBeNull()
         expect(screen.getByText(/setup already built — NUE short · armed/)).toBeTruthy()
         fireEvent.click(screen.getByRole('button', { name: 'open' }))
         expect(onOpenSetup).toHaveBeenCalledWith(SETUP)
@@ -1678,7 +1678,7 @@ describe('AetherCandidates — a name with a setup already built', () => {
         openEvent()
         expect(screen.queryByText('setup')).toBeNull()
         openName()
-        expect(screen.getByRole('button', { name: /Trade with Mentor/ })).toBeTruthy()
+        expect(screen.getByRole('button', { name: /Build the trade/ })).toBeTruthy()
     })
 
     it('a setup on another name changes nothing here', () => {
@@ -1827,7 +1827,7 @@ describe('conclusionOf — the one line before the sections', () => {
     it('a net against this event\'s side is leave it, or Mentor', () => {
         const k = conclusionOf(c({ side: 'hurt', quick_read: q({ net: 'helped', considered: ['x'] }) }))
         expect(k.tone).toBe('leave')
-        expect(k.head).toMatch(/ask Mentor/)
+        expect(k.head).toMatch(/ask the trader/)
         expect(k.why).toMatch(/net LONG across 2 events, against this event's SHORT/)
     })
 
@@ -1889,8 +1889,8 @@ describe('conclusionOf — the one line before the sections', () => {
 
     it('no read at all states Aether\'s claim and asks for Prometheus', () => {
         const k = conclusionOf(c())
-        expect(k.head).toBe("SHORT on Aether's read")
-        expect(k.why).toMatch(/the filing sizes it, 0\.3% vs SPY so far — ask Prometheus before building/)
+        expect(k.head).toBe('SHORT on the event read')
+        expect(k.why).toMatch(/the filing sizes it, 0\.3% vs SPY so far — ask the analyst before building/)
         expect(conclusionOf(c({ verdict: 'silent' })).why).toMatch(/its filings are silent/)
     })
 })
@@ -1908,7 +1908,7 @@ describe('AetherCandidates — the drawer is a conclusion and folded sections', 
         openName()
         const first = document.querySelector('.floor-detail__block').firstElementChild
         expect(first.className).toMatch(/aether-candidates__conclusion--build/)
-        expect(first.textContent).toMatch(/^SHORT on Aether's read — /)
+        expect(first.textContent).toMatch(/^SHORT on the event read — /)
     })
 
     it('the sections are folded, Prometheus open, each summary carrying its gist', () => {
@@ -1917,7 +1917,7 @@ describe('AetherCandidates — the drawer is a conclusion and folded sections', 
         openName()
         const secs = [...document.querySelectorAll('.aether-candidates__sec')]
         const titles = secs.map(d => d.querySelector('.fold-section__title').textContent)
-        expect(titles).toEqual(['Why Aether named it', 'Filings', 'Move and clock', 'Prometheus'])
+        expect(titles).toEqual(['Why the event analyst named it', 'Filings', 'Move and clock', 'Analyst'])
         const opened = secs.map(d => d.open)
         expect(opened).toEqual([false, false, false, true])
         const tails = secs.map(d => d.querySelector('.fold-section__tail').textContent)
@@ -1948,7 +1948,7 @@ describe('AetherCandidates — the drawer is a conclusion and folded sections', 
         openName()
         const tail = () => [...document.querySelectorAll('.aether-candidates__sec')].at(-1).querySelector('.fold-section__tail').textContent
         expect(tail()).toBe('not asked')
-        fireEvent.click(screen.getByRole('button', { name: 'Ask Prometheus' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Ask the analyst' }))
         expect(tail()).toBe('reading…')
         resolve({ verdict: 'credible', confidence: 0.7, read: 'r' })
     })

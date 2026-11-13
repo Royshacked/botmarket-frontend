@@ -27,7 +27,7 @@ const _date = (iso) => (iso ? String(iso).slice(0, 10) : null)
 function GradeChip({ g, label }) {
     const title = g.source === 'house'
         ? `${label}: ${g.grade?.replace('_', ' ')} — the house answer${g.departs ? ', departing from the measured grade (reason in the detail)' : ''}`
-        : `${label}: ${g.grade ? g.grade.replace('_', ' ') : 'no measurement'} — measured, not yet reviewed by Pythia`
+        : `${label}: ${g.grade ? g.grade.replace('_', ' ') : 'no measurement'} — measured, not yet reviewed by the industry strategist`
     return (
         <span className={`industry-grade industry-grade--${g.grade ?? 'none'}${g.source === 'measured' ? ' industry-grade--measured' : ''}`} title={title}>
             {g.grade ? g.grade.replace('_', ' ') : '—'}{g.departs ? '*' : ''}
@@ -89,7 +89,7 @@ function IndustryRow({ row }) {
                         </>
                     ) : (
                         <p className="industry-view__pending">
-                            Not yet reviewed by Pythia. The grades shown are the engine&apos;s measured first read
+                            Not yet reviewed by the industry strategist. The grades shown are the engine&apos;s measured first read
                             {row.n_companies ? ` across ${row.n_companies} companies` : ''}.
                         </p>
                     )}
@@ -185,7 +185,7 @@ function StructureView({ industries, loading, error, tabs, query, setQuery }) {
         <div className="industry-view">
             {tabs}
             <div className="industry-view__summary-bar">
-                <span><b>{answered}</b> of {industries.length} answered by Pythia</span>
+                <span><b>{answered}</b> of {industries.length} answered by the industry strategist</span>
                 {flagged > 0 && <span className="industry-view__flagged">{flagged} with an early-review trigger</span>}
                 <span className="industry-view__legend">demand · economics · cycle — descriptions, not forecasts</span>
             </div>

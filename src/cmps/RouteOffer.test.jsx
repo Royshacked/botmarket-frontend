@@ -39,16 +39,16 @@ describe('useRouteOffer', () => {
 describe('RouteOffer', () => {
     const offer = { route: 'research', routeSymbol: 'NVDA', opening: 'Look at NVDA.', edit: null }
 
-    it('names the desk by its agent brand and the symbol, and hands the offer to Go', () => {
+    it('names the role at the desk (never an agent name — one-axl.md) and the symbol, and hands the offer to Go', () => {
         const onGo = vi.fn()
         render(<RouteOffer offer={offer} onGo={onGo} />)
-        fireEvent.click(screen.getByRole('button', { name: 'Go to Prometheus · NVDA' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Go to the analyst · NVDA' }))
         expect(onGo).toHaveBeenCalledWith(offer)
     })
 
     it('an edit names the desk that owns the item', () => {
         render(<RouteOffer offer={{ route: null, routeSymbol: null, opening: null, edit: { kind: 'setup', ref: 's1', desk: 'assist' } }} />)
-        expect(screen.getByRole('button', { name: 'Go to Mentor' })).toBeTruthy()
+        expect(screen.getByRole('button', { name: 'Go to the trader' })).toBeTruthy()
     })
 
     it('waits for the reply to land, and draws nothing for an unknown desk', () => {

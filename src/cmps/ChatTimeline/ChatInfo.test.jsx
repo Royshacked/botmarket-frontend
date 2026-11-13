@@ -20,22 +20,22 @@ afterEach(() => { cleanup(); auth.value = ADMIN })
 describe('ChatInfo', () => {
     it('at a desk: who it is, what it does and how to ask it — then the desks', () => {
         render(<ChatInfo floor="mentor" onClose={() => {}} />)
-        expect(screen.getByRole('heading', { name: /^Talking with Mentor/ })).toBeTruthy()
+        expect(screen.getByRole('heading', { name: /^Talking with Axl\s*· Trader/ })).toBeTruthy()
         expect(screen.getByText(AGENTS.mentor.blurb)).toBeTruthy()
         expect(screen.getByText(AGENTS.mentor.hint)).toBeTruthy()
         expect(screen.getByText('Trading Desk')).toBeTruthy()
-        expect(screen.getByRole('heading', { name: 'How Mentor builds a trade' })).toBeTruthy()
+        expect(screen.getByRole('heading', { name: /builds a trade/ })).toBeTruthy()
     })
 
     it('with Axl: the front desk; a trader is not shown the admin\'s desks', () => {
         auth.value = MEMBER
         render(<ChatInfo floor="axl" onClose={() => {}} />)
         expect(screen.getByRole('heading', { name: 'Talking with Axl' })).toBeTruthy()
-        expect(screen.queryByRole('heading', { name: 'How Mentor builds a trade' })).toBeNull()
-        expect(screen.getByText(/Axl is the front desk/)).toBeTruthy()
+        expect(screen.queryByRole('heading', { name: /builds a trade/ })).toBeNull()
+        expect(screen.getByText(/I am Axl, your assistant/)).toBeTruthy()
         expect(screen.getByText('Research Desk')).toBeTruthy()
         expect(screen.queryByText('Strategy Desk')).toBeNull()
-        expect(screen.queryByText('Aether Desk')).toBeNull()
+        expect(screen.queryByText('Events Desk')).toBeNull()
     })
 
     it('closes on its × and on Escape', () => {

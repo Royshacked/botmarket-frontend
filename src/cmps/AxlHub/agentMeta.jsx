@@ -30,7 +30,8 @@ export const AGENTS = {
     portfolio: {
         tab:   'portfolio',
         brand: 'Atlas',
-        role:  'Investment agent',   // the chat's speaker tag writes it small under the name (Roy, 2026-10-19)
+        role:  'Portfolio manager',
+        work:  'Portfolio work',   // the chat writes it under Axl's name (one-axl.md, 2026-11-13)
         hue:   'green',
         lead:  'Compose a portfolio',
         blurb: 'Design and manage a diversified book around a thesis.',
@@ -50,12 +51,13 @@ export const AGENTS = {
         tab:   'scanner',
         brand: 'Argus',
         // Since 2026-11-09 Argus only finds ONE name for Mentor — his list-building chat is archived (archive/README.md).
-        role:  'Scan agent',
+        role:  'Stock picker',
+        work:  'Finding a name',
         hue:   'violet',
         lead:  'Find a name',
-        blurb: 'Finds one name worth trading and hands it back to Mentor to build.',
+        blurb: 'Finds one name worth trading and hands it back to the trader to build.',
         intro: "Let's find you one name worth trading.",
-        hint:  "Tell me the trade you are after — direction, horizon, a sector or theme — and I'll find one tradeable name and hand it back to Mentor.",
+        hint:  "Tell me the trade you are after — direction, horizon, a sector or theme — and I'll find one tradeable name and hand it back to the trader.",
         icon: (
             <>
                 <path d="M2.5 12 C6 7 18 7 21.5 12 C18 17 6 17 2.5 12 Z"/>
@@ -67,14 +69,15 @@ export const AGENTS = {
     mentor: {
         tab:   'mentor',
         brand: 'Mentor',
-        role:  'Trade agent',
+        role:  'Trader',
+        work:  'Trade work',
         hue:   'green',   // the counsel desk — steady
         lead:  'Work on your own trade',
-        blurb: 'Bring a ticker and your plan. Mentor analyses it, argues with it, and sharpens it.',
+        blurb: 'Bring a ticker and your plan. I analyse it, argue with it, and sharpen it.',
         intro: "Bring me a ticker and how you'd trade it — I'll pressure-test it and we'll build the setup together.",
         // Mentor never screens: the ticker always comes from the user (Pipeline F). The hint says so,
         // so nobody arrives expecting a scan — that's Argus's desk.
-        hint:  "Name a ticker, a direction and a horizon. Bring your own levels or ask me to place them — if you don't have a name yet, Argus is the one who finds them.",
+        hint:  "Name a ticker, a direction and a horizon. Bring your own levels or ask me to place them — if you don't have a name yet, I'll find one.",
         // Athena's owl — Mentor in the Odyssey *is* Athena in disguise. The 0–24 twin of
         // MentorBadge (which is what actually renders: `mentor` has a ringed badge like the
         // other desks); tufts + eyes only, the perch drops out at this size.
@@ -95,7 +98,8 @@ export const AGENTS = {
     proteus: {
         tab:   'proteus',
         brand: 'Proteus',
-        role:  'Technical analysis agent',
+        role:  'Technical analyst',
+        work:  'Technicals',
         hue:   'cyan',   // the sea god — and the one hue the trade desks do not crowd
         lead:  'How a stock trades',
         blurb: 'What a stock respects technically, if anything — measured from its own candles.',
@@ -113,7 +117,8 @@ export const AGENTS = {
     analyst: {
         tab:   'analyst',
         brand: 'Prometheus',
-        role:  'Analyst agent',
+        role:  'Analyst',
+        work:  'Analysis work',
         hue:   'violet',   // research desk — shares the discovery family with Argus
         lead:  'Research a name',
         blurb: 'A living thesis per name — our price target vs the Street, kept alive.',
@@ -135,6 +140,8 @@ export const AGENTS = {
     aether: {
         tab:   'aether',
         brand: 'Aether',
+        role:  'Event analyst',
+        work:  'Event exposure',
         hue:   'cyan',
         lead:  'Who an event reaches',
         blurb: 'A named event in — the companies it reaches out, each verified against its own SEC filings.',
@@ -160,6 +167,8 @@ export const AGENTS = {
     strategy: {
         tab:   'strategy',
         brand: 'Pythia',
+        role:  'Industry strategist',
+        work:  'Industry views',
         // The palette is four hues and desks pair up (Idea/Axl cyan, Atlas/Mentor green,
         // Argus/Prometheus violet). Pythia has amber to herself.
         hue:   'amber',
@@ -202,6 +211,16 @@ AGENTS.axl = {
             <path d="M7.7 18.7 Q12 22 16.3 18.7" />
         </>
     ),
+}
+
+// ── ONE AXL (backend docs/design/one-axl.md, 2026-11-13) ────────────────────────────────────────────────────────
+// The user meets ONE assistant. Every chat row, social-chat card and notification is Axl's; the agent that wrote it shows
+// only as its ROLE under the name ("Axl · Trader"). `brand` above is the internal name — never rendered.
+export const ASSISTANT = 'Axl'
+/** The speaker of a row: always Axl, with the role of the agent that wrote it (null for Axl himself). */
+export function speakerOf(agentKey) {
+    const a = AGENTS[agentKey] ?? null
+    return { name: ASSISTANT, role: a?.role ?? null, agent: a ? agentKey : 'axl' }
 }
 
 // NB: there is deliberately no AGENT_LIST — an agent is reachable through the session (Axl routes to it) or a pane tab,
@@ -254,7 +273,7 @@ export const DESKS = [
         key:      'trade',
         label:    'Trading Desk',
         lead:     'Traders desk',
-        blurb:    'Intraday, day, or swing — Mentor builds the setup with you (Argus finds a name when you have none), Talos watches the zones.',
+        blurb:    'Intraday, day, or swing — we build the setup together (I find a name when you have none), then I watch it for you.',
         hue:      'cyan',
         entryTab: 'mentor',   // every trade starts at Mentor (2026-10-19) — the server's registry says the same
         agentKey: 'mentor',
@@ -263,7 +282,7 @@ export const DESKS = [
         key:      'portfolio',
         label:    'Portfolio Desk',
         lead:     'Investments desk',
-        blurb:    'Long-term or swing — Atlas sets the mandate, Argus screens under it, Prometheus researches, Atlas allocates.',
+        blurb:    'Long-term or swing — we set the mandate, I find and research the names under it, then allocate.',
         hue:      'green',
         // Enters at ATLAS, not Argus. Unlike the trade desk, the portfolio pipeline starts with a
         // frame, not a name: Atlas locks the mandate (objective, horizon, risk, constraints) and only
@@ -279,7 +298,7 @@ export const DESKS = [
         key:      'assist',
         label:    'Assist Desk',
         lead:     'Build your idea',
-        blurb:    'You bring the ticker and your plan — Mentor pressure-tests it, Talos watches the zones.',
+        blurb:    'You bring the ticker and your plan — I pressure-test it, then watch it for you.',
         hue:      'green',
         entryTab: 'mentor',
         agentKey: 'mentor',
@@ -288,7 +307,7 @@ export const DESKS = [
         key:      'technicals',
         label:    'Technicals Desk',
         lead:     'Technical analysis',
-        blurb:    'Proteus measures how a stock trades — what it respects, its false breaks, its ATR — and reads its chart now.',
+        blurb:    'How a stock trades, measured — what it respects, its false breaks, its ATR — and what its chart shows now.',
         hue:      'cyan',
         entryTab: 'proteus',
         agentKey: 'proteus',
@@ -297,7 +316,7 @@ export const DESKS = [
         key:      'research',
         label:    'Research Desk',
         lead:     'Analyst',
-        blurb:    'Prometheus builds a living coverage thesis — our view vs the Street.',
+        blurb:    'A living coverage thesis — our view vs the Street.',
         hue:      'amber',
         entryTab: 'analyst',
         agentKey: 'analyst',
@@ -306,7 +325,7 @@ export const DESKS = [
         key:       'strategy',
         label:     'Strategy Desk',
         lead:      'Economics',
-        blurb:     'Pythia answers three structural questions for every GICS industry.',
+        blurb:     'Three structural questions answered for every GICS industry.',
         hue:       'amber',
         entryTab:  'strategy',
         agentKey:  'strategy',
@@ -314,9 +333,9 @@ export const DESKS = [
     },
     {
         key:       'aether',
-        label:     'Aether Desk',
+        label:     'Events Desk',
         lead:      'Events radar',
-        blurb:     'Aether names the companies a macro, trade or policy event reaches, and quotes what each one\'s own filings say about it.',
+        blurb:     'The companies a macro, trade or policy event reaches, with what each one\'s own filings say about it.',
         hue:       'cyan',
         entryTab:  'aether',
         agentKey:  'aether',

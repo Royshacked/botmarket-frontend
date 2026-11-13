@@ -46,7 +46,7 @@ describe('ChatTimeline', () => {
         expect(send).toHaveBeenCalledWith('Trade it', { agent: 'axl', accounts: [{ id: 'a1' }], mainAccountId: 'a1' })
     })
 
-    it('one speaker tag per voice change — not on every row, never on the user’s', () => {
+    it('one speaker tag per voice change — not on every row, never on the user’s; always Axl, the role under it (one-axl.md)', () => {
         session = base({ rows: [
             row(1, { role: 'user', content: 'hi' }),
             row(2, { content: 'Hello' }),
@@ -55,21 +55,38 @@ describe('ChatTimeline', () => {
         ] })
         const { container } = render(<ChatTimeline />)
         const tags = [...container.querySelectorAll('.chat-timeline__speaker-name')].map(n => n.textContent)
-        expect(tags).toEqual(['Axl', 'Mentor'])
+        expect(tags).toEqual(['Axl', 'Axl'])
+        expect([...container.querySelectorAll('.chat-timeline__speaker-role')].map(n => n.textContent)).toEqual(['Trader'])
     })
 
-    it('a hand-off names both sides, and its brief — the receiving desk’s, a repeat of what was just said — is not on screen (2026-11-12)', () => {
-        session = base({ rows: [row(1, { kind: 'handoff', agent: 'portfolio', to: 'scanner', content: 'Source me semis.' })] })
-        render(<ChatTimeline />)
-        expect(screen.getByText('Atlas → Argus')).toBeTruthy()
+    it('a hand-off draws nothing — one assistant changing hats; the next row\'s role says who took over (one-axl.md)', () => {
+        session = base({ rows: [
+            row(1, { kind: 'handoff', agent: 'portfolio', to: 'scanner', content: 'Source me semis.' }),
+            row(2, { agent: 'scanner', content: 'One name: NVDA.' }),
+        ] })
+        const { container } = render(<ChatTimeline />)
+        expect(container.querySelector('.chat-timeline__handoff')).toBeNull()
         expect(screen.queryByText('Source me semis.')).toBeNull()
+        expect(container.querySelector('.chat-timeline__speaker-role').textContent).toBe('Stock picker')
     })
 
-    it('a desk handing the work back to itself reads as carrying on', () => {
+    it('a desk handing the work back to itself draws nothing either', () => {
         session = base({ rows: [row(1, { kind: 'handoff', agent: 'mentor', to: 'mentor', content: 'Carry on the build from where the last turn stopped.' })] })
-        render(<ChatTimeline />)
-        expect(screen.getByText('Mentor carries on')).toBeTruthy()
+        const { container } = render(<ChatTimeline />)
+        expect(container.querySelector('.chat-timeline__handoff')).toBeNull()
         expect(screen.queryByText(/Carry on the build/)).toBeNull()
+    })
+
+    it('a hand-back\'s opening is not drawn — the user typed the question once and sees it once (one-axl.md drive, 2026-11-13)', () => {
+        session = base({ rows: [
+            row(1, { role: 'user', agent: 'proteus', content: 'what is in the news on NVDA?' }),
+            row(2, { role: 'user', agent: 'axl', content: 'what is in the news on NVDA?', ref: { opening: true } }),
+            row(3, { agent: 'axl', content: 'The headlines today.' }),
+        ] })
+        const { container } = render(<ChatTimeline />)
+        expect(screen.getAllByText('what is in the news on NVDA?')).toHaveLength(1)
+        expect(container.querySelectorAll('.chat-timeline__row--user')).toHaveLength(1)
+        expect(screen.getByText('The headlines today.')).toBeTruthy()
     })
 
     it('a decision’s taps are live only while the chain waits on it — and post the choice', async () => {
@@ -99,7 +116,8 @@ describe('ChatTimeline', () => {
     it('the live turn streams under its speaker; the waiting chip names the tool; Stop stops it', () => {
         session = base({ rows: [row(1, { role: 'user', content: 'scan semis' })], live: { turnId: 't1', agent: 'scanner', text: '', reasoning: '', tool: null, status: 'running' }, floor: 'scanner' })
         const { container, rerender } = render(<ChatTimeline />)
-        expect(container.querySelector('.chat-timeline__row--live .chat-timeline__speaker-name').textContent).toBe('Argus')
+        expect(container.querySelector('.chat-timeline__row--live .chat-timeline__speaker-name').textContent).toBe('Axl')
+        expect(container.querySelector('.chat-timeline__row--live .chat-timeline__speaker-role').textContent).toBe('Stock picker')
         expect(screen.getByText('thinking…')).toBeTruthy()
         session = { ...session, live: { ...session.live, text: 'Looking at' } }
         rerender(<ChatTimeline />)
@@ -127,7 +145,7 @@ describe('ChatTimeline', () => {
         session = base({ rows: [row(1, { role: 'user', content: 'x' })], lastTurn: { status: 'error', message: 'That message did not go through' }, floor: 'mentor' })
         render(<ChatTimeline />)
         expect(screen.getByText('That message did not go through')).toBeTruthy()
-        expect(screen.getByPlaceholderText('Message Mentor…')).toBeTruthy()
+        expect(screen.getByPlaceholderText('Message Axl…')).toBeTruthy()
     })
 
     it('the brief request asks Axl for today’s brief, once', () => {
@@ -162,7 +180,7 @@ describe('ChatTimeline', () => {
 })
 
 describe('speaker runs around self-named rows', () => {
-    it('a hand-off names both sides — no speaker tag over it — and the reply after it is tagged again', () => {
+    it('a hand-off is not drawn, so it does not split one voice — the same role on both sides is one run (one-axl.md)', () => {
         session = base({ rows: [
             row(1, { content: 'Hello' }),
             row(2, { kind: 'handoff', agent: 'axl', to: 'axl', content: 'Brief' }),
@@ -170,7 +188,8 @@ describe('speaker runs around self-named rows', () => {
         ] })
         const { container } = render(<ChatTimeline />)
         const tags = [...container.querySelectorAll('.chat-timeline__speaker-name')].map(n => n.textContent)
-        expect(tags).toEqual(['Axl', 'Axl'])
+        expect(tags).toEqual(['Axl'])
+        expect(screen.queryByText('Brief')).toBeNull()
     })
 })
 
@@ -178,7 +197,7 @@ describe('phase 7 CR', () => {
     it('the user can speak while a turn runs — the message waits, and says so', async () => {
         session = base({ rows: [row(1, { role: 'user', content: 'go' })], live: { turnId: 'chn_1', agent: 'mentor', text: 'Working', status: 'running' }, chain: { status: 'running' }, floor: 'mentor' })
         const { rerender } = render(<ChatTimeline />)
-        const box = screen.getByPlaceholderText('Message Mentor…')
+        const box = screen.getByPlaceholderText('Message Axl…')
         fireEvent.change(box, { target: { value: 'use AMD instead' } })
         expect(screen.queryByLabelText('Stop response')).toBeNull()
         await act(async () => { fireEvent.click(screen.getByTitle('Send')) })
@@ -186,18 +205,18 @@ describe('phase 7 CR', () => {
         session = { ...session, queuedTurn: { turnId: 't2', agent: 'mentor', text: 'use AMD instead' } }
         rerender(<ChatTimeline />)
         expect(screen.getByText('use AMD instead')).toBeTruthy()
-        expect(screen.getByText(/Sends when Mentor finishes — the chain will pause for it/)).toBeTruthy()
+        expect(screen.getByText(/Sends when Axl finishes — the chain will pause for it/)).toBeTruthy()
     })
 
-    it('while a desk holds the floor, "Ask Axl instead" sends the next message to Axl', async () => {
+    it('while a role holds the floor, "Ask something else" sends the next message to Axl at reception', async () => {
         session = base({ rows: [row(1, { agent: 'portfolio', content: 'Objective?' })], floor: 'portfolio' })
         render(<ChatTimeline />)
-        fireEvent.click(screen.getByText('Ask Axl instead'))
+        fireEvent.click(screen.getByText('Ask something else'))
         const box = screen.getByPlaceholderText('Ask Axl anything, or say what you’d like to do…')
         fireEvent.change(box, { target: { value: 'what is a stop?' } })
         await act(async () => { fireEvent.click(screen.getByTitle('Send')) })
         expect(send).toHaveBeenCalledWith('what is a stop?', { accounts: [], mainAccountId: null, agent: 'axl' })
-        expect(screen.getByPlaceholderText('Message Atlas…')).toBeTruthy()
+        expect(screen.getByPlaceholderText('Message Axl…')).toBeTruthy()
     })
 })
 
@@ -313,10 +332,10 @@ describe('the speaker tag (Roy, 2026-10-19)', () => {
         }))
         expect(tags).toEqual([
             { name: 'Axl', role: null },
-            { name: 'Mentor', role: 'Trade agent' },
-            { name: 'Atlas', role: 'Investment agent' },
-            { name: 'Argus', role: 'Scan agent' },
-            { name: 'Prometheus', role: 'Analyst agent' },
+            { name: 'Axl', role: 'Trader' },
+            { name: 'Axl', role: 'Portfolio manager' },
+            { name: 'Axl', role: 'Stock picker' },
+            { name: 'Axl', role: 'Analyst' },
         ])
     })
 })
@@ -380,7 +399,7 @@ describe('ChatTimeline — Info', () => {
         render(<ChatTimeline />)
         fireEvent.click(screen.getByRole('button', { name: 'Info' }))
         expect(screen.getByRole('dialog', { name: 'Info' })).toBeTruthy()
-        expect(screen.getByRole('heading', { name: /^Talking with Prometheus/ })).toBeTruthy()
+        expect(screen.getByRole('heading', { name: /^Talking with Axl\s*· Analyst/ })).toBeTruthy()
         fireEvent.click(screen.getByRole('button', { name: 'Close' }))
         expect(screen.queryByRole('dialog', { name: 'Info' })).toBeNull()
     })

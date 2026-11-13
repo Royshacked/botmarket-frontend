@@ -11,7 +11,7 @@ import { verdictKey, VERDICT_LABEL, INPUT_LABEL, causeWord, REGIME_WORD, movedLi
 /** The long-term chip beside the near-term verdict, or null (backend pythia-two-verdicts.md). The board's and the map's. */
 export function LongTermChip({ row }) {
     if (!isLongTermYes(row) || verdictKey(row.verdict) === 'long_term') return null
-    return <span className="assessment-view__verdict assessment-view__verdict--long_term" title={row.long_term.hype ? 'Long term — stretched: a timing flag' : "Pythia's long-term call, beside the near term"}>For long term{row.long_term.hype ? ' · stretched' : ''}</span>
+    return <span className="assessment-view__verdict assessment-view__verdict--long_term" title={row.long_term.hype ? 'Long term — stretched: a timing flag' : "The industry strategist's long-term call, beside the near term"}>For long term{row.long_term.hype ? ' · stretched' : ''}</span>
 }
 LongTermChip.propTypes = { row: PropTypes.object }
 

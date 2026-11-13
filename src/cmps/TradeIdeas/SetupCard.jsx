@@ -79,7 +79,7 @@ export function SetupCard({ setup, onArm, onDisarm, onDelete, onOpen, onEdit, on
                 <StatusBadge
                     status={status}
                     iconStatus={icon}
-                    label={canArm ? 'Arm it — start Talos watching the zones' : 'Stop watching (back to unarmed)'}
+                    label={canArm ? 'Arm it — start the trade monitor watching the zones' : 'Stop watching (back to unarmed)'}
                     onToggle={() => (canArm ? onArm?.(setup) : onDisarm?.(setup))}
                     disabled={busy}
                 />
@@ -87,7 +87,7 @@ export function SetupCard({ setup, onArm, onDisarm, onDelete, onOpen, onEdit, on
             {!canArm && !armed && <StatusBadge status={status} iconStatus={icon} label={copy.hint} />}
             {/* Parity with ideas and calls: the card opens the pop-out, the pencil returns it to
                 the build chat. Editing a live setup is a light edit, so the pencil stays enabled. */}
-            {onEdit && <EditButton onClick={() => onEdit(setup)} title="Edit in Mentor chat" />}
+            {onEdit && <EditButton onClick={() => onEdit(setup)} title="Edit in the chat" />}
             {/* A live position is delete-locked server-side; don't offer an action that 409s. */}
             <DeleteButton
                 onClick={() => onDelete?.(setup)}

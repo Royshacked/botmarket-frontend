@@ -46,7 +46,7 @@ export function redrawAsk(setup) {
         ?? firstSentence(setup.monitor_state?.last_assessment?.read)
 
     if (missed && setup.invalidation_edge !== 'time') {
-        return `Talos says my ${asset} setup ran without filling${why ? ` — ${why}` : ''}. The read wasn't wrong; the entry never came. `
+        return `The trade monitor says my ${asset} setup ran without filling${why ? ` — ${why}` : ''}. The read wasn't wrong; the entry never came. `
             + 'Re-draw it on today\'s chart if there is still a trade, and say so plainly if there is not.'
     }
 
@@ -56,8 +56,8 @@ export function redrawAsk(setup) {
     // stale around a trade still worth having; the second is a premise that broke.
     const drifted = setup.invalidation_edge === 'time'
     const what = drifted
-        ? `Talos says the map on my ${asset} setup has drifted`
-        : `Talos says my ${asset} setup is no longer valid`
+        ? `The trade monitor says the map on my ${asset} setup has drifted`
+        : `The trade monitor says my ${asset} setup is no longer valid`
 
     const ask = drifted
         ? 'Look at where structure sits now and re-draw the levels — tell me what you would change and why.'

@@ -58,8 +58,8 @@ function Leg({ zone, tone, label, filled = false }) {
                     className={`setup-plan__mode setup-plan__mode--${isWatched ? 'watched' : 'rests'}`}
                     title={isWatched
                         ? (tone === 'stop'
-                            ? 'Talos reads its condition every candle; a stop-market still rests behind it'
-                            : 'Talos reads its condition every candle; nothing rests at the broker')
+                            ? 'The trade monitor reads its condition every candle; a stop-market still rests behind it'
+                            : 'The trade monitor reads its condition every candle; nothing rests at the broker')
                         : 'An order at the broker — nobody reads it'}
                 >
                     {isWatched ? 'watched' : 'rests'}
@@ -126,7 +126,7 @@ export function SetupScenarios({ setup }) {
                     <span className="setup-plan__sub">
                         {scenarioName(sc, i)}<ScenarioTags setup={setup} sc={sc} />
                         {sc.archetype && (
-                            <em className="setup-plan__tag" title={archetypeHint(sc.archetype) ?? 'The way in, as Mentor filed it.'}> {words(sc.archetype)}</em>
+                            <em className="setup-plan__tag" title={archetypeHint(sc.archetype) ?? 'The way in, as the trader filed it.'}> {words(sc.archetype)}</em>
                         )}
                         {rrTag(sc)}
                     </span>

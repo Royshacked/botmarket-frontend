@@ -11,7 +11,7 @@ describe('ScannerSurface — the hand-off only', () => {
 
     it('says the one name goes on to Mentor by itself', () => {
         render(<ScannerSurface session={session} />)
-        expect(screen.getByText(/goes on to Mentor by itself/)).toBeTruthy()
+        expect(screen.getByText(/goes on to the trader by itself/)).toBeTruthy()
     })
 
     it('offers no list to build — no lens, no angles, no save', () => {
@@ -27,7 +27,7 @@ describe('ScannerSurface — the hand-off only', () => {
     })
 
     it('the pane hint names the hand-off, not a list', () => {
-        expect(ScannerSurface.paneHint).toMatch(/Mentor/)
+        expect(ScannerSurface.paneHint).toMatch(/the trader/)
         expect(ScannerSurface.paneHint).not.toMatch(/list/)
     })
 })

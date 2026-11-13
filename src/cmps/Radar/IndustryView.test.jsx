@@ -69,7 +69,7 @@ describe('IndustryView', () => {
         structure(<IndustryView industries={[measured({ view: answered }), measured({ code: '10102010', name: 'Integrated Oil & Gas', sector: 'Energy' })]} />)
         expect(screen.getByText('Information Technology')).toBeTruthy()
         expect(screen.getByText('Energy')).toBeTruthy()
-        expect(screen.getByText(/of 2 answered by Pythia/)).toBeTruthy()
+        expect(screen.getByText(/of 2 answered by the industry strategist/)).toBeTruthy()
     })
 
     it('a measured grade is marked as not yet reviewed; an answered one opens to its reasoning', () => {

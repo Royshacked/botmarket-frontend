@@ -141,7 +141,7 @@ export function moveOf(c, now = Date.now()) {
         `${signedPct(raw)} since the event`,
         `${signedPct(c.excess_pct)} vs SPY`,
         c.extension != null ? `${c.extension.toFixed(1)}σ of its own daily move` : '',
-        dir ? `${dir} Aether's ${SIDE[c.side].label}` : '',
+        dir ? `${dir} the event analyst's ${SIDE[c.side].label}` : '',
         c.price_asof ? `as of ${c.price_asof}` : '',
     ].filter(Boolean)
     return { raw, dir, label: dir ? `${dir} ${num}` : `moved ${num}`, hint: parts.join(' · ') }
@@ -286,7 +286,7 @@ function magnitude(c) {
 // eslint-disable-next-line react-refresh/only-export-components -- pure, and the gate is worth testing
 export function tradable(c, now = Date.now()) {
     if (!c?.side || c.side === 'mixed') {
-        return { ok: false, why: 'Aether could not say which way this one goes — nothing to build a lean on' }
+        return { ok: false, why: 'The event analyst could not say which way this one goes — nothing to build a lean on' }
     }
     const urg = urgencyOf(c, now)
     if (urg.key === 'moved') {
@@ -296,16 +296,16 @@ export function tradable(c, now = Date.now()) {
         // bare "already happened" to the chart and finding the opposite.
         const mv = moveOf(c)
         if (mv?.dir === 'against') {
-            return { ok: false, head: 'Moved against', why: `it is ${signedPct(mv.raw)} since the event, against Aether's ${SIDE[c.side].label} — the market disagrees so far` }
+            return { ok: false, head: 'Moved against', why: `it is ${signedPct(mv.raw)} since the event, against the event analyst's ${SIDE[c.side].label} — the market disagrees so far` }
         }
-        return { ok: false, head: 'Already moved', why: `${mv ? `it is ${signedPct(mv.raw)} since the event, the way Aether said — ` : ''}the excess move has already happened — this is the part Aether exists to get in front of` }
+        return { ok: false, head: 'Already moved', why: `${mv ? `it is ${signedPct(mv.raw)} since the event, the way the event analyst said — ` : ''}the excess move has already happened — this is the part event exposure exists to get in front of` }
     }
     if (urg.key === 'stale') return { ok: false, why: 'old enough that the mechanism needs re-checking before it is sized' }
     if (c.expires_at) {
         const ms = new Date(`${c.expires_at}T00:00:00Z`).getTime()
         if (!Number.isNaN(ms) && ms <= now) return { ok: false, why: `expired ${c.expires_at} — its report has printed and the market has looked` }
     }
-    return { ok: true, why: 'open Mentor with this name and everything Aether found on it' }
+    return { ok: true, why: 'hand this name to the trader with everything the event analyst found on it' }
 }
 
 /**
@@ -335,11 +335,11 @@ export function conclusionOf(c, { read = null, setup = null, now = Date.now() } 
         return { tone: 'built', head: 'Built', why: `you already have a ${setup.direction ?? ''} setup on it · ${setupStage(setup.status)}` }
     }
     if (q?.net === 'unclear') {
-        return { tone: 'leave', head: 'Leave it', why: `Prometheus could not rank the ${n} events pulling on it — they offset, or the record cannot say` }
+        return { tone: 'leave', head: 'Leave it', why: `The analyst could not rank the ${n} events pulling on it — they offset, or the record cannot say` }
     }
     const netLabel = q?.net === 'hurt' ? 'SHORT' : q?.net === 'helped' ? 'LONG' : null
     if (netLabel && netLabel !== side) {
-        return { tone: 'leave', head: 'Leave it, or ask Mentor', why: `Prometheus has it net ${netLabel} across ${n} events, against this event's ${side}` }
+        return { tone: 'leave', head: 'Leave it, or ask the trader', why: `The analyst has it net ${netLabel} across ${n} events, against this event's ${side}` }
     }
     // The sizing rides every verdict that has one. On a contradicted it is often the REASON —
     // APD on the India fab: the mechanism was real and worth +0.2%, dominated by the helium hit.
@@ -358,14 +358,14 @@ export function conclusionOf(c, { read = null, setup = null, now = Date.now() } 
         return { tone: 'build', head: `Build ${side}`, why: `credible${conf}${netLabel ? `, net ${netLabel} across ${n} events` : ''}${sized ? ` — ${sized.text}` : ''}: ${q.read || 'the record confirms the exposure'}` }
     }
     if (q?.verdict === 'unclear') {
-        return { tone: 'build', head: `${side}, unconfirmed`, why: `Prometheus found nothing either way${conf} — Aether's claim stands, unchecked` }
+        return { tone: 'build', head: `${side}, unconfirmed`, why: `The analyst found nothing either way${conf} — the event analyst's claim stands, unchecked` }
     }
     const filing = c.verdict === 'quantified' ? 'the filing sizes it'
         : c.verdict === 'mentioned' ? 'the filing names it'
         : c.verdict === 'silent' ? 'its filings are silent'
         : 'filings not read'
     const move = c.excess_pct != null ? `, ${pct(c.excess_pct)} vs SPY so far` : ''
-    return { tone: 'build', head: `${side} on Aether's read`, why: `${filing}${move} — ask Prometheus before building` }
+    return { tone: 'build', head: `${side} on the event read`, why: `${filing}${move} — ask the analyst before building` }
 }
 
 /**
@@ -419,9 +419,9 @@ export function buildAetherSeed(c, run = {}) {
     const when = (run.event_date || run.created_at || '').slice(0, 10)
 
     const lines = [
-        `I want to build a swing setup on ${c.ticker}${c.company ? ` (${c.company})` : ''} off an Aether event — `
+        `I want to build a swing setup on ${c.ticker}${c.company ? ` (${c.company})` : ''} off an event — `
         + `${subject} (${kind}${when || 'date unknown'})${run.event ? `: "${run.event}"` : '.'}`,
-        c.mechanism ? `Aether has it ${label}: ${c.mechanism}` : `Aether has it ${label}.`,
+        c.mechanism ? `The event analysis has it ${label}: ${c.mechanism}` : `The event analysis has it ${label}.`,
     ]
     if (c.press_evidence) {
         lines.push(`Press: ${c.press_evidence}${c.source_url ? ` (${c.source_url})` : ''}`)
@@ -454,14 +454,14 @@ export function buildAetherSeed(c, run = {}) {
     // get from Aether's fields, and a `contradicted` is exactly what should change the lean.
     if (c.quick_read?.verdict) {
         const q = c.quick_read
-        lines.push(`Prometheus's quick read: ${QUICKREAD_LABEL[q.verdict] ?? q.verdict}`
+        lines.push(`The analyst's quick read: ${QUICKREAD_LABEL[q.verdict] ?? q.verdict}`
             + `${q.confidence != null ? ` (${Math.round(q.confidence * 100)}% confidence)` : ''}`
             + `${q.read ? ` — ${q.read}` : ''}`)
         // The sizing — a target-shaped number for Mentor, with what is already gone taken out,
         // and the inputs it rests on so Mentor can disagree with one rather than with the sum.
         const sized = sizingOf(q)
         if (sized) {
-            lines.push(`Prometheus sizes this event alone at ${signedPct(sized.worth)} to the price at a constant multiple`
+            lines.push(`The analyst sizes this event alone at ${signedPct(sized.worth)} to the price at a constant multiple`
                 + `${sized.lo != null && sized.hi != null && sized.lo !== sized.hi ? ` (band ${signedPct(sized.lo)} to ${signedPct(sized.hi)})` : ''}`
                 + `${sized.moved != null ? `; moved ${signedPct(sized.moved)} since` : ''}`
                 + `${sized.open != null ? (sized.past ? ' — the market is already past it' : `, about ${signedPct(sized.open)} still open`) : ''}`
@@ -471,7 +471,7 @@ export function buildAetherSeed(c, run = {}) {
         // disagree, and the line the seed's lean cannot be allowed to contradict.
         if (q.net) {
             const n = (q.considered?.length ?? 0) + 1
-            lines.push(`Judged against ${n} events naming ${c.ticker}, Prometheus has it ${NET_LABEL[q.net] ?? q.net}`
+            lines.push(`Judged against ${n} events naming ${c.ticker}, the analyst has it ${NET_LABEL[q.net] ?? q.net}`
                 + `${q.net === 'unclear' ? ' — the events offset or the record cannot rank them' : ''}.`)
         }
     }
@@ -486,13 +486,13 @@ export function buildAetherSeed(c, run = {}) {
     const net = c.quick_read?.net
     const netSide = net === 'hurt' ? 'short' : net === 'helped' ? 'long' : null
     if (net === 'unclear') {
-        lines.push(`Prometheus could not rank the events pulling on ${c.ticker} — tell me whether there is a setup here at all, or to leave it.`)
+        lines.push(`The analyst could not rank the events pulling on ${c.ticker} — tell me whether there is a setup here at all, or to leave it.`)
     } else if (netSide && netSide !== side) {
-        lines.push(`Prometheus has the name ${netSide} on the whole, against this event's ${side} — tell me which mechanism dominates from here, or to leave it.`)
+        lines.push(`The analyst has the name ${netSide} on the whole, against this event's ${side} — tell me which mechanism dominates from here, or to leave it.`)
     } else if (q === 'contradicted') {
-        lines.push(`Prometheus read that as contradicted — tell me whether there is still a ${side} setup here, or to leave it.`)
+        lines.push(`The analyst read that as contradicted — tell me whether there is still a ${side} setup here, or to leave it.`)
     } else if (q === 'priced_in') {
-        lines.push(`Prometheus reads the move as already priced — tell me whether there is still a ${side} setup worth the entry from here, or to leave it.`)
+        lines.push(`The analyst reads the move as already priced — tell me whether there is still a ${side} setup worth the entry from here, or to leave it.`)
     } else {
         lines.push(`My lean is ${side} unless you see a reason not to — take me through entry, invalidation and the window.`)
     }
@@ -511,7 +511,7 @@ const QUICKREAD_LABEL = {
     unclear:      'unclear',
 }
 // Why the trade waits while a read is in flight — the same words on the button and under it.
-const READING_WHY = "waiting for Prometheus's read, so it rides in the seed"
+const READING_WHY = "waiting for the analyst's read, so it rides in the seed"
 
 // The direction across every event naming the company, when more than one does. Null when
 // one does — there is no net of a single claim.
@@ -546,7 +546,7 @@ function QuickRead({ c, runId, read, onRead, busy, onBusy }) {
         return (
             <div className={`aether-candidates__read aether-candidates__read--${read.verdict}`}
                  title={QUICKREAD_HINT[read.verdict] ?? ''}>
-                <span className="aether-candidates__read-label">Prometheus</span>
+                <span className="aether-candidates__read-label">Analyst</span>
                 <strong className="aether-candidates__read-verdict">{QUICKREAD_LABEL[read.verdict] ?? read.verdict}</strong>
                 {read.confidence != null && (
                     <span className="aether-candidates__read-conf">{Math.round(read.confidence * 100)}%</span>
@@ -566,7 +566,7 @@ function QuickRead({ c, runId, read, onRead, busy, onBusy }) {
                     arithmetic was the tool's. */}
                 {sizing && (
                     <p className={`floor-detail__prose aether-candidates__read-size${sizing.past ? ' aether-candidates__read-size--past' : ''}`}
-                       title="Prometheus's sizing of this one event: forward revenue × exposed share × shock × drop-through × persistence, at a constant multiple — no re-rating, no sentiment. Band from the shock range.">
+                       title="The analyst's sizing of this one event: forward revenue × exposed share × shock × drop-through × persistence, at a constant multiple — no re-rating, no sentiment. Band from the shock range.">
                         <strong>Sized:</strong> {sizing.text}
                         {sizing.basis && <em> — {sizing.basis}</em>}
                     </p>
@@ -609,9 +609,9 @@ function QuickRead({ c, runId, read, onRead, busy, onBusy }) {
                 className={`aether-candidates__ask${busy ? ' aether-candidates__ask--busy' : ''}`}
                 disabled={busy}
                 onClick={ask}
-                title="Prometheus checks what the company has said or filed since the event, and the estimate trend — credible, priced in, or contradicted. One Sonnet call on your budget; the read is kept and shown to everyone."
+                title="The analyst checks what the company has said or filed since the event, and the estimate trend — credible, priced in, or contradicted. One Sonnet call on your budget; the read is kept and shown to everyone."
             >
-                {busy ? 'Prometheus is reading…' : 'Ask Prometheus'}
+                {busy ? 'The analyst is reading…' : 'Ask the analyst'}
             </button>
             {err && <span className="aether-candidates__act-why">{err}</span>}
         </div>
@@ -1077,12 +1077,12 @@ function NameRow({ c, run, recur, panelId, isOpen, onToggle, onJump, onSymbolCli
                         while one is in flight, since the row may be collapsed before it lands. */}
                     {reading ? (
                         <span className="aether-candidates__read-chip aether-candidates__read-chip--busy"
-                              title="Prometheus is reading this name">
+                              title="The analyst is reading this name">
                             reading…
                         </span>
                     ) : read?.verdict && (
                         <span className={`aether-candidates__read-chip aether-candidates__read-chip--${read.verdict}`}
-                              title={`Prometheus: ${QUICKREAD_HINT[read.verdict] ?? read.verdict}${read.net ? ` — ${NET_LABEL[read.net] ?? read.net} across every event naming it` : ''}`}>
+                              title={`Analyst: ${QUICKREAD_HINT[read.verdict] ?? read.verdict}${read.net ? ` — ${NET_LABEL[read.net] ?? read.net} across every event naming it` : ''}`}>
                             {QUICKREAD_LABEL[read.verdict] ?? read.verdict}
                         </span>
                     )}
@@ -1121,7 +1121,7 @@ function NameRow({ c, run, recur, panelId, isOpen, onToggle, onJump, onSymbolCli
                             the folded drawer still reads as a story. */}
                         <Conclusion c={cRead} setup={setup} />
 
-                        <Section title="Why Aether named it"
+                        <Section title="Why the event analyst named it"
                                  tail={c.tier != null ? `tier ${c.tier}${c.tier === 1 ? ' · named in coverage' : c.tier === 2 ? ' · supplier or customer' : ' · further removed'}` : ''}>
                             {c.mechanism && <p className="floor-detail__prose">{c.mechanism}</p>}
                             {c.press_evidence && (
@@ -1161,7 +1161,7 @@ function NameRow({ c, run, recur, panelId, isOpen, onToggle, onJump, onSymbolCli
                                 <p className="floor-detail__prose">
                                     <strong>{signedPct(c.move_pct)}</strong> from the close before the event
                                     {c.event_date && <> ({c.event_date})</>}
-                                    {mv?.dir && <>, <strong>{mv.dir}</strong> Aether’s {SIDE[c.side].label}</>}
+                                    {mv?.dir && <>, <strong>{mv.dir}</strong> the event analyst’s {SIDE[c.side].label}</>}
                                     {' · '}{signedPct(c.excess_pct)} vs SPY
                                     {c.extension != null && <> · {c.extension.toFixed(1)}σ of its own daily move</>}
                                     {c.reaction && c.reaction !== 'unknown' && <> · {c.reaction}</>}
@@ -1214,7 +1214,7 @@ function NameRow({ c, run, recur, panelId, isOpen, onToggle, onJump, onSymbolCli
                         {/* Prometheus, open by default: it is the judgment, and the button to
                             ask for it has to be in reach. Then the trade — a `contradicted`
                             should be seen before the button is pressed. */}
-                        <Section title="Prometheus" open
+                        <Section title="Analyst" open
                                  tail={read?.verdict
                                      ? `${QUICKREAD_LABEL[read.verdict] ?? read.verdict}${read.confidence != null ? ` ${Math.round(read.confidence * 100)}%` : ''}${read.net ? ` · ${NET_LABEL[read.net] ?? read.net}` : ''}`
                                      : reading ? 'reading…' : 'not asked'}>
@@ -1255,7 +1255,7 @@ function NameRow({ c, run, recur, panelId, isOpen, onToggle, onJump, onSymbolCli
                                     title={reading ? READING_WHY : trade.why}
                                     onClick={() => onTradeWithMentor(c.ticker, buildAetherSeed(cRead, run))}
                                 >
-                                    Trade with Mentor →
+                                    Build the trade →
                                 </button>
                                 {!trade.ok
                                     ? <span className="aether-candidates__act-why">{trade.why}</span>
@@ -1362,7 +1362,7 @@ export function AetherCandidates({ runs = [], loading, error = '', onSymbolClick
         return (
             <div className="aether-candidates">
                 <p className="floor-empty">
-                    No events in the window. Aether names companies when a story breaks, and a run
+                    No events in the window. The event analyst names companies when a story breaks, and a run
                     is started by hand rather than on a schedule.
                 </p>
                 <div className="aether-candidates__bar"><RunButton /></div>

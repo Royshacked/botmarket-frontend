@@ -86,7 +86,7 @@ export function ScenarioBlock({
                     // Mentor's filing of its own plan, and the thing that makes a level arguable:
                     // "why THAT stop" has an answer from a closed set rather than a paragraph.
                     <span className="scenario-block__badge scenario-block__badge--archetype"
-                        title={archetypeHint(scenario.archetype) ?? 'The way in, as Mentor filed it.'}>
+                        title={archetypeHint(scenario.archetype) ?? 'The way in, as the trader filed it.'}>
                         {words(scenario.archetype)}
                     </span>
                 )}

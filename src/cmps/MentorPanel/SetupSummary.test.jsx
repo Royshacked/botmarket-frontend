@@ -259,7 +259,7 @@ describe('ScenarioBlock', () => {
 
     it('an archetype this build has not heard of still reads, without a tooltip it cannot give', () => {
         render(<ScenarioBlock scenario={{ ...FADE, archetype: 'liquidity_grab' }} direction="long" index={0} />)
-        expect(screen.getByText('liquidity grab').getAttribute('title')).toMatch(/as Mentor filed it/)
+        expect(screen.getByText('liquidity grab').getAttribute('title')).toMatch(/as the trader filed it/)
     })
 
     it('falls back to a positional name so an unnamed premise is still addressable', () => {

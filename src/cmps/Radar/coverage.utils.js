@@ -60,4 +60,4 @@ function fmtRevisionDate(ms, nowMs) {
 // name sooner, and neither is on a calendar. The hint says so, so a user reading "Nov 3" doesn't
 // take it as "nothing happens until then".
 export const NEXT_REVISION_HINT =
-    'Scheduled re-model. Prometheus may revise sooner if the edge changes shape or the target is hit early.'
+    'Scheduled re-model. The analyst may revise sooner if the edge changes shape or the target is hit early.'

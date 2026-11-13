@@ -131,7 +131,7 @@ export function OrderConfirmDialog({ idea, orders, levels = [], drift = null, pl
                     {drift && (
                         <p className="order-confirm__drift">
                             {drift.pastStop
-                                ? <>⚠️ Price is {fmtPrice(drift.live)} — already past your stop ({fmtPrice(risk.stop)}). The plan is broken and cannot be placed; re-draw it with Mentor.</>
+                                ? <>⚠️ Price is {fmtPrice(drift.live)} — already past your stop ({fmtPrice(risk.stop)}). The plan is broken and cannot be placed; re-draw it in the chat.</>
                                 : <>⚠️ Price is {fmtPrice(drift.live)}, {fmtPrice(Math.abs(drift.slippage))} {idea.direction === 'short' ? 'below' : 'above'} your {fmtPrice(drift.planned)} plan
                                     {drift.liveRr != null ? <> — R:R now <strong>{drift.liveRr}</strong> (planned {drift.plannedRr})</> : null}.
                                     {' '}This order fills at market.</>}

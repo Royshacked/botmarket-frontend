@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import { BrandTitle } from '../BrandTitle.jsx'
 import { AgentGlyph } from './AgentBadges.jsx'
-import { AGENTS } from './agentMeta.jsx'
+import { AGENTS, ASSISTANT } from './agentMeta.jsx'
 import './AgentGlyphs.scss'
 
 // ── Agent presentational pieces ────────────────────────────────────────────────
@@ -49,11 +49,12 @@ BotAvatarGlyph.propTypes = {
 export function AgentIntro({ agent, introOverride, hintOverride, children }) {
     return (
         <div className={`agent-intro agent-intro--${agent.hue}`}>
+            {/* ONE AXL (one-axl.md, 2026-11-13): every desk greets as Axl, its role beside the name. */}
             <span className="agent-intro__icon">
-                <AgentGlyph agentKey={agent.tab} icon={agent.icon} size={48} />
+                <AgentGlyph agentKey="axl" icon={AGENTS.axl.icon} size={48} />
             </span>
             <p className="agent-intro__greeting">
-                Hi, I&apos;m <span className="agent-intro__brand"><BrandTitle text={agent.brand} /></span>.
+                Hi, I&apos;m <span className="agent-intro__brand"><BrandTitle text={ASSISTANT} /></span>{agent.role ? <span className="agent-intro__role"> · {agent.role}</span> : null}.
             </p>
             <p className="agent-intro__intro">{introOverride ?? agent.intro}</p>
             {(hintOverride ?? agent.hint) && <p className="agent-intro__hint">{hintOverride ?? agent.hint}</p>}
@@ -75,9 +76,9 @@ export function AgentTurnTag({ agent, active = false }) {
     return (
         <span className={`agent-turn-tag${active ? ' is-active' : ''}`}>
             <span className="agent-turn-tag__icon">
-                <AgentGlyph agentKey={agent.tab} icon={agent.icon} size={26} />
+                <AgentGlyph agentKey="axl" icon={AGENTS.axl.icon} size={26} />
             </span>
-            <span className="agent-turn-tag__name">{agent.brand}</span>
+            <span className="agent-turn-tag__name">{ASSISTANT}{agent.role ? ` · ${agent.role}` : ''}</span>
         </span>
     )
 }

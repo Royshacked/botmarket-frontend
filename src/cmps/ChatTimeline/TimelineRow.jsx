@@ -5,7 +5,7 @@ import { ChatBubble } from '../ChatBubble.jsx'
 import { openChart } from '../../services/chartSurface.service.js'
 import { bubbleOf } from '../../services/session/sessionReducer.js'
 import { ShowOffer } from './ShowOffer.jsx'
-import { agentMeta } from './timelineRows.js'
+import { speakerOf } from '../AxlHub/agentMeta.jsx'
 import { openEntityPopup } from '../EntityCard/entityPopup.js'
 
 // One row of the unified chat's timeline, by kind (plan phase 7, 7c). Every agent speaks in it; the speaker
@@ -13,18 +13,18 @@ import { openEntityPopup } from '../EntityCard/entityPopup.js'
 // continue, the chart surface, the entity opener — never a second copy of them.
 
 /**
- * Who is talking — drawn when the voice changes, not on every row. The glyph, the agent's name beside it, and its
- * role small under the name — Trade agent, Investment agent, Scan agent, Analyst agent (Roy, 2026-10-19). Axl has
- * no role: his name stands alone.
+ * Who is talking — drawn when the voice changes, not on every row. ONE AXL (backend one-axl.md, 2026-11-13): always
+ * Axl's glyph and name; the role of the agent that wrote the row small under it — Trader, Analyst, Portfolio manager…
+ * Axl's own rows have no role. A change of role is the hand-off the user sees.
  */
 export function SpeakerTag({ agent }) {
-    const meta = agentMeta(agent)
+    const { name, role } = speakerOf(agent)
     return (
-        <div className={`chat-timeline__speaker chat-timeline__speaker--${meta.hue}`}>
-            <span className="chat-timeline__speaker-icon"><BotAvatarGlyph agentKey={agent} size={18} /></span>
+        <div className="chat-timeline__speaker chat-timeline__speaker--cyan" data-agent={agent}>
+            <span className="chat-timeline__speaker-icon"><BotAvatarGlyph agentKey="axl" size={18} /></span>
             <span className="chat-timeline__speaker-label">
-                <span className="chat-timeline__speaker-name">{meta.brand}</span>
-                {meta.role && <span className="chat-timeline__speaker-role">{meta.role}</span>}
+                <span className="chat-timeline__speaker-name">{name}</span>
+                {role && <span className="chat-timeline__speaker-role">{role}</span>}
             </span>
         </div>
     )
@@ -109,19 +109,10 @@ EndedLine.propTypes = { row: PropTypes.object.isRequired, readOnly: PropTypes.bo
 export function TimelineRow({ row, decisionOpen = false, onChoose, onOpenTicket, onOpenView, readOnly = false }) {
     const kind = row.kind ?? 'msg'
 
-    // A HAND-OFF shows who passed the work to whom, and nothing more (Roy, 2026-11-12: "hide all duplicates in all agents").
-    // Its brief is the receiving desk's instruction, and it restates what the sender just said in the chat (Prometheus's
-    // facts, Argus's pick, Atlas's sleeve) — kept on the row for the desk and History, never printed twice on screen.
-    if (kind === 'handoff') {
-        const self = row.to && row.to === row.agent
-        return (
-            <div className="chat-timeline__handoff">
-                <span className="chat-timeline__handoff-route">
-                    {self ? `${agentMeta(row.agent).brand} carries on` : `${agentMeta(row.agent).brand} → ${agentMeta(row.to).brand}`}
-                </span>
-            </div>
-        )
-    }
+    // A HAND-OFF draws nothing (one-axl.md, 2026-11-13): to the user it is one assistant changing hats, and the next
+    // row's speaker tag already names the new role. Its brief is the receiving desk's instruction — kept on the row for
+    // the desk and History, never on screen (Roy, 2026-11-12: "hide all duplicates in all agents").
+    if (kind === 'handoff') return null
 
     if (kind === 'decision') return <DecisionRow row={row} open={decisionOpen && !readOnly} onChoose={onChoose} />
 

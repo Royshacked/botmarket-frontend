@@ -22,16 +22,16 @@ describe('FloorInfo', () => {
 
     it('with Mentor in the chat it says how a risk-based build works; the Hotlist, when open, comes first', () => {
         render(<FloorInfo floor="mentor" />)
-        expect(screen.getByRole('heading', { name: 'How Mentor builds a trade' })).toBeTruthy()
+        expect(screen.getByRole('heading', { name: 'How the trader builds a trade' })).toBeTruthy()
         expect(screen.queryByText(/what is going on in the app/i)).toBeNull()
         act(() => openPanel(HOTLIST_PANEL_ID))
         expect(screen.getByRole('heading', { name: 'The Hotlist' })).toBeTruthy()
-        expect(screen.queryByRole('heading', { name: 'How Mentor builds a trade' })).toBeNull()
+        expect(screen.queryByRole('heading', { name: 'How the trader builds a trade' })).toBeNull()
     })
 
     it('another desk in the chat does not get it', () => {
         render(<FloorInfo floor="axl" />)
-        expect(screen.queryByRole('heading', { name: 'How Mentor builds a trade' })).toBeNull()
+        expect(screen.queryByRole('heading', { name: 'How the trader builds a trade' })).toBeNull()
     })
 
     it('explains the Hotlist table while the Hotlist is open — and goes back when it closes', () => {

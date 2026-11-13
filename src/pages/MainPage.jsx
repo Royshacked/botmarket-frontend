@@ -316,8 +316,8 @@ export function MainPage() {
         const session = mainSessionRef.current
         let out = await session.reopen(kind, id, { name, reviewMode, redraw })
         if (!out.ok && out.reason === 'busy') {
-            const brand = agentMeta(out.extra?.agent).brand
-            if (!window.confirm(`${brand} is in the middle of something else. Set it aside and open this?`)) return false
+            const work = (agentMeta(out.extra?.agent).work ?? 'work').toLowerCase()
+            if (!window.confirm(`There is other ${work} open and unsaved. Set it aside and open this?`)) return false
             out = await session.reopen(kind, id, { name, reviewMode, redraw, force: true })
         }
         if (!out.ok) { showErrorMsg(out.message); return false }
@@ -485,7 +485,7 @@ export function MainPage() {
         return eventBus.on(RESUME_BUILD, ({ portfolioId = null, threadId = null } = {}) => {
             if (portfolioId) { handleEditPortfolio(portfolioId); return }
             openDesk('portfolio')
-            if (threadId) showUserMsg('That build was started before the chat moved — tell Atlas to pick it up from the research.')
+            if (threadId) showUserMsg('That build was started before the chat moved — ask me to pick it up from the research.')
         })
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -603,14 +603,14 @@ export function MainPage() {
             // ANY work counts (phase 8b CR) — a generated setup waiting on Arm has no draft, and a fresh plan clears it.
             const session = mainSessionRef.current
             const held = mentorHolding(session.agentState?.mentor)
-            if (held && !window.confirm(`Mentor is working on ${held}. Put it aside and open the shared ${setup.asset ?? ''} plan?`)) return
+            if (held && !window.confirm(`I'm working on ${held} with you. Put it aside and open the shared ${setup.asset ?? ''} plan?`)) return
             const fresh = { draft: setup, fresh: true, accounts: deskAccountsRef.current.accounts }
             let put = await session.edit('mentor', fresh)
             // A Mentor turn finishing in between moves the revision: once more on the one the refusal named. The user
             // already said yes to what was on the table; a turn's next words are not worth a second question.
             if (!put.ok && put.reason === 'stale_state' && Number.isInteger(put.extra?.rev)) put = await session.edit('mentor', fresh, { rev: put.extra.rev })
             if (!put.ok) {
-                showErrorMsg(put.reason === 'stale_state' ? 'Mentor is mid-reply — open the shared plan again once it finishes.' : put.message)
+                showErrorMsg(put.reason === 'stale_state' ? 'I am mid-reply — open the shared plan again once I finish.' : put.message)
                 return
             }
             if (setup.asset) openChart({ ticker: setup.asset, source: 'mentor' })

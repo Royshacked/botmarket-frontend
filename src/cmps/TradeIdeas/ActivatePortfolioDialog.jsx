@@ -40,8 +40,8 @@ export function ActivatePortfolioDialog({ name, count = 0, manual = false, onRev
         >
             <p className="activate-portfolio__lead">
                 {manual
-                    ? <>Posts an entry card for {count === 1 ? 'the leg' : `all ${count} legs`} — you enter each at your own broker and record your fills in social chat. Want Atlas to review the book first?</>
-                    : <>This fires {count === 1 ? 'the idea' : `all ${count} ideas`} at market now — the last gate before real exposure. Want Atlas to review the book first?</>
+                    ? <>Posts an entry card for {count === 1 ? 'the leg' : `all ${count} legs`} — you enter each at your own broker and record your fills in social chat. Want the portfolio manager to review the book first?</>
+                    : <>This fires {count === 1 ? 'the idea' : `all ${count} ideas`} at market now — the last gate before real exposure. Want the portfolio manager to review the book first?</>
                 }
             </p>
         </Modal>,

@@ -54,7 +54,7 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
         }
         return hosts.current.get(t)
     }
-    const labelOf = (t) => surfaces[t]?.paneLabel ?? agentMeta(t).brand
+    const labelOf = (t) => surfaces[t]?.paneLabel ?? agentMeta(t).work ?? 'Work'
     const floor = session?.floor ?? 'axl'
 
     // Follow the floor. Keyed on the floor's CHANGE, not its value, so closing the pane while a desk holds the floor

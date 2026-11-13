@@ -16,7 +16,7 @@ const REASON_COPY = {
     not_live:       'not in a position yet',
     already_held_use_add_to_item: 'already held',
     // The house's industry limits (backend step 7, industryLimits.service).
-    avoid_industry: 'Pythia rates its industry AVOID — needs your OK',
+    avoid_industry: 'The industry strategist rates its industry AVOID — needs your OK',
     industry_cap:   'its industry already holds a third of the book',
     market_closed:  'market closed',
     // The two ways a REMOVE is refused, and they need different sentences. A live holding is closed

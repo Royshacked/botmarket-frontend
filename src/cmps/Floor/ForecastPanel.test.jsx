@@ -140,7 +140,7 @@ describe('ForecastPanel — an industry', () => {
         await openMap()
         fireEvent.click(tileOf('Integrated Oil & Gas'))
         await flush()
-        expect(screen.getByText(/Pythia has not assessed this industry yet/)).toBeTruthy()
+        expect(screen.getByText(/The industry strategist has not assessed this industry yet/)).toBeTruthy()
         expect(screen.getByText('XOM')).toBeTruthy()
     })
 

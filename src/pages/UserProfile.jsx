@@ -384,12 +384,12 @@ export function UserProfile() {
                                         </select>
                                     </div>
                                     <div className="user-profile__agent-field">
-                                        <span className="user-profile__label">Monitors (Talos)</span>
+                                        <span className="user-profile__label">Trade monitor</span>
                                         <select
                                             className="user-profile__select"
                                             style={{ width: 'auto', minWidth: '9rem' }}
                                             value={house?.talosModel ?? TALOS_DEFAULT_MODEL}
-                                            aria-label="House Talos model"
+                                            aria-label="House trade monitor model"
                                             disabled={!house}
                                             onChange={e => handleHouse('talosModel', e.target.value)}
                                         >

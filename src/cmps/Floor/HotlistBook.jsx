@@ -38,7 +38,7 @@ function bookCells(r, cov, asof) {
         progress: { text: bookProgress(r) ?? null },
         from: { text: origin.text, title: origin.title },
         // No read: a Hold or a Sell is never timed (the lists are the long side); a Buy waits for the weekly run.
-        timing: bookTiming(r) ?? { text: null, title: isBuy(r) ? 'Argus has not read its timing yet — the weekly run reads every Buy on the list' : 'Argus times the Buys only' },
+        timing: bookTiming(r) ?? { text: null, title: isBuy(r) ? 'No timing read yet — the weekly run reads every Buy on the list' : 'Only Buys are timed' },
     }
 }
 
@@ -64,11 +64,11 @@ function survivorsEmpty({ picks, failed, column, left = 0 }) {
     const label = BOOK_LABEL[column].toLowerCase()
     if (failed) return 'The weekly chain’s names could not be loaded — see Covered companies.'
     // Every survivor left (2026-10-28): not "he covered none" — he did, and Pythia has moved on.
-    if (left) return `No ${label} names on the list: Pythia no longer calls the ${left} Prometheus covered (named above) — they are in Covered companies.`
-    if (!picks.length) return `The weekly chain has sent no ${label} names yet — Pythia’s week sends them. See Covered companies meanwhile.`
+    if (left) return `No ${label} names on the list: the industry strategist no longer calls the industry of the ${left} covered (named above) — they are in Covered companies.`
+    if (!picks.length) return `The weekly chain has sent no ${label} names yet — the industry strategist’s week sends them. See Covered companies meanwhile.`
     const waiting = picks.filter(p => p.state === 'waiting').length
-    if (waiting) return `Prometheus has ${waiting} of Argus’s ${picks.length} ${label} names still to research.`
-    return `Prometheus covered none of Argus’s ${picks.length} ${label} names.`
+    if (waiting) return `The analyst has ${waiting} of the ${picks.length} ${label} picks still to research.`
+    return `The analyst covered none of the ${picks.length} ${label} picks.`
 }
 
 export function HotlistBook({ book, column, coverage = [], isAdmin = false, focus = null, onOpen = () => {}, onBuild, onSymbolClick }) {
@@ -131,18 +131,18 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
                 <div className="hot-detail">
                     {head.length > 0 && <p className="hot-detail__head hot-dim">{head.join(' · ')}</p>}
                     {r.origin?.source === 'pythia' && (
-                        <p className="hot-detail__line"><b>From the weekly chain:</b> Pythia’s {r.origin.verdict === 'long_term' ? 'long-term' : r.origin.verdict} call on {r.origin.subject}
-                            {r.origin.why ? <> — <b>Argus:</b> {r.origin.why}</> : null}
+                        <p className="hot-detail__line"><b>From the weekly chain:</b> the industry strategist’s {r.origin.verdict === 'long_term' ? 'long-term' : r.origin.verdict} call on {r.origin.subject}
+                            {r.origin.why ? <> — <b>Stock picker:</b> {r.origin.why}</> : null}
                             {r.origin.caution ? <span className="hot-row__caution"> Caution: {r.origin.caution}</span> : null}</p>
                     )}
                     {timing && (
-                        <p className="hot-detail__line"><b>Argus · timing{timing.week ? ` (${timing.week})` : ''}:</b> {timing.line}</p>
+                        <p className="hot-detail__line"><b>Timing{timing.week ? ` (${timing.week})` : ''}:</b> {timing.line}</p>
                     )}
                     {cov ? <CoverageDetail coverage={cov} /> : <p className="hot-detail__line hot-dim">The thesis is on the Forecasts page.</p>}
                     <div className="hot-detail__actions">
                         {/* On Covered companies a row hands off as the book it sits in. */}
                         {onBuild && <button type="button" className="floor-queued__btn" onClick={() => onBuild(r, r.book ?? column, null)}
-                            title={`Build a ${BOOK_LABEL[r.book ?? column].toLowerCase()} setup with Mentor`}>Build with Mentor</button>}
+                            title={`Build a ${BOOK_LABEL[r.book ?? column].toLowerCase()} setup in the chat`}>Build a setup</button>}
                     </div>
                 </div>
             </HotlistRowPage>
@@ -161,14 +161,14 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
                                     <th scope="col" className="hot-table__star"><span className="hot-sr">Details</span></th>
                                     {th('symbol', 'Sym')}
                                     <th scope="col" className="hot-table__num hot-col--more" title={lastTitle(book?.asof)}>Last</th>
-                                    <th scope="col" title="Prometheus's rating">Rating</th>
-                                    <th scope="col" className="hot-table__num" title="Prometheus's price target">Target</th>
+                                    <th scope="col" title="The analyst's rating">Rating</th>
+                                    <th scope="col" className="hot-table__num" title="The analyst's price target">Target</th>
                                     {th('upside', 'Upside', { num: true, title: 'From the last close to the target' })}
-                                    {!covered && <th scope="col" title="Argus's timing read, weekly: a buy now, or wait — and for what (hover a cell)">Timing</th>}
+                                    {!covered && <th scope="col" title="The stock picker's timing read, weekly: a buy now, or wait — and for what (hover a cell)">Timing</th>}
                                     {th('days_left', 'By', { more: true, title: 'The target date, and the horizon it was set for' })}
                                     {th('since', 'Since set', { more: true, title: 'Did it work: the move since the target was set (and against SPY over the same days); ✓ hit, ✗ broken, expired once settled' })}
                                     {th('progress', 'To target', { num: true, more: true, title: 'How far from the price the day the target was set toward the target' })}
-                                    <th scope="col" className="hot-col--more" title="Where the name came from: the weekly chain (Pythia's industry or theme → Argus → Prometheus), or the desk">From</th>
+                                    <th scope="col" className="hot-col--more" title="Where the name came from: the weekly chain (the industry strategist's industry or theme → the stock picker → the analyst), or the desk">From</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -207,7 +207,7 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
                 how the chain makes the list is in the Info column. */}
             {isAdmin && !covered && <BookRecord rec={book?.record?.[column]} column={column} />}
             {isAdmin && !covered && left.length > 0 && (
-                <p className="hot-note hot-dim">Off this list — Pythia no longer calls them {BOOK_LABEL[column].toLowerCase()}; still covered, in Covered companies:{' '}
+                <p className="hot-note hot-dim">Off this list — the industry strategist no longer calls them {BOOK_LABEL[column].toLowerCase()}; still covered, in Covered companies:{' '}
                     {left.map(r => `${r.symbol} (${r.origin?.subject ?? 'its industry'}: now ${VERDICT_WORDS[r.origin?.verdict_now] ?? r.origin?.verdict_now ?? '—'})`).join(', ')}.</p>
             )}
             {/* Prometheus's scorecard, the admin's, under the whole book (it had its own view before 2026-10-31). */}

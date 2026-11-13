@@ -41,7 +41,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks() })
 describe('PortfolioSurface — the table', () => {
     it('with nothing on the table it says how to start — in the chat; no chips (Roy, 2026-11-12)', () => {
         mount(null)
-        expect(screen.getByText(/Nothing on Atlas/)).toBeTruthy()
+        expect(screen.getByText(/Nothing on the table yet/)).toBeTruthy()
         expect(screen.queryByText('Build me a long-term growth portfolio')).toBeNull()
         expect(screen.queryByText('Adopt a book I hold at my bank')).toBeNull()
     })
@@ -71,7 +71,7 @@ describe('PortfolioSurface — the table', () => {
 
     it('says what the turn sent off to be researched', () => {
         mount({ notices: { screenRequests: [{ sector: 'Energy', lens: 'value' }] } })
-        expect(screen.getByText(/Energy \(value\) sleeve sent to Argus and Prometheus/)).toBeTruthy()
+        expect(screen.getByText(/Energy \(value\) sleeve sent to the stock picker and the analyst/)).toBeTruthy()
         // No one-name research queue since 2026-10-31: nothing is "queued for research".
         expect(screen.queryByText(/queued for research/)).toBeNull()
     })
@@ -174,7 +174,7 @@ describe('PortfolioSurface — editing a book', () => {
     it('a stale press says why', async () => {
         mount({ portfolioId: 'p1', editing: EDITING, pendingPlan: PLAN }, { commit: vi.fn(async () => ({ ok: false, reason: 'stale_state', message: 'x', extra: { rev: 9 } })) })
         fireEvent.click(screen.getByText('Update plan'))
-        expect((await screen.findByRole('alert')).textContent).toMatch(/Atlas moved on while you were looking/)
+        expect((await screen.findByRole('alert')).textContent).toMatch(/The portfolio manager moved on while you were looking/)
     })
 })
 
@@ -277,6 +277,6 @@ describe('PortfolioSurface — the edit bar is always there (Roy, 2026-10-18)', 
     it('editing a book while Atlas answers: Update plan stays, dark, and it says why', () => {
         mount({ portfolioId: 'p1', editing: EDITING, pendingPlan: PLAN }, { live: { turnId: 't', agent: 'portfolio', text: '', status: 'running' } })
         expect(screen.getByText('Update plan').closest('button').disabled).toBe(true)
-        expect(screen.getByText('Atlas is answering…')).toBeTruthy()
+        expect(screen.getByText('The portfolio manager is answering…')).toBeTruthy()
     })
 })

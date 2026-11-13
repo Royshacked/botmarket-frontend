@@ -464,7 +464,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = fa
             hubCount: setups.length
                 ? `${setups.filter(x => isArmed(x.status)).length} watched · ${setups.length} total`
                 : null,
-            items: setups, loading: setupsLoading, empty: 'No setups yet — build one with Mentor.',
+            items: setups, loading: setupsLoading, empty: 'No setups yet — build one in the chat.',
             // The pencil reopens the BUILD conversation (onEditSetup). It used to be wired to
             // onOpenSetup, which only switched to the Mentor tab and landed on an empty chat.
             renderCard: (su) => (
@@ -487,7 +487,7 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = fa
             body: 'custom',
         },
         {
-            key: 'aether', label: 'Aether',
+            key: 'aether', label: 'Event exposure',
             icon: <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2L4.5 13.5H11L10 22l9.5-12H14z"/></svg>,
             count: (aetherCandidates?.runs ?? []).reduce((n, r) => n + (r.candidates?.length ?? 0), 0),
             hubCount: (() => {

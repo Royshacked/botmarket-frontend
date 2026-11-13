@@ -44,7 +44,7 @@ export function ThemeDetail({ theme, isAdmin = false, onPickLink = null }) {
             <p className="industry-view__summary">{theme.thesis}</p>
             {a && (
                 <p>
-                    <span className="industry-view__label">Pythia&apos;s view</span>{' '}
+                    <span className="industry-view__label">Industry strategist&apos;s view</span>{' '}
                     <b>{VERDICT_LABEL[a.verdict]}</b> ({a.horizon}, confidence {a.confidence}) — {a.thesis}
                     {a.cause && <> · <i>moved by {causeWord(a.cause.kind, a.moved?.hype)}</i></>}
                 </p>
@@ -131,7 +131,7 @@ function ProposeThemes() {
     }
     return (
         <div className="assessment-view__assess">
-            <button type="button" onClick={run} disabled={running}>{running ? 'Pythia is looking…' : 'Propose themes'}</button>
+            <button type="button" onClick={run} disabled={running}>{running ? 'Looking for themes…' : 'Propose themes'}</button>
             <span role="status" aria-live="polite" className={note ? 'assessment-view__result' : undefined}>{note}</span>
         </div>
     )
@@ -147,11 +147,11 @@ export function ThemesView({ themes = [] }) {
             <div className="industry-view__summary-bar">
                 <span><b>{themes.filter(t => t.status === 'approved').length}</b> on the house list</span>
                 {isAdmin && waiting > 0 && <span className="industry-view__flagged">{waiting} proposed, waiting for approval</span>}
-                <span className="industry-view__legend">value chains across industries — Pythia proposes, an admin approves</span>
+                <span className="industry-view__legend">value chains across industries — the industry strategist proposes, an admin approves</span>
             </div>
             {isAdmin && <ProposeThemes />}
             {sorted.map(t => <ThemeRow key={t.id} theme={t} isAdmin={isAdmin} />)}
-            {!themes.length && <p className="news-feed__empty">No themes yet.{isAdmin ? ' Ask Pythia to propose some.' : ''}</p>}
+            {!themes.length && <p className="news-feed__empty">No themes yet.{isAdmin ? ' Ask the industry strategist to propose some.' : ''}</p>}
         </div>
     )
 }

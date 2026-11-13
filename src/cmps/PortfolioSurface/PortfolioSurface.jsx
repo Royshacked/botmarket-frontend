@@ -31,7 +31,7 @@ import './PortfolioSurface.scss'
 export function PortfolioSurface({ session, deskProps = {} }) {
     const { availableAccounts = [], selectedAccounts = [], setSelectedAccounts, setMainAccountId, ideas = [], onSaved, onAdopted } = deskProps
     // The press mechanics every surface shares: the marked accounts, the note, one press at a time, the stale refusal.
-    const { accounts, mainAccountId, rev, pressing, note, setNote, press } = useSurfacePress(session, 'portfolio', deskProps, { brand: 'Atlas' })
+    const { accounts, mainAccountId, rev, pressing, note, setNote, press } = useSurfacePress(session, 'portfolio', deskProps, { brand: 'The portfolio manager' })
     const state = session?.agentState?.portfolio ?? null
     const turning = !!session?.live
 
@@ -131,7 +131,7 @@ export function PortfolioSurface({ session, deskProps = {} }) {
                 <SurfaceNote note={adoptError ? { kind: 'error', text: adoptError } : null} />
                 {/* No chips (Roy, 2026-11-12 — argus-rework.md §2.3 point 4): the pane is the book being built; the asking is
                     in the chat ("build me a growth book", "adopt the book I hold at my bank"). */}
-                <p className="desk-surface__lead">Nothing on Atlas&apos;s table yet. Tell Atlas about a portfolio in the chat — or the book you hold at your bank — and it builds here.</p>
+                <p className="desk-surface__lead">Nothing on the table yet. Describe a portfolio in the chat — or the book you hold at your bank — and it builds here.</p>
             </div>
         )
     }
@@ -161,7 +161,7 @@ export function PortfolioSurface({ session, deskProps = {} }) {
 
             {overWork ? (
                 <div className="portfolio-panel__dismiss-confirm portfolio-surface__ask">
-                    <span>Atlas has {plan ? `the ${plan.name ?? 'new'} plan` : 'a proposal'} on the table. Put it aside and adopt your bank book?</span>
+                    <span>The portfolio manager has {plan ? `the ${plan.name ?? 'new'} plan` : 'a proposal'} on the table. Put it aside and adopt your bank book?</span>
                     <div className="portfolio-panel__dismiss-confirm-btns">
                         <button className="portfolio-panel__review-btn portfolio-panel__review-btn--update" onClick={() => stage({ fresh: true })}>Put it aside</button>
                         <button className="portfolio-panel__review-btn portfolio-panel__review-btn--later" onClick={endAdopt}>Keep working</button>
@@ -241,8 +241,8 @@ export function PortfolioSurface({ session, deskProps = {} }) {
             {plan && !planReady && !turning && (
                 <div className="portfolio-panel__bubble portfolio-panel__bubble--assistant portfolio-panel__bubble--warning">
                     {hasSize
-                        ? '⚠️ Couldn’t fetch live prices to compute share quantities. Send Atlas a message to have it size the plan again.'
-                        : '⚠️ This plan needs a position size before it can be saved. Tell Atlas the capital to deploy, or a quantity per asset.'}
+                        ? '⚠️ Couldn’t fetch live prices to compute share quantities. Send the portfolio manager a message to size the plan again.'
+                        : '⚠️ This plan needs a position size before it can be saved. Tell the portfolio manager the capital to deploy, or a quantity per asset.'}
                 </div>
             )}
 
@@ -256,7 +256,7 @@ export function PortfolioSurface({ session, deskProps = {} }) {
             {/* What Accept will do, said before it is pressed — a proposal can close and trim live positions. */}
             {!turning && proposal && (
                 <div className="portfolio-surface__proposal">
-                    <span className="portfolio-surface__proposal-title">Atlas proposes{proposal.thesis ? ' (and a new thesis)' : ''}:</span>
+                    <span className="portfolio-surface__proposal-title">The portfolio manager proposes{proposal.thesis ? ' (and a new thesis)' : ''}:</span>
                     <ul>{proposal.changes.map((c, i) => <li key={i}>{describeChange(c, assetOf)}</li>)}</ul>
                 </div>
             )}
@@ -301,8 +301,8 @@ export function PortfolioSurface({ session, deskProps = {} }) {
                             </button>
                             {later}
                             {turning
-                                ? <span className="portfolio-surface__hint">Atlas is answering…</span>
-                                : !canUpdate && !proposal && <span className="portfolio-surface__hint">Tell Atlas what to change — Update lights once there is something to save.</span>}
+                                ? <span className="portfolio-surface__hint">The portfolio manager is answering…</span>
+                                : !canUpdate && !proposal && <span className="portfolio-surface__hint">Tell the portfolio manager what to change — Update lights once there is something to save.</span>}
                         </>
                     ) : plan ? (
                         <>
@@ -316,7 +316,7 @@ export function PortfolioSurface({ session, deskProps = {} }) {
                                     {pressing ? 'Saving…' : 'Generate plan'}
                                 </button>
                             )}
-                            <DiscardButton what={`the ${plan.name ?? 'new'} plan`} onDiscard={() => press('discard', { done: () => 'Discarded — Atlas\'s table is clear.' })} disabled={pressing} />
+                            <DiscardButton what={`the ${plan.name ?? 'new'} plan`} onDiscard={() => press('discard', { done: () => 'Discarded — the table is clear.' })} disabled={pressing} />
                         </>
                     ) : null}
                 </div></ChatActions>
@@ -326,7 +326,7 @@ export function PortfolioSurface({ session, deskProps = {} }) {
 }
 
 // What this pane is, said once under its tabs (SidePane — Roy, 2026-10-19: the pane was not clear to a user).
-PortfolioSurface.paneHint = 'Your portfolio plan, as you build it with Atlas. It fills in while you talk; when it’s ready, the button at the bottom saves it.'
+PortfolioSurface.paneHint = 'Your portfolio plan, as you build it in the chat. It fills in while you talk; when it’s ready, the button at the bottom saves it.'
 
 PortfolioSurface.propTypes = {
     session: PropTypes.shape({

@@ -167,7 +167,7 @@ describe('FloorLists', () => {
 
         it('says who fills an empty desk', () => {
             render(<FloorLists initialDesk="portfolio" />)
-            expect(screen.getByText(/build one with Atlas/)).toBeTruthy()
+            expect(screen.getByText(/No portfolios yet — build one in the chat/)).toBeTruthy()
         })
     })
 
@@ -513,7 +513,7 @@ describe('FloorLists row actions', () => {
         const onEditSetup = vi.fn(), onDeleteSetup = vi.fn()
         render(<FloorLists setups={[setup()]} onEditSetup={onEditSetup} onDeleteSetup={onDeleteSetup} initialDesk="trade" />)
 
-        fireEvent.click(screen.getByTitle('Edit setup in Mentor chat'))
+        fireEvent.click(screen.getByTitle('Edit setup in the chat'))
         fireEvent.click(screen.getByTitle('Delete setup'))
         expect(onEditSetup.mock.calls[0][0].id).toBe('s1')    // the setup itself — it seeds the chat
         // NB the setup contract hands the whole ENTITY to delete, not the bare id. Not a slip: SetupCard does the same, and the dialog it opens needs the doc.
@@ -533,7 +533,7 @@ describe('FloorLists row actions', () => {
     // the bin is locked because the server refuses it (409 in_position) for every kind.
     it('drops the pencil and locks the bin once a trade is past entry', () => {
         render(<FloorLists setups={[setup({ status: 'long' })]} onEditSetup={vi.fn()} onDeleteSetup={vi.fn()} initialDesk="trade" />)
-        expect(screen.queryByTitle('Edit setup in Mentor chat')).toBeNull()
+        expect(screen.queryByTitle('Edit setup in the chat')).toBeNull()
         expect(screen.getByTitle(/close it at the broker first/i).disabled).toBe(true)
     })
 
@@ -545,7 +545,7 @@ describe('FloorLists row actions', () => {
     it('offers the setup pencil while it is still pre-entry', () => {
         const onEditSetup = vi.fn()
         render(<FloorLists setups={[setup()]} onEditSetup={onEditSetup} initialDesk="trade" />)
-        fireEvent.click(screen.getByTitle('Edit setup in Mentor chat'))
+        fireEvent.click(screen.getByTitle('Edit setup in the chat'))
         expect(onEditSetup.mock.calls[0][0].id).toBe('s1')
     })
 
