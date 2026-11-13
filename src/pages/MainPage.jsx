@@ -1271,6 +1271,12 @@ export function MainPage() {
         openDesk('mentor')
     }
 
+    // THE BADGE on a Hotlist row (backend proteus.md step 5): the technical analyst's read on how the name trades, in the chat.
+    function handleTechnicalsFromHotlist(symbol) {
+        if (!symbol) return
+        talkTo('proteus', `How does ${symbol} trade?`)
+    }
+
     function handleBuildFromEarning(earning) {
         if (!earning?.symbol) return
         seedMentorChat(earning.symbol, buildEarningSeed(earning, earning.date))
@@ -1346,6 +1352,7 @@ export function MainPage() {
                                 onEarningSelect={handleBuildFromEarning}
                                 onIpoSelect={handleBuildFromIpo}
                                 onHotlistBuild={handleBuildFromHotlist}
+                                onHotlistTechnicals={handleTechnicalsFromHotlist}
                                 onEditSetup={handleEditSetup}
                                 onDeleteSetup={handleDeleteSetup}
                                 onEditPortfolio={handleEditPortfolio}

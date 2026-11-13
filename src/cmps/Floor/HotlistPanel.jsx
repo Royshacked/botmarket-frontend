@@ -20,6 +20,7 @@ import { HotlistRowPage } from './HotlistRowPage.jsx'
 import { HotlistDayBoards } from './HotlistDayBoards.jsx'
 import { INTRADAY, INTRADAY_LABEL, latestBoardId } from './hotlistDay.utils.js'
 import './HotlistPanel.scss'
+import { BehaviourProvider, BehaviourBadge } from './BehaviourBadge.jsx'
 
 // THE HOTLIST — the screener's daily board of names in play, in the detail panel over the chat
 // (docs/design/daily-names.md §8; Roy, 2026-10-21).
@@ -60,7 +61,7 @@ const _day = (iso) => {
 // the view switches (Argus's names, the scorecard) and the screener's status line are the admin's — they explain how the
 // lists are made, and say why one is thin.
 
-export function HotlistPanel({ onBuild, onSymbolClick, coverage = [], isAdmin = false }) {
+export function HotlistPanel({ onBuild, onAskTechnicals = null, onSymbolClick, coverage = [], isAdmin = false }) {
     const { isOpen, close } = useDetailPanel(HOTLIST_PANEL_ID)
     const [today, setToday] = useState({ status: 'idle', day: null, checkpoints: [], dayList: [], latest: null, working: null, stats: null })
     const [boardId, setBoardId] = useState(null)
@@ -305,6 +306,8 @@ export function HotlistPanel({ onBuild, onSymbolClick, coverage = [], isAdmin = 
 
     return (
         <DetailPanel id={HOTLIST_PANEL_ID} kicker="Hotlist" title={title} actions={actions} className="hot-panel" container bare>
+            {/* The technical analyst's badge on every row (proteus.md step 5): a click opens his read, handed off like Build. */}
+            <BehaviourProvider onOpen={onAskTechnicals ? handOff(onAskTechnicals) : null}>
             {chartSym
                 ? (
                     <div className="hot-chart">
@@ -332,6 +335,7 @@ export function HotlistPanel({ onBuild, onSymbolClick, coverage = [], isAdmin = 
                             </section>
                         )}
                     </>}
+            </BehaviourProvider>
         </DetailPanel>
     )
 }
@@ -340,6 +344,7 @@ const _today = (d) => ({ status: 'ok', day: d.day, checkpoints: d.checkpoints, d
 HotlistPanel.propTypes = {
     coverage:      PropTypes.array,
     onBuild:       PropTypes.func,
+    onAskTechnicals: PropTypes.func,
     onSymbolClick: PropTypes.func,
     isAdmin:       PropTypes.bool,
 }
@@ -858,7 +863,7 @@ function ListRow({ row, onOpen, onSymbolClick, column = null, read = null, showR
                 {pick ? <span className="hot-star" title={`Pick #${pick.rank}${column ? ` for ${COLUMN_LABEL[column].toLowerCase()}` : ''}`}>★{pick.rank}</span>
                     : row.avoid ? <span className="hot-avoid" title={`Avoid: ${row.avoid}`}>✕</span> : null}
             </td>
-            <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(row.symbol)} title={row.name ?? row.symbol}>{row.symbol}</button><OwnedBadge symbol={row.symbol} /></td>
+            <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(row.symbol)} title={row.name ?? row.symbol}>{row.symbol}</button><OwnedBadge symbol={row.symbol} /><BehaviourBadge symbol={row.symbol} horizon={column ?? 'week'} /></td>
             <td className="hot-spark-cell hot-spark-cell--sm hot-col--more"><Sparkline closes={row.spark} price={row.price} range={cell?.range ?? null} small hot={status === 'in_play'} /></td>
             {td(c.last, 'hot-table__num')}
             {tape && td(c.chg, 'hot-table__num hot-col--more')}
@@ -1050,7 +1055,7 @@ function Row({ row, board, columns, onBuild, onSymbolClick }) {
             <tr className={`hot-row${row.pick ? ' hot-row--pick' : ''}${row.avoid ? ' hot-row--avoid' : ''}`} data-symbol={row.symbol}>
                 <td className="hot-table__star">{row.pick ? <span className="hot-star" title={`Pick #${row.pick.rank}`}>★{row.pick.rank}</span> : null}</td>
                 <td>
-                    <button type="button" className="hot-sym" onClick={() => onSymbolClick?.(row.symbol)} title={row.name ?? row.symbol}>{row.symbol}</button><OwnedBadge symbol={row.symbol} />
+                    <button type="button" className="hot-sym" onClick={() => onSymbolClick?.(row.symbol)} title={row.name ?? row.symbol}>{row.symbol}</button><OwnedBadge symbol={row.symbol} /><BehaviourBadge symbol={row.symbol} horizon="intraday" />
                     {row.name && <span className="hot-name">{row.name}</span>}
                 </td>
                 <td className="hot-spark-cell"><Sparkline closes={row.spark} price={row.price} range={col ? row.cells?.[col]?.range : null} /></td>

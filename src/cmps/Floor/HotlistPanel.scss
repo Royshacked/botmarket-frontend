@@ -323,3 +323,29 @@
 }
 // The headline under Why: only on a phone, where the News column is hidden (CR 2026-11-11).
 .hot-day-fallback { margin-top: 16px; }
+
+// THE TECHNICAL ANALYST'S BADGE beside a ticker (BehaviourBadge — backend proteus.md step 5): what the name obeys, in a
+// word or two. The owned-badge's shape (small, mono, beside the symbol, never wrapping it), in the accent; "nothing" dim.
+.behaviour-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 4px;
+    vertical-align: middle;
+    white-space: nowrap;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    line-height: 15px;
+    letter-spacing: 0.02em;
+    color: var(--accent-light);
+    border: 1px solid color-mix(in srgb, currentColor 45%, transparent);
+    background: color-mix(in srgb, currentColor 10%, transparent);
+    cursor: default;
+    &--nothing { color: var(--text-dim); }
+}
+button.behaviour-badge {
+    cursor: pointer;
+    &:hover, &:focus-visible { background: color-mix(in srgb, currentColor 22%, transparent); outline: none; }
+}
+// The ticker and its marks stay on one line: a badge wrapping under a short ticker made every row a different height.
+td:has(> .hot-sym) { white-space: nowrap; }

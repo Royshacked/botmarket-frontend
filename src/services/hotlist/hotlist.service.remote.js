@@ -6,7 +6,7 @@ import { httpService } from '../http.service'
 
 const BASE = 'api/hotlist'
 
-export const hotlistService = { getToday, getBoard, getOutcomes, getReads, requestRead, getBook, getScorecard, getDayBoards }
+export const hotlistService = { getToday, getBoard, getOutcomes, getReads, requestRead, getBook, getScorecard, getDayBoards, getBehaviour }
 
 /**
  * PROMETHEUS'S SCORECARD (botmarket-backend prometheusCalls.service, 2026-10-27) → `{ coverage: { forward, backfill },
@@ -80,6 +80,22 @@ async function getReads() {
 async function requestRead(board, symbol) {
     const data = await httpService.post(`${BASE}/reads`, { board, symbol })
     return data?.outcome ?? 'queued'
+}
+
+/**
+ * THE BADGE per name (botmarket-backend hotlistBehaviour.service; proteus.md step 5): what each name obeys on this
+ * horizon's timeframes, from its stored measured profile → `{ SYM: { badge, holds, tip } | null }` (null: not profiled yet —
+ * the server queues it). `{}` on an empty list or a failed read: a badge is a nicety, never a failed list.
+ */
+async function getBehaviour(symbols, horizon) {
+    const list = [...new Set((symbols ?? []).filter(Boolean))]
+    if (!list.length) return {}
+    try {
+        const data = await httpService.get(`${BASE}/behaviour`, { symbols: list.join(','), horizon: horizon ?? '' })
+        return data?.badges ?? {}
+    } catch {
+        return {}
+    }
 }
 
 /**

@@ -5,6 +5,7 @@ import { CoverageDetail, CoverageRating } from './CoverageDetail.jsx'
 import { HotlistScorecard } from './HotlistScorecard.jsx'
 import { HotlistRowPage } from './HotlistRowPage.jsx'
 import { BOOK_LABEL, BOOK_SORTS, COVERED, VERDICT_WORDS, bookResult, bookProgress, bookOrigin, bookTiming, isBuy, bookRecordLine, sortBook, chainSurvivors, chainLeft, coveredRows } from './hotlist.utils.js'
+import { BehaviourBadge } from './BehaviourBadge.jsx'
 
 // THE HOUSE'S BOOK in the Hotlist — its Swing and Long term lists (Roy, 2026-10-24: "in hotlist — what about longer
 // swings and long-term names?"). The day's boards stop at This week; these are Prometheus's coverage, split by the price
@@ -185,7 +186,7 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
                                             <td className="hot-table__star">
                                                 <button type="button" className="hot-toggle" aria-label={`Details for ${r.symbol}`} onClick={open}>›</button>
                                             </td>
-                                            <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(r.symbol)} title={r.name ?? r.symbol}>{r.symbol}</button><OwnedBadge symbol={r.symbol} /></td>
+                                            <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(r.symbol)} title={r.name ?? r.symbol}>{r.symbol}</button><OwnedBadge symbol={r.symbol} /><BehaviourBadge symbol={r.symbol} horizon={column} /></td>
                                             {td(c.last, 'hot-table__num hot-col--more')}
                                             {td(c.rating)}
                                             {td(c.target, 'hot-table__num')}

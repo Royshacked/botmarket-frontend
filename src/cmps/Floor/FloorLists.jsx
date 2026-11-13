@@ -585,6 +585,7 @@ export function FloorLists({
     industries = [], industriesLoading = false, industriesError = false, week = null, assessments = null, themes = [],
     onEarningSelect, onIpoSelect,
     onHotlistBuild,
+    onHotlistTechnicals = null,
     isAdmin = false,
     initialDesk = null, deskRequest = null,
     book = null,
@@ -768,7 +769,7 @@ export function FloorLists({
             {/* Always mounted: it renders nothing until its panel opens, and portals into the chat
                 column when it does. */}
             <CalendarPanel onEarningSelect={onEarningSelect} onIpoSelect={onIpoSelect} onSymbolClick={onSymbolClick} />
-            <HotlistPanel onBuild={onHotlistBuild} onSymbolClick={onSymbolClick} coverage={coverage} isAdmin={isAdmin} />
+            <HotlistPanel onBuild={onHotlistBuild} onAskTechnicals={onHotlistTechnicals} onSymbolClick={onSymbolClick} coverage={coverage} isAdmin={isAdmin} />
             <ForecastPanel coverage={coverage} themes={themes} focus={forecastFocus} onOpenBoard={() => openPanel('floor:board')}
                 onEditCoverage={onEditCoverage} onRetireCoverage={onRetireCoverage} onDeleteCoverage={onDeleteCoverage} />
             {shown.filter(d => d.panel?.startsWith('floor:')).map(desk => (
@@ -821,6 +822,7 @@ FloorLists.propTypes = {
     onEarningSelect:     PropTypes.func,
     onIpoSelect:         PropTypes.func,
     onHotlistBuild:      PropTypes.func,
+    onHotlistTechnicals: PropTypes.func,
     onEditSetup:         PropTypes.func,
     onDeleteSetup:       PropTypes.func,
     onEditPortfolio:     PropTypes.func,
