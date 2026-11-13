@@ -57,7 +57,9 @@ export function BehaviourBadge({ symbol, horizon }) {
     useEffect(() => { request?.(symbol, horizon) }, [symbol, horizon, request])
     const b = badges.get(keyOf(horizon, symbol))
     if (!b?.badge) return null
-    const cls = `behaviour-badge${b.badge === 'nothing' ? ' behaviour-badge--nothing' : ''}`
+    // holds (a line it respects — the rare, strong signal) · trait (what it does when nothing holds: 'fakes 74%') · nothing
+    const kind = b.kind ?? (b.badge === 'nothing' ? 'nothing' : 'holds')
+    const cls = `behaviour-badge behaviour-badge--${kind}`
     const label = `How it trades: ${b.badge}`
     return onOpen
         ? <button type="button" className={cls} title={b.tip} aria-label={label} onClick={(e) => { e.stopPropagation(); onOpen(norm(symbol)) }}>{b.badge}</button>

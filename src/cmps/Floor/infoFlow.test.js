@@ -6,10 +6,12 @@ import { infoFlow, FLOWS } from './infoFlow.js'
 
 const mentor = (settled = {}, asset = 'NVDA') => ({ draft: { asset, build: { active: asset, names: [{ asset, settled }] } } })
 
-test('the Hotlist: the horizon is always picked — picking a name, then building the trade, then one press from armed', () => {
-    assert.deepEqual(infoFlow({ hotlistOpen: true }), { key: 'hotlist', ...FLOWS.hotlist, current: 1 })
-    assert.equal(infoFlow({ hotlistOpen: true, agentState: { mentor: mentor({ direction: 'long' }) } }).current, 2)
-    assert.equal(infoFlow({ hotlistOpen: true, agentState: { mentor: mentor({ direction: 1, horizon: 1, entries: 1, size: 1 }) } }).current, 3)
+test('the Hotlist open is ITS flow from the start — whatever the chat behind it is building (Roy, 2026-11-13)', () => {
+    assert.deepEqual(infoFlow({ hotlistOpen: true }), { key: 'hotlist', ...FLOWS.hotlist, current: 0 })
+    const mid = { mentor: mentor({ direction: 1, horizon: 1, entries: 1, size: 1 }) }
+    assert.equal(infoFlow({ hotlistOpen: true, floor: 'mentor', agentState: mid }).key, 'hotlist')
+    assert.equal(infoFlow({ hotlistOpen: true, floor: 'mentor', agentState: mid }).current, 0, 'not "build the trade" for a trade behind it')
+    assert.equal(infoFlow({ hotlistOpen: false, floor: 'mentor', agentState: mid }).key, 'trade', 'the Hotlist closed → the trade\'s own flow again')
 })
 
 test('a trade build: the first step the trader has not settled', () => {
@@ -28,12 +30,26 @@ test('a portfolio, a coverage, a technical read — each from its own role\'s st
     assert.deepEqual([p({}), p({ mandate: {} }), p({ mandate: {}, pendingPlan: {} }), p({ reviewMode: true })], [0, 1, 3, 4])
     const a = (s) => infoFlow({ floor: 'analyst', agentState: { analyst: s } }).current
     assert.deepEqual([a({}), a({ active_symbol: 'MSFT' }), a({ active_symbol: 'MSFT', standing: true })], [0, 1, 2])
-    assert.equal(infoFlow({ floor: 'proteus' }).current, 0)
-    assert.equal(infoFlow({ floor: 'proteus', rows: [{ agent: 'proteus', role: 'assistant' }] }).current, 2)
+    // The technical analyst: two steps — measuring, then the profile with its example chart (Roy, 2026-11-13).
+    assert.deepEqual(FLOWS.technicals.steps, ['Measuring', 'Profile & example chart'])
+    const t = (rows) => infoFlow({ floor: 'proteus', rows }).current
+    assert.equal(t([]), 0)
+    assert.equal(t([{ agent: 'proteus', role: 'user' }]), 0, 'asked, not answered yet: measuring')
+    assert.equal(t([{ agent: 'proteus', role: 'user' }, { agent: 'proteus', role: 'assistant' }]), 1)
+    assert.equal(t([{ agent: 'proteus', role: 'assistant' }, { agent: 'proteus', role: 'user' }]), 0, 'a new question: measuring again')
+    assert.equal(t([{ agent: 'proteus', role: 'assistant' }, { agent: 'axl', role: 'user' }]), 1, 'rows of another role do not move it')
 })
 
-test('nothing placeable → null (Axl, a role with no flow)', () => {
-    assert.equal(infoFlow({ floor: 'axl' }), null)
-    assert.equal(infoFlow({}), null)
+test('talking with Axl: one step, "Ask Axl" (Roy, 2026-11-13); a role with no flow → null', () => {
+    assert.deepEqual(infoFlow({ floor: 'axl' }), { key: 'axl', title: 'Talking with Axl', steps: ['Ask Axl'], current: 0 })
+    assert.equal(infoFlow({}).key, 'axl', 'no floor yet is Axl')
     assert.equal(infoFlow({ floor: 'scanner' }), null)
+})
+
+test('an open LIST owns Info — it covers the chat (Roy, 2026-11-13); its name until its Info is written', () => {
+    const trading = { mentor: mentor({ direction: 'long' }) }
+    assert.deepEqual(infoFlow({ floor: 'mentor', agentState: trading, list: { key: 'positions', label: 'Positions' } }),
+        { key: 'list:positions', title: 'Positions', steps: [], current: 0 })
+    assert.equal(infoFlow({ floor: 'mentor', agentState: trading, list: { key: 'hotlist', label: 'Hotlist' } }).key, 'hotlist')
+    assert.equal(infoFlow({ floor: 'mentor', agentState: trading, list: null }).key, 'trade', 'the list closed → the chat\'s flow')
 })

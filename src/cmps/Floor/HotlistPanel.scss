@@ -349,3 +349,6 @@ button.behaviour-badge {
 }
 // The ticker and its marks stay on one line: a badge wrapping under a short ticker made every row a different height.
 td:has(> .hot-sym) { white-space: nowrap; }
+// A TRAIT badge ("fakes 74%" — what a name does when nothing holds, option 2 2026-11-13): readable, but not the accent a
+// line that HOLDS gets — that one is the rarer, stronger signal.
+.behaviour-badge--trait { color: var(--text-secondary); }

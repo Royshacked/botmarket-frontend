@@ -5,17 +5,19 @@
 // under it behind "More". Nothing to place → the column's line saying what it is for.
 
 import PropTypes from 'prop-types'
-import { useDetailPanel } from '../DetailPanel/detailPanel.store.js'
-import { HOTLIST_PANEL_ID } from './HotlistPanel.jsx'
+import { useActivePanel } from '../DetailPanel/detailPanel.store.js'
+import { menuDesks } from './FloorLists.jsx'
 import { HotlistInfo } from './HotlistInfo.jsx'
 import { RiskBasedInfo } from './RiskBasedInfo.jsx'
 import { FlowDiagram } from './FlowDiagram.jsx'
 import { infoFlow } from './infoFlow.js'
 
 export function FloorInfo({ floor = null, agentState = {}, rows = [] }) {
-    const hotlist = useDetailPanel(HOTLIST_PANEL_ID).isOpen
-    const flow = infoFlow({ floor, agentState, rows, hotlistOpen: hotlist })
-    const more = hotlist ? <HotlistInfo /> : floor === 'mentor' ? <RiskBasedInfo /> : null
+    // The open LIST owns Info — it covers the chat (Roy, 2026-11-13); nothing open → the chat's flow.
+    const active = useActivePanel()
+    const list = active ? menuDesks(true).find(d => d.panel === active) ?? null : null
+    const flow = infoFlow({ floor, agentState, rows, list })
+    const more = list ? (list.key === 'hotlist' ? <HotlistInfo /> : null) : floor === 'mentor' ? <RiskBasedInfo /> : null
     return (
         <aside className="floor-info" aria-label="Info">
             {/* Same .floor-sec heading the Menu uses, so the two side columns open on one line. */}

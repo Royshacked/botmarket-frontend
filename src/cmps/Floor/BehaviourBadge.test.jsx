@@ -9,7 +9,8 @@ afterEach(cleanup)
 
 const BADGES = {
     NVDA: { badge: '50 MA +1', holds: ['50 MA (daily)', 'sweeps lows (weekly)'], tip: 'Measured on the daily and weekly bars, it holds at: 50 MA (daily). Click for the read.' },
-    TSLA: { badge: 'nothing', holds: [], tip: 'nothing technical holds' },
+    TSLA: { badge: 'nothing', kind: 'nothing', holds: [], tip: 'nothing technical holds' },
+    MSFT: { badge: 'fakes 74%', kind: 'trait', holds: [], tip: 'Nothing technical holds on the daily and weekly bars. What it does: 74%… Click for the read.' },
     AMD: null,
 }
 
@@ -18,15 +19,17 @@ describe('BehaviourBadge', () => {
         const fetch = vi.fn(async (symbols) => Object.fromEntries(symbols.map(s => [s, BADGES[s] ?? null])))
         render(
             <BehaviourProvider _fetch={fetch}>
-                {['nvda', 'TSLA', 'AMD'].map(s => <BehaviourBadge key={s} symbol={s} horizon="swing" />)}
+                {['nvda', 'TSLA', 'AMD', 'MSFT'].map(s => <BehaviourBadge key={s} symbol={s} horizon="swing" />)}
                 <BehaviourBadge symbol="NVDA" horizon="intraday" />
             </BehaviourProvider>,
         )
         await waitFor(() => expect(screen.getAllByText('50 MA +1')).toHaveLength(2))
         expect(fetch).toHaveBeenCalledTimes(2)
         expect(fetch.mock.calls.map(([s, h]) => [s.slice().sort(), h]).sort((a, b) => a[1].localeCompare(b[1])))
-            .toEqual([[['NVDA'], 'intraday'], [['AMD', 'NVDA', 'TSLA'], 'swing']])
+            .toEqual([[['NVDA'], 'intraday'], [['AMD', 'MSFT', 'NVDA', 'TSLA'], 'swing']])
         expect(screen.getByText('nothing').className).toContain('behaviour-badge--nothing')
+        expect(screen.getByText('fakes 74%').className).toContain('behaviour-badge--trait')
+        expect(screen.getAllByText('50 MA +1')[0].className).toContain('behaviour-badge--holds')
         expect(screen.getAllByText('50 MA +1')[0].getAttribute('title')).toMatch(/Click for the read/)
         expect(screen.queryByLabelText(/How it trades/, { selector: '[aria-label="How it trades: null"]' })).toBeNull()
     })

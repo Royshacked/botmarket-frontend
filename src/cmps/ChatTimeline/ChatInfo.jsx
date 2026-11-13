@@ -5,8 +5,8 @@ import { AGENTS, DESKS } from '../AxlHub/agentMeta.jsx'
 import { RiskBasedInfo } from '../Floor/RiskBasedInfo.jsx'
 import { FlowDiagram } from '../Floor/FlowDiagram.jsx'
 import { infoFlow } from '../Floor/infoFlow.js'
-import { useDetailPanel } from '../DetailPanel/detailPanel.store.js'
-import { HOTLIST_PANEL_ID } from '../Floor/HotlistPanel.jsx'
+import { useActivePanel } from '../DetailPanel/detailPanel.store.js'
+import { menuDesks } from '../Floor/FloorLists.jsx'
 
 // INFO WHILE CHATTING, on a phone (Roy, 2026-10-29: "add an info tab when chatting"). The Floor's Info column sits beside
 // the chat on a desktop; a phone has no room for it, so the chat header carries an Info button that opens this over the
@@ -19,10 +19,12 @@ const AXL_ABOUT = 'I am Axl, your assistant: say what you want to do and I answe
 export function ChatInfo({ floor = 'axl', agentState = {}, rows = [], onClose }) {
     const { isAdmin } = useAuth()
     const closeRef = useRef(null)
-    const hotlistOpen = useDetailPanel(HOTLIST_PANEL_ID).isOpen
+    // The open LIST owns Info — it covers the chat (Roy, 2026-11-13).
+    const active = useActivePanel()
+    const list = active ? menuDesks(true).find(d => d.panel === active) ?? null : null
     const agent = floor && floor !== 'axl' ? AGENTS[floor] ?? null : null
     const desks = DESKS.filter(d => !d.adminOnly || isAdmin)
-    const flow = infoFlow({ floor, agentState, rows, hotlistOpen })
+    const flow = infoFlow({ floor, agentState, rows, list })
     useEffect(() => {
         closeRef.current?.focus()
         // Captured and claimed, as History's: one Esc closes this, not what is under it too.
@@ -30,6 +32,20 @@ export function ChatInfo({ floor = 'axl', agentState = {}, rows = [], onClose })
         document.addEventListener('keydown', onKey, true)
         return () => document.removeEventListener('keydown', onKey, true)
     }, [onClose])
+    const atAxl = !agent && !list
+    const canDo = (
+        <>
+            <h3 className="chat-info__head">What I can do</h3>
+            <dl className="chat-info__desks">
+                {desks.map(d => (
+                    <div key={d.key}>
+                        <dt>{d.label}<span className="chat-info__role"> · {AGENTS[d.agentKey]?.role ?? d.agentKey}</span></dt>
+                        <dd>{d.blurb}</dd>
+                    </div>
+                ))}
+            </dl>
+        </>
+    )
     const about = (
         <>
             <p className="chat-info__text">{agent?.blurb ?? AXL_ABOUT}</p>
@@ -46,20 +62,12 @@ export function ChatInfo({ floor = 'axl', agentState = {}, rows = [], onClose })
             <div className="chat-info__body">
                 <section className="chat-info__sec">
                     <h3 className="chat-info__head">Talking with Axl{agent?.role ? <span className="chat-info__role"> · {agent.role}</span> : null}</h3>
-                    <FlowDiagram flow={flow} />
-                    {flow ? <details className="floor-info__more"><summary>More</summary>{about}</details> : about}
+                    {/* The heading already says who: Axl's one-step diagram ("Ask Axl") goes without a second title. */}
+                    <FlowDiagram flow={flow?.key === 'axl' ? { ...flow, title: null } : flow} />
+                    {flow ? <details className="floor-info__more"><summary>More</summary>{about}{atAxl && canDo}</details> : about}
                 </section>
-                <section className="chat-info__sec">
-                    <h3 className="chat-info__head">What I can do</h3>
-                    <dl className="chat-info__desks">
-                        {desks.map(d => (
-                            <div key={d.key}>
-                                <dt>{d.label}<span className="chat-info__role"> · {AGENTS[d.agentKey]?.role ?? d.agentKey}</span></dt>
-                                <dd>{d.blurb}</dd>
-                            </div>
-                        ))}
-                    </dl>
-                </section>
+                {/* With Axl, the list waits behind "More" (Roy, 2026-11-13: "just — ask Axl"); at a role it stays below. */}
+                {!atAxl && <section className="chat-info__sec">{canDo}</section>}
             </div>
         </div>
     )

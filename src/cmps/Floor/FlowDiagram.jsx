@@ -6,9 +6,9 @@ import PropTypes from 'prop-types'
 export function FlowDiagram({ flow }) {
     if (!flow) return null
     return (
-        <section className="flow-diagram" aria-label={flow.title}>
-            <h3 className="flow-diagram__title">{flow.title}</h3>
-            <ol className="flow-diagram__steps">
+        <section className="flow-diagram" aria-label={flow.title ?? flow.steps?.[0]}>
+            {flow.title && <h3 className="flow-diagram__title">{flow.title}</h3>}
+            {flow.steps.length > 0 && <ol className="flow-diagram__steps">
                 {flow.steps.map((step, i) => {
                     const state = i < flow.current ? 'done' : i === flow.current ? 'here' : 'next'
                     return (
@@ -19,7 +19,7 @@ export function FlowDiagram({ flow }) {
                         </li>
                     )
                 })}
-            </ol>
+            </ol>}
         </section>
     )
 }

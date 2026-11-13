@@ -13,11 +13,12 @@ import { openPanel, closePanel } from '../DetailPanel/detailPanel.store.js'
 afterEach(() => { cleanup(); act(() => closePanel()) })
 
 describe('FloorInfo', () => {
-    it('is the Info column: its heading, and what it will hold', () => {
+    it('is the Info column: its heading, and with Axl one step — "Ask Axl" (Roy, 2026-11-13)', () => {
         render(<FloorInfo />)
         expect(screen.getByRole('complementary', { name: 'Info' })).toBeTruthy()
         expect(screen.getByRole('heading', { name: 'Info' })).toBeTruthy()
-        expect(screen.getByText(/what is going on in the app, the chat and your lists/i)).toBeTruthy()
+        expect(screen.getByRole('region', { name: 'Talking with Axl' })).toBeTruthy()
+        expect(screen.getByText('Ask Axl')).toBeTruthy()
     })
 
     it('with Mentor in the chat it says how a risk-based build works; the Hotlist, when open, comes first', () => {
@@ -43,9 +44,20 @@ describe('FloorInfo', () => {
         expect(container.querySelector('details.floor-info__more > summary').textContent).toBe('More')
         act(() => openPanel(HOTLIST_PANEL_ID))
         expect(screen.getByRole('region', { name: 'From the Hotlist' })).toBeTruthy()
-        expect(container.querySelector('[aria-current="step"]').textContent).toMatch(/^3Build the trade/)
+        expect(container.querySelector('[aria-current="step"]').textContent).toMatch(/^1Pick a horizon/)   // what is on screen, from its start
     })
 
+    it('an open list owns Info — over a trade in progress, Positions shows Positions, then the trade again on close (Roy, 2026-11-13)', () => {
+        const mentor = { draft: { asset: 'NVDA', build: { active: 'NVDA', names: [{ asset: 'NVDA', settled: { direction: 'long' } }] } } }
+        render(<FloorInfo floor="mentor" agentState={{ mentor }} />)
+        expect(screen.getByRole('region', { name: 'Building a trade' })).toBeTruthy()
+        act(() => openPanel('floor:positions'))
+        expect(screen.getByRole('region', { name: 'Positions' })).toBeTruthy()
+        expect(screen.queryByRole('region', { name: 'Building a trade' })).toBeNull()
+        expect(screen.queryByRole('heading', { name: 'How the trader builds a trade' })).toBeNull()
+        act(() => closePanel('floor:positions'))
+        expect(screen.getByRole('region', { name: 'Building a trade' })).toBeTruthy()
+    })
     it('explains the Hotlist table while the Hotlist is open — and goes back when it closes', () => {
         render(<FloorInfo />)
         act(() => openPanel(HOTLIST_PANEL_ID))
@@ -57,6 +69,6 @@ describe('FloorInfo', () => {
         expect(screen.getByText('Catalyst read', { selector: 'dt' })).toBeTruthy()
         act(() => closePanel(HOTLIST_PANEL_ID))
         expect(screen.queryByRole('heading', { name: 'The Hotlist' })).toBeNull()
-        expect(screen.getByText(/what is going on in the app/i)).toBeTruthy()
+        expect(screen.getByText('Ask Axl')).toBeTruthy()
     })
 })
