@@ -34,6 +34,18 @@ describe('FloorInfo', () => {
         expect(screen.queryByRole('heading', { name: 'How the trader builds a trade' })).toBeNull()
     })
 
+    it('opens on the DIAGRAM of the flow, the step the user is on marked; the long copy waits behind "More" (one-axl.md §6)', () => {
+        const mentor = { draft: { asset: 'NVDA', build: { active: 'NVDA', names: [{ asset: 'NVDA', settled: { direction: 'long', horizon: 'swing' } }] } } }
+        const { container } = render(<FloorInfo floor="mentor" agentState={{ mentor }} />)
+        expect(screen.getByRole('region', { name: 'Building a trade' })).toBeTruthy()
+        expect(container.querySelector('[aria-current="step"]').textContent).toMatch(/^3Levelsyou are here$/)
+        expect(container.querySelectorAll('.flow-diagram__step--done')).toHaveLength(2)
+        expect(container.querySelector('details.floor-info__more > summary').textContent).toBe('More')
+        act(() => openPanel(HOTLIST_PANEL_ID))
+        expect(screen.getByRole('region', { name: 'From the Hotlist' })).toBeTruthy()
+        expect(container.querySelector('[aria-current="step"]').textContent).toMatch(/^3Build the trade/)
+    })
+
     it('explains the Hotlist table while the Hotlist is open — and goes back when it closes', () => {
         render(<FloorInfo />)
         act(() => openPanel(HOTLIST_PANEL_ID))

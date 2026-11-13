@@ -189,7 +189,7 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
                 </div>
             )}
 
-            {infoOpen && <ChatInfo floor={floor ?? 'axl'} onClose={closeInfo} />}
+            {infoOpen && <ChatInfo floor={floor ?? 'axl'} agentState={session.agentState} rows={rows} onClose={closeInfo} />}
             {historyOpen && (
                 <SessionHistory
                     scope={scope}

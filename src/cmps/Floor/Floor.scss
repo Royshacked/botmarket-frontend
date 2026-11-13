@@ -1624,3 +1624,42 @@ $fm-steps: (1: 14%, 2: 26%, 3: 40%, 4: 56%);
         dd { display: inline; margin: 0; }
     }
 }
+
+// THE FLOW, as a diagram (FlowDiagram — one-axl.md §6, 2026-11-13): a vertical stepper, the step the user is on lit.
+.flow-diagram {
+    padding: 10px 0 12px;
+    border-bottom: 1px solid var(--border);
+    &__title { margin: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-primary); }
+    &__steps { list-style: none; margin: 0; padding: 0; }
+    &__step {
+        position: relative;
+        display: flex; align-items: center; gap: 8px;
+        padding: 4px 0 4px 0;
+        font-size: 12px; color: var(--text-dim);
+        // the line between dots
+        &:not(:last-child)::after {
+            content: ''; position: absolute; left: 9px; top: 24px; bottom: -4px;
+            width: 1px; background: var(--border-mid);
+        }
+        &--done { color: var(--text-secondary); }
+        &--here { color: var(--text-primary); font-weight: 600; }
+    }
+    &__dot {
+        flex: 0 0 auto;
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 19px; height: 19px; border-radius: 50%;
+        font-size: 10px; font-family: var(--font-mono);
+        border: 1px solid var(--border-mid); background: var(--bg-base); color: var(--text-dim);
+        .flow-diagram__step--done & { border-color: var(--accent-light); color: var(--accent-light); }
+        .flow-diagram__step--here & { border-color: var(--accent-light); background: var(--accent-light); color: var(--bg-base); }
+    }
+    &__here { margin-left: auto; font-size: 10px; font-weight: 400; color: var(--accent-light); white-space: nowrap; }
+}
+
+// The long explanations sit behind "More" once a diagram says where the user is.
+.floor-info__more {
+    padding: 8px 0 0;
+    > summary { cursor: pointer; font-size: 11px; color: var(--text-dim); list-style: none; &::-webkit-details-marker { display: none; } }
+    > summary::before { content: '▸ '; }
+    &[open] > summary::before { content: '▾ '; }
+}
