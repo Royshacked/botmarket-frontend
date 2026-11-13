@@ -37,6 +37,12 @@ describe('SidePane', () => {
         expect(screen.getByText(/mentor surface/)).toBeTruthy()
     })
 
+    it('a tab names the item on it once there is one — "NVDA · long swing trade", not who builds it (one-axl.md §5)', () => {
+        render(<SidePane session={{ floor: 'mentor', agentState: { mentor: { draft: { asset: 'NVDA', direction: 'LONG', type: 'swing' } } } }} surfaces={surfaces} />)
+        expect(screen.getAllByRole('tab').map(t => t.textContent)).toEqual(['NVDA · long swing trade'])
+        expect(screen.getByRole('button', { name: 'Close NVDA · long swing trade' })).toBeTruthy()
+    })
+
     it('says what it is: the showing surface’s hint under the tabs; none for a surface without one (Roy, 2026-10-19)', () => {
         const Hinted = () => <p>hinted surface</p>
         Hinted.paneHint = 'Your setup, as you build it.'

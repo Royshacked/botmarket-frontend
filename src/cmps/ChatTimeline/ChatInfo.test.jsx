@@ -23,7 +23,7 @@ describe('ChatInfo', () => {
         expect(screen.getByRole('heading', { name: /^Talking with Axl\s*· Trader/ })).toBeTruthy()
         expect(screen.getByText(AGENTS.mentor.blurb)).toBeTruthy()
         expect(screen.getByText(AGENTS.mentor.hint)).toBeTruthy()
-        expect(screen.getByText('Trading Desk')).toBeTruthy()
+        expect(screen.getByText('Build a trade')).toBeTruthy()
         expect(screen.getByRole('heading', { name: /builds a trade/ })).toBeTruthy()
     })
 
@@ -33,9 +33,9 @@ describe('ChatInfo', () => {
         expect(screen.getByRole('heading', { name: 'Talking with Axl' })).toBeTruthy()
         expect(screen.queryByRole('heading', { name: /builds a trade/ })).toBeNull()
         expect(screen.getByText(/I am Axl, your assistant/)).toBeTruthy()
-        expect(screen.getByText('Research Desk')).toBeTruthy()
-        expect(screen.queryByText('Strategy Desk')).toBeNull()
-        expect(screen.queryByText('Events Desk')).toBeNull()
+        expect(screen.getByText('Research a company')).toBeTruthy()
+        expect(screen.queryByText('Set the house industry views')).toBeNull()
+        expect(screen.queryByText('See who an event reaches')).toBeNull()
     })
 
     it('closes on its × and on Escape', () => {

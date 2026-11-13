@@ -266,12 +266,14 @@ export const isAdminBotId = (id) => ADMIN_BOT_IDS.includes(id)
 export const CONVERSATIONAL_BOT_ID = 'axl'
 
 // ── Reception desks ────────────────────────────────────────────────────────────
+// `label` is a THING TO DO ("Build a trade") since one-axl.md §5 (2026-11-13) — never a desk's name; the role beside it
+// (AGENTS[agentKey].role) says who does it.
 // The desks a route names (a RouteOffer's `route`): `entryTab` is the agent it lands on, `agentKey` its icon. The
 // pipelines' `steps` went with the conveyor and the crumb (unified-chat phase 8e) — the server's chain walks desks now.
 export const DESKS = [
     {
         key:      'trade',
-        label:    'Trading Desk',
+        label:    'Build a trade',
         lead:     'Traders desk',
         blurb:    'Intraday, day, or swing — we build the setup together (I find a name when you have none), then I watch it for you.',
         hue:      'cyan',
@@ -280,7 +282,7 @@ export const DESKS = [
     },
     {
         key:      'portfolio',
-        label:    'Portfolio Desk',
+        label:    'Build or review a portfolio',
         lead:     'Investments desk',
         blurb:    'Long-term or swing — we set the mandate, I find and research the names under it, then allocate.',
         hue:      'green',
@@ -296,7 +298,7 @@ export const DESKS = [
     // no name to him and gets the one pick back — the Trading Desk's blurb says so.
     {
         key:      'assist',
-        label:    'Assist Desk',
+        label:    'Work on your own trade',
         lead:     'Build your idea',
         blurb:    'You bring the ticker and your plan — I pressure-test it, then watch it for you.',
         hue:      'green',
@@ -305,7 +307,7 @@ export const DESKS = [
     },
     {
         key:      'technicals',
-        label:    'Technicals Desk',
+        label:    'See how a stock trades',
         lead:     'Technical analysis',
         blurb:    'How a stock trades, measured — what it respects, its false breaks, its ATR — and what its chart shows now.',
         hue:      'cyan',
@@ -314,7 +316,7 @@ export const DESKS = [
     },
     {
         key:      'research',
-        label:    'Research Desk',
+        label:    'Research a company',
         lead:     'Analyst',
         blurb:    'A living coverage thesis — our view vs the Street.',
         hue:      'amber',
@@ -323,7 +325,7 @@ export const DESKS = [
     },
     {
         key:       'strategy',
-        label:     'Strategy Desk',
+        label:     'Set the house industry views',
         lead:      'Economics',
         blurb:     'Three structural questions answered for every GICS industry.',
         hue:       'amber',
@@ -333,7 +335,7 @@ export const DESKS = [
     },
     {
         key:       'aether',
-        label:     'Events Desk',
+        label:     'See who an event reaches',
         lead:      'Events radar',
         blurb:     'The companies a macro, trade or policy event reaches, with what each one\'s own filings say about it.',
         hue:       'cyan',

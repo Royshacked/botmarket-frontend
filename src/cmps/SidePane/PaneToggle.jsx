@@ -2,6 +2,7 @@ import PropTypes from 'prop-types'
 import { agentMeta } from '../ChatTimeline/timelineRows.js'
 import { closePane, collapsePane, expandPane, reopenPane, useSidePane } from './sidePane.store.js'
 import { isHandheld } from '../EntityCard/entityPopup.js'
+import { paneTitle } from './paneTitle.js'
 
 /**
  * The chat header's way back to the side pane (Roy, 2026-10-18: closing it left no way to reopen it — it only came
@@ -11,9 +12,9 @@ import { isHandheld } from '../EntityCard/entityPopup.js'
  * @param {{ floor?: string|null, surfaces: Record<string, Function> }} props
  *   surfaces  the desks that have a pane surface (MainPage's SURFACES) — a key without one never offers a button
  */
-export function PaneToggle({ floor = null, surfaces }) {
+export function PaneToggle({ floor = null, surfaces, agentState = null }) {
     const { tabs, active, hidden, collapsed } = useSidePane()
-    const nameOf = (t) => surfaces[t]?.paneLabel ?? agentMeta(t).work ?? 'Work'
+    const nameOf = (t) => paneTitle(t, agentState?.[t]) ?? surfaces[t]?.paneLabel ?? agentMeta(t).work ?? 'Work'   // one-axl.md §5
     const anyTab = tabs.some(t => surfaces[t])
     // A phone's lowered sheet (2026-10-28): the desk is open, its sheet down — "Show", with a dot: there is work in it.
     const lowered = anyTab && collapsed
@@ -38,5 +39,6 @@ export function PaneToggle({ floor = null, surfaces }) {
 
 PaneToggle.propTypes = {
     floor:    PropTypes.string,
+    agentState: PropTypes.object,
     surfaces: PropTypes.object.isRequired,
 }

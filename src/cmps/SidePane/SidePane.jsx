@@ -6,6 +6,7 @@ import { isHandheld } from '../EntityCard/entityPopup.js'
 import { agentMeta } from '../ChatTimeline/timelineRows.js'
 import { closePane, closeSurface, collapsePane, openSurface, setPinned, showSurface, sidePaneState, useSidePane } from './sidePane.store.js'
 import './SidePane.scss'
+import { paneTitle } from './paneTitle.js'
 
 // ── The side pane: each desk's working surface, beside the chat (unified-chat plan phase 8b, K5) ──
 //
@@ -54,7 +55,8 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
         }
         return hosts.current.get(t)
     }
-    const labelOf = (t) => surfaces[t]?.paneLabel ?? agentMeta(t).work ?? 'Work'
+    // The tab names the ITEM on it — "NVDA · long swing trade" — and the work when nothing is open yet (one-axl.md §5).
+    const labelOf = (t) => paneTitle(t, session?.agentState?.[t]) ?? surfaces[t]?.paneLabel ?? agentMeta(t).work ?? 'Work'
     const floor = session?.floor ?? 'axl'
 
     // Follow the floor. Keyed on the floor's CHANGE, not its value, so closing the pane while a desk holds the floor
@@ -105,7 +107,7 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
             isOpen={sheetUp}
             onClose={lower}
             portalTo={handheld ? document.body : null}
-            label={current ? `${labelOf(current)}'s work` : 'Desk'}
+            label={current ? labelOf(current) : 'Work'}
             className={`side-pane side-pane--${handheld ? 'sheet' : 'docked'}`}
             modal={handheld}
             // Docked, it opens beside the chat — often on its own, as the floor moves — so focus stays in the input.

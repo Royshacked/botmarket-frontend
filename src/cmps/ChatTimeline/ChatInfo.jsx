@@ -37,7 +37,7 @@ export function ChatInfo({ floor = 'axl', onClose }) {
                 </section>
                 {floor === 'mentor' && <RiskBasedInfo />}
                 <section className="chat-info__sec">
-                    <h3 className="chat-info__head">The desks</h3>
+                    <h3 className="chat-info__head">What I can do</h3>
                     <dl className="chat-info__desks">
                         {desks.map(d => (
                             <div key={d.key}>

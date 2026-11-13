@@ -172,7 +172,7 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
             <div className="panel-header chat-timeline__header">
                 <span className="chat-timeline__title">{empty ? 'Chat' : <><span className="chat-timeline__title-lead">Talking with </span>{floorName}</>}</span>
                 <span className="chat-timeline__actions">
-                    {paneSurfaces && <PaneToggle floor={floor} surfaces={paneSurfaces} />}
+                    {paneSurfaces && <PaneToggle floor={floor} surfaces={paneSurfaces} agentState={session.agentState} />}
                     <button type="button" className="chat-timeline__action chat-timeline__info-btn" onClick={() => setInfoOpen(true)}>Info</button>
                     <button type="button" className="chat-timeline__action" onClick={() => setHistoryOpen(true)}>History</button>
                     <button type="button" className="chat-timeline__action" onClick={() => startNew()} disabled={busy || empty}>New session</button>
