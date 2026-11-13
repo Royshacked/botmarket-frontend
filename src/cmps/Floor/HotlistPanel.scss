@@ -324,31 +324,31 @@
 // The headline under Why: only on a phone, where the News column is hidden (CR 2026-11-11).
 .hot-day-fallback { margin-top: 16px; }
 
-// THE TECHNICAL ANALYST'S BADGE beside a ticker (BehaviourBadge — backend proteus.md step 5): what the name obeys, in a
-// word or two. The owned-badge's shape (small, mono, beside the symbol, never wrapping it), in the accent; "nothing" dim.
-.behaviour-badge {
-    display: inline-block;
-    margin-left: 6px;
-    padding: 0 4px;
-    vertical-align: middle;
-    white-space: nowrap;
-    border-radius: 3px;
-    font-family: var(--font-mono);
-    font-size: 9.5px;
-    line-height: 15px;
-    letter-spacing: 0.02em;
-    color: var(--accent-light);
-    border: 1px solid color-mix(in srgb, currentColor 45%, transparent);
-    background: color-mix(in srgb, currentColor 10%, transparent);
-    cursor: default;
-    &--nothing { color: var(--text-dim); }
+// HOW IT TRADES in an opened row (TechnicalProfile — backend proteus.md §8.1, 2026-11-13; it replaced the row badge):
+// the technical analyst's measured profile on the row's horizon, as labelled lines. The headline chip: a line that
+// HOLDS in the accent (rare, strong), a trait ("fakes 74%") readable, "nothing" dim.
+.hot-profile {
+    margin: 12px 0;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    &__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+    &__title { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-primary); }
+    &__headline {
+        padding: 0 5px; border-radius: 3px; font-family: var(--font-mono); font-size: 10px; line-height: 16px;
+        border: 1px solid color-mix(in srgb, currentColor 45%, transparent);
+        background: color-mix(in srgb, currentColor 10%, transparent);
+        &--holds   { color: var(--accent-light); }
+        &--trait   { color: var(--text-secondary); }
+        &--nothing { color: var(--text-dim); }
+    }
+    &__ask { margin-left: auto; }
+    &__lines {
+        margin: 0; font-size: 12px; line-height: 1.5; color: var(--text-secondary);
+        > div { display: grid; grid-template-columns: minmax(110px, 160px) 1fr; gap: 8px; padding: 3px 0; }
+        dt { color: var(--text-primary); font-weight: 600; }
+        dd { margin: 0; }
+        @media (max-width: 600px) { > div { grid-template-columns: 1fr; gap: 0; } }
+    }
+    &__note { margin: 6px 0 0; font-size: 11px; color: var(--text-dim); }
 }
-button.behaviour-badge {
-    cursor: pointer;
-    &:hover, &:focus-visible { background: color-mix(in srgb, currentColor 22%, transparent); outline: none; }
-}
-// The ticker and its marks stay on one line: a badge wrapping under a short ticker made every row a different height.
-td:has(> .hot-sym) { white-space: nowrap; }
-// A TRAIT badge ("fakes 74%" — what a name does when nothing holds, option 2 2026-11-13): readable, but not the accent a
-// line that HOLDS gets — that one is the rarer, stronger signal.
-.behaviour-badge--trait { color: var(--text-secondary); }

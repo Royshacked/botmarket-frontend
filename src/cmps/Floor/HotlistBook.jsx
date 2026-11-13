@@ -5,7 +5,6 @@ import { CoverageDetail, CoverageRating } from './CoverageDetail.jsx'
 import { HotlistScorecard } from './HotlistScorecard.jsx'
 import { HotlistRowPage } from './HotlistRowPage.jsx'
 import { BOOK_LABEL, BOOK_SORTS, COVERED, VERDICT_WORDS, bookResult, bookProgress, bookOrigin, bookTiming, isBuy, bookRecordLine, sortBook, chainSurvivors, chainLeft, coveredRows } from './hotlist.utils.js'
-import { BehaviourBadge } from './BehaviourBadge.jsx'
 
 // THE HOUSE'S BOOK in the Hotlist — its Swing and Long term lists (Roy, 2026-10-24: "in hotlist — what about longer
 // swings and long-term names?"). The day's boards stop at This week; these are Prometheus's coverage, split by the price
@@ -128,7 +127,7 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
         // The head line only when it has something to say (code review 2026-10-31: an empty one left a gap).
         const head = [r.industry, r.price_at_set != null ? `${_price(r.price_at_set)} when the target was set (${String(r.set_at).slice(0, 10)})` : null].filter(Boolean)
         return (
-            <HotlistRowPage symbol={r.symbol} name={r.name ?? null} facts={facts}>
+            <HotlistRowPage symbol={r.symbol} name={r.name ?? null} horizon={column} facts={facts}>
                 <div className="hot-detail">
                     {head.length > 0 && <p className="hot-detail__head hot-dim">{head.join(' · ')}</p>}
                     {r.origin?.source === 'pythia' && (
@@ -186,7 +185,7 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
                                             <td className="hot-table__star">
                                                 <button type="button" className="hot-toggle" aria-label={`Details for ${r.symbol}`} onClick={open}>›</button>
                                             </td>
-                                            <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(r.symbol)} title={r.name ?? r.symbol}>{r.symbol}</button><OwnedBadge symbol={r.symbol} /><BehaviourBadge symbol={r.symbol} horizon={column} /></td>
+                                            <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(r.symbol)} title={r.name ?? r.symbol}>{r.symbol}</button><OwnedBadge symbol={r.symbol} /></td>
                                             {td(c.last, 'hot-table__num hot-col--more')}
                                             {td(c.rating)}
                                             {td(c.target, 'hot-table__num')}

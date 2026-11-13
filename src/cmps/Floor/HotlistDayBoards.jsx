@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
 import { OwnedBadge } from '../OwnedBadge/OwnedBadge.jsx'
 import { HotlistRowPage } from './HotlistRowPage.jsx'
-import { BehaviourBadge } from './BehaviourBadge.jsx'
 import {
     DAY_BOARD_LABEL, DAY_BOARD_TITLE, DAY_BOARD_RULE, quotedSpan, latestBoardId, orderedBoards, volText, gapText, catalystCell,
     headlineTime, dayBoardsNote,
@@ -58,7 +57,7 @@ export function HotlistDayBoards({ data, day = null, boardId: heldId, onBoard, o
         const r = rows.find(x => x.symbol === focus)
         if (!r) return <p className="floor-empty">{focus} is not on the {label} board.</p>
         return (
-            <HotlistRowPage symbol={r.symbol} name={r.name ?? null} facts={dayFacts(r, label, board.checkpoint)}>
+            <HotlistRowPage symbol={r.symbol} name={r.name ?? null} horizon="intraday" facts={dayFacts(r, label, board.checkpoint)}>
                 <DayDetail row={r} board={board} label={label} onBuild={onBuild} />
             </HotlistRowPage>
         )
@@ -147,7 +146,7 @@ function DayRow({ row, day = null, onSymbolClick, onOpen = null }) {
             <td className="hot-table__star">
                 {onOpen && <button type="button" className="hot-toggle" aria-label={`Details for ${row.symbol}`} onClick={onOpen}>›</button>}
             </td>
-            <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(row.symbol)} title={row.name ?? row.symbol}>{row.symbol}</button><OwnedBadge symbol={row.symbol} /><BehaviourBadge symbol={row.symbol} horizon="intraday" /></td>
+            <td><button type="button" className="hot-sym" onClick={() => onSymbolClick?.(row.symbol)} title={row.name ?? row.symbol}>{row.symbol}</button><OwnedBadge symbol={row.symbol} /></td>
             <td className="hot-table__num">{Number.isFinite(row.price) ? row.price.toFixed(2) : dash}</td>
             <td className="hot-table__num">{gapText(row) ?? dash}</td>
             <td className="hot-table__num hot-col--more">{volText(row) ?? dash}</td>
