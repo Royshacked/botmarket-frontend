@@ -12,6 +12,7 @@ import { ChatBubble } from '../ChatBubble.jsx'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { SuggestionChips } from '../SuggestionChips.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
+import { readWaitingLines } from './readWaiting.js'
 import { ChatChartDock } from '../ChatChartDock.jsx'
 import { TimelineRow, SpeakerTag } from './TimelineRow.jsx'
 import { startsRun, isEndedLine, isFreshEndedLine, isOffScreen } from './timelineRows.js'
@@ -58,6 +59,8 @@ function OwnSessionTimeline(props) {
 function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, briefRequest = 0, onBriefStart, onOpenTicket, onOpenView, desks = [], onOpenDesk, paneSurfaces = null, session }) {
     const { user } = useAuth()
     const { rows, live, queuedTurn, lastTurn, chain, floor, send, stop, cancelQueued, choose, startNew, loadError } = session
+    // The analyst's reads in line for this chat — said until they land (readWaiting.js, Roy 2026-11-14).
+    const readLines = readWaitingLines(session.waiting)
     const [draft, setDraft]             = useState('')
     const [historyOpen, setHistoryOpen] = useState(false)
     // Info over the chat — a phone's (ChatInfo; the desktop Floor has its Info column). Stable: the sheet's Esc binds on it.
@@ -228,6 +231,12 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
 
                         {/* The finished plan stays in the thread; the levels so far only while Mentor has the floor. */}
                         {tradeSetup && (tradeReady || floor === 'mentor') && <MentorTradeChart setup={tradeSetup} ready={tradeReady} />}
+
+                        {readLines.map(l => (
+                            <div key={l.key} className="chat-timeline__row chat-timeline__row--assistant chat-timeline__row--waiting-read">
+                                <ToolStatusChip label={l.text} />
+                            </div>
+                        ))}
 
                         {busy && (
                             <div className="chat-timeline__row chat-timeline__row--assistant chat-timeline__row--live">

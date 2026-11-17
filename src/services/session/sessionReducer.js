@@ -4,7 +4,8 @@
 //   session_replay   the rows after our last seq + the floor, status and any turn running now (a reconnect)
 //   session_message  one settled row — a user turn, a reply, a hand-off, a decision
 //   session_removed  rows a stopped turn took back
-//   session_state    a patch: one agent's working state (and its revision), the floor, the chain, "archived → next"
+//   session_state    a patch: one agent's working state (and its revision), the floor, the chain, "archived → next",
+//                    the reads the chat is waiting on (`waiting` — the status line, backend session.setWaiting)
 //   session_delta    the running turn's stream: tokens, reasoning, the tool chip, a phase
 //   session_turn     the running turn's lifecycle: started / done / stopped / refused / error
 //
@@ -19,6 +20,8 @@ export const emptySession = Object.freeze({
     queuedTurn: null,    // { turnId, agent, text } — the user spoke while another turn ran; it waits its turn
     lastTurn: null,      // { turnId, agent, status, payload, reason, message } — the last turn that ENDED
     floor: 'axl', agentState: {}, chain: null,
+    // The reads in line for this chat, by key → { symbol, horizon, kind, ahead, running, since } (Roy, 2026-11-14).
+    waiting: {},
     // Each agent's REVISION — what a press or a hand edit names (backend plan §10.2). Bumped by every write of that
     // agent's state; a press made on an older one is refused (stale_state) so it never acts on work the user did not see.
     agentRev: {},
@@ -67,11 +70,12 @@ export function sessionReducer(state, action) {
             const s = action.session
             if (!s) return state
             if (s.sessionId === state.sessionId) {
-                return { ...state, status: s.status ?? state.status, floor: s.floor ?? state.floor, chain: s.chain ?? state.chain, agentRev: mergeRevs(state.agentRev, s.agentRev), loadError: null }
+                return { ...state, status: s.status ?? state.status, floor: s.floor ?? state.floor, chain: s.chain ?? state.chain, waiting: s.waiting ?? state.waiting, agentRev: mergeRevs(state.agentRev, s.agentRev), loadError: null }
             }
             return {
                 ...emptySession, sessionId: s.sessionId, scope: s.scope ?? state.scope, status: s.status ?? 'active',
                 floor: s.floor ?? 'axl', agentState: s.agentState ?? {}, agentRev: mergeRevs({}, s.agentRev), chain: s.chain ?? null,
+                waiting: s.waiting ?? {},
             }
         }
 
@@ -133,6 +137,7 @@ export function sessionReducer(state, action) {
                 ...withLive({ ...state, queuedTurn: queued }, live),
                 rows, lastSeq: maxSeq(rows, state.lastSeq), floor: d.floor ?? state.floor, status: d.status ?? state.status,
                 ...('chain' in d ? { chain: d.chain ?? null } : {}),
+                ...('waiting' in d ? { waiting: d.waiting ?? {} } : {}),
                 ...(d.agentState ? { agentState: d.agentState } : {}),
                 agentRev: mergeRevs(state.agentRev, d.agentRev),
             }
@@ -159,6 +164,7 @@ export function sessionReducer(state, action) {
             if (d.archived) next = { ...next, status: 'archived', next: d.next ?? null }
             if ('floor' in d) next = { ...next, floor: d.floor ?? 'axl' }
             if ('chain' in d) next = { ...next, chain: d.chain ?? null }
+            if ('waiting' in d) next = { ...next, waiting: d.waiting ?? {} }
             if (d.agent) next = { ...next, agentState: { ...next.agentState, [d.agent]: d.state ?? null }, agentRev: mergeRevs(next.agentRev, { [d.agent]: d.rev }) }
             return next
         }

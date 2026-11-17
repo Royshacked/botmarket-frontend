@@ -30,6 +30,8 @@ const LABELS = {
     get_derivatives_context: 'Checking funding & open interest…',
     get_news:             'Reading the news…',
     get_event_candidates: 'Reading the event candidates…',
+    // Not a model tool: the trader's desk measures a name it has no profile for before his turn (mentor.desk, 2026-11-14).
+    measure_behaviour:    'Measuring how it trades…',
 
     // Shared by several desks.
     get_trading_context:  'Checking your accounts…',
