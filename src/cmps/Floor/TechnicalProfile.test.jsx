@@ -31,6 +31,9 @@ describe('TechnicalProfile', () => {
         cleanup()
         render(<TechnicalProfile symbol="ZZZ" horizon="swing" _fetch={async () => { throw new Error('500') }} />)
         expect(await screen.findByText(/could not be read just now/)).toBeTruthy()
+        cleanup()
+        render(<TechnicalProfile symbol="LLY" horizon="swing" _fetch={async () => ({ reason: 'unavailable' })} />)
+        expect(await screen.findByText(/could not be fetched just now/)).toBeTruthy()
     })
 
     it('"Ask the technical analyst" opens his read for the name — only where the Hotlist provides the opener', async () => {

@@ -17,6 +17,7 @@ TechnicalsProvider.propTypes = { onAsk: PropTypes.func, children: PropTypes.node
 
 const REASONS = {
     no_history: 'Not enough price history to measure how it trades.',
+    unavailable: 'Its price history could not be fetched just now — open it again in a minute.',
     too_short: 'Not enough history on this horizon\'s bars to say.',
     bad_symbol: 'Not a ticker the profile can read.',
 }
