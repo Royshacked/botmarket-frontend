@@ -67,7 +67,10 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
     const lastFloor = useRef(null)
     useEffect(() => {
         if (floor === lastFloor.current) return
+        const left = lastFloor.current
         lastFloor.current = floor
+        // A desk that keeps nothing once its turn is done (the stock picker: his pick is handed on) closes as the floor leaves it.
+        if (left && surfaces[left]?.leavesWithFloor) closeSurface(left)
         if (surfaces[floor]) openSurface(floor, { follow: true, collapse: isHandheld() })
     }, [floor, surfaces])
 

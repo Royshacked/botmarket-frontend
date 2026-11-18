@@ -26,6 +26,16 @@ describe('SidePane', () => {
         expect(screen.getByRole('dialog').className).toContain('side-pane--docked')
     })
 
+    it('a desk that keeps nothing (the stock picker) closes its tab as the floor leaves it — no "Finding a name" over a found name (2026-11-18)', () => {
+        const Picker = () => <div>picker surface</div>
+        Picker.leavesWithFloor = true
+        const withPicker = { ...surfaces, scanner: Picker }
+        const { rerender } = render(<SidePane session={{ floor: 'scanner' }} surfaces={withPicker} />)
+        expect(screen.getByRole('tab', { name: 'Finding a name' })).toBeTruthy()
+        rerender(<SidePane session={{ floor: 'mentor' }} surfaces={withPicker} />)
+        expect(screen.getAllByRole('tab').map(t => t.textContent)).toEqual(['Trade work'])
+    })
+
     it('the floor going back to Axl leaves it open; another desk adds its tab and comes forward', () => {
         const { rerender } = render(<SidePane session={{ floor: 'mentor' }} surfaces={surfaces} />)
         rerender(<SidePane session={{ floor: 'axl' }} surfaces={surfaces} />)

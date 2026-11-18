@@ -19,6 +19,9 @@ export function ScannerSurface() {
 }
 
 // What this pane is, said once under its tabs (SidePane — Roy, 2026-10-19: the pane was not clear to a user).
+// He holds nothing once his pick is handed on (the chain carries it to the trader): his tab leaves with the floor, or it
+// keeps saying "Finding a name" over a name already found (the drive, 2026-11-18).
+ScannerSurface.leavesWithFloor = true
 ScannerSurface.paneHint = 'The stock picker finds one name for you here and hands it to the trader to build.'
 
 ScannerSurface.propTypes = {

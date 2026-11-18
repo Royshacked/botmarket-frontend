@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react'
 import { chatWsService } from '../services/chat/chatWs.service'
-import { sessionService } from '../services/session/session.service.remote'
+import { sessionService, announceCommitted } from '../services/session/session.service.remote'
 import { sessionReducer, emptySession, SESSION_EVENTS } from '../services/session/sessionReducer.js'
 import { newTurnId, stopTurn } from '../services/turn.service'
 import { apiError } from '../services/http.service'
-import { openChart } from '../services/chartSurface.service'
+import { openChart, closeChart } from '../services/chartSurface.service'
 
 // How long a press made before the session has loaded waits for it (a card or a calendar row clicked as the page
 // opens) — then it answers as not open, rather than hanging.
@@ -66,8 +66,12 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
     useEffect(() => () => { waiters.current.splice(0).forEach(done => done(false)) }, [])
 
     // Archived elsewhere (another tab pressed New) → follow it to the session that replaced it.
+    // A desk's GO commits on the server and ends the session the same way (Mentor's trade, Atlas's book — no press
+    // here to announce it): the lists re-read now rather than at their next poll (the drive, 2026-11-18).
     useEffect(() => {
-        if (state.status === 'archived' && state.next) load(() => api.getActive(scope))
+        if (state.status !== 'archived' || !state.next) return
+        announceCommitted()
+        load(() => api.getActive(scope))
     }, [state.status, state.next, api, scope, load])
 
     useEffect(() => {
@@ -113,6 +117,8 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
         try { session = await api.resume(sessionId) }
         catch (err) { return apiError(err, 'Could not pick that session back up') }
         dispatch({ type: 'load', session })
+        // Another conversation: the chart docked over the last one is not this one's (the drive, 2026-11-17).
+        closeChart()
         if (String(text ?? '').trim()) await post(session.sessionId, session.floor, text, opts)
         return null
     }, [api, post])
@@ -127,7 +133,9 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
         catch (err) { return apiError(err, 'That choice is not open any more') }
     }, [api])
 
-    const startNew = useCallback(() => load(() => api.startNew(scope)), [api, scope, load])
+    // A fresh session starts with an empty chat — and no chart docked over it from the last conversation (the drive,
+    // 2026-11-17: the dock carried over into an empty session).
+    const startNew = useCallback(() => { closeChart(); return load(() => api.startNew(scope)) }, [api, scope, load])
 
     // ── A desk's surface: commits, hand edits, reopening (plan phase 8b; the contract is backend plan §10.2) ──
     //

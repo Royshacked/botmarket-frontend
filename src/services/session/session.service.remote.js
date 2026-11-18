@@ -1,6 +1,7 @@
 import { httpService } from '../http.service'
 import { SETUPS_CHANGED } from '../mentor/mentor.service.remote'
 import { COVERAGE_CHANGED } from '../analyst/analyst.service.remote'
+import { IDEAS_CHANGED } from '../tradeIdeas/tradeIdeas.service.remote'
 
 // The unified chat's session (backend api/sessions — unified-chat plan phases 3–7). One timeline per user per
 // scope; every agent speaks in it. A turn is ACCEPTED here (202) and streams on the chat socket
@@ -11,9 +12,19 @@ const BASE = 'api/sessions'
 
 // A commit writes the desk's kind, so the lists of it reload — the same window broadcast the kind's own CRUD sends
 // (entityApi). Phase 8b CR: Generate/Arm/Update from the session left the Floor stale until its poll. Prometheus's
-// coverage joined in the 8d CR. Atlas's books and Argus's scans have no such broadcast — their surfaces' onSaved
-// re-reads them (MainPage.handleDeskSaved).
-const CHANGE_EVENTS = { mentor: SETUPS_CHANGED, analyst: COVERAGE_CHANGED }
+// coverage joined in the 8d CR; Atlas's books (they are ideas) on 2026-11-18, when his GO — a commit the server makes,
+// with no press here — left the new book off the list until the poll. (Argus saves nothing since 2026-11-09.)
+const CHANGE_EVENTS = { mentor: SETUPS_CHANGED, analyst: COVERAGE_CHANGED, portfolio: IDEAS_CHANGED }
+
+/**
+ * Tell the open lists a desk committed: its kind's change event, or — `agent` null — every desk's. The press path
+ * (act) names its desk; a commit the server made on its own (a desk's go, which ends the session) is seen only as
+ * the session archiving, with no desk named, so every list re-reads.
+ */
+export function announceCommitted(agent = null) {
+    const events = agent ? [CHANGE_EVENTS[agent]].filter(Boolean) : Object.values(CHANGE_EVENTS)
+    for (const e of events) window.dispatchEvent(new Event(e))
+}
 
 export const sessionService = {
     /** The user's running session in a scope (created when there is none). */
@@ -80,7 +91,7 @@ export const sessionService = {
      */
     async act(sessionId, { agent, action, args = {}, rev }) {
         const res = await httpService.post(`${BASE}/${encodeURIComponent(sessionId)}/act`, { agent, action, args, rev })
-        if (CHANGE_EVENTS[agent]) window.dispatchEvent(new Event(CHANGE_EVENTS[agent]))
+        announceCommitted(agent)
         return res
     },
 

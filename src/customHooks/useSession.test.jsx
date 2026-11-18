@@ -7,7 +7,8 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 const stopTurn = vi.fn(async () => true)
 vi.mock('../services/turn.service', () => ({ newTurnId: () => 'turn_x', stopTurn: (...a) => stopTurn(...a) }))
 const openChart = vi.fn()
-vi.mock('../services/chartSurface.service', () => ({ openChart: (...a) => openChart(...a) }))
+const closeChart = vi.fn()
+vi.mock('../services/chartSurface.service', () => ({ openChart: (...a) => openChart(...a), closeChart: (...a) => closeChart(...a) }))
 
 const { useSession } = await import('./useSession.js')
 
@@ -34,7 +35,7 @@ function fakeApi(over = {}) {
 }
 
 let ws, api
-beforeEach(() => { ws = fakeWs(); api = fakeApi(); stopTurn.mockClear(); openChart.mockClear() })
+beforeEach(() => { ws = fakeWs(); api = fakeApi(); stopTurn.mockClear(); openChart.mockClear(); closeChart.mockClear() })
 
 const mount = () => renderHook(() => useSession('main', { ws, api }))
 
@@ -94,6 +95,7 @@ describe('useSession', () => {
         expect(api.resume).toHaveBeenCalledWith('old')
         expect(api.turn).toHaveBeenCalledWith('old', { text: 'and gold?', agent: null, turnId: 'turn_x', accounts: ['a1'] })
         expect(result.current.sessionId).toBe('old')
+        expect(closeChart).toHaveBeenCalledTimes(1)   // another conversation: the docked chart was the last one's
         expect(result.current.live).toMatchObject({ agent: 'mentor', status: 'queued' })
         expect(ws.sent.at(-1)).toEqual({ event: 'session_sync', data: { sessionId: 'old', afterSeq: 0 } })
     })
@@ -107,6 +109,25 @@ describe('useSession', () => {
         expect(typeof err).toBe('string')
         expect(api.turn).not.toHaveBeenCalled()
         expect(result.current.sessionId).toBe('s1')
+        expect(closeChart).not.toHaveBeenCalled()      // nothing changed: the chart stays
+    })
+
+    it('a session archived by a commit (a desk\'s go) tells every desk\'s list to re-read, then follows to the next (2026-11-18)', async () => {
+        const { SETUPS_CHANGED } = await import('../services/mentor/mentor.service.remote')
+        const { COVERAGE_CHANGED } = await import('../services/analyst/analyst.service.remote')
+        const { IDEAS_CHANGED } = await import('../services/tradeIdeas/tradeIdeas.service.remote')
+        const heard = []
+        const events = [SETUPS_CHANGED, COVERAGE_CHANGED, IDEAS_CHANGED]
+        const hs = events.map(e => [e, () => heard.push(e)])
+        hs.forEach(([e, h]) => window.addEventListener(e, h))
+        try {
+            const { result } = mount()
+            await waitFor(() => expect(result.current.sessionId).toBe('s1'))
+            api.getActive.mockResolvedValueOnce({ sessionId: 's2', scope: 'main', status: 'active', floor: 'axl' })
+            act(() => ws.emit('session_state', { sessionId: 's1', archived: true, next: 's2' }))
+            await waitFor(() => expect(result.current.sessionId).toBe('s2'))
+            expect([...heard].sort()).toEqual([...events].sort())
+        } finally { hs.forEach(([e, h]) => window.removeEventListener(e, h)) }
     })
 
     it('New session loads the new one and replays it', async () => {
@@ -115,6 +136,7 @@ describe('useSession', () => {
         await act(() => result.current.startNew())
         await waitFor(() => expect(result.current.sessionId).toBe('s2'))
         expect(ws.sent.at(-1)).toEqual({ event: 'session_sync', data: { sessionId: 's2', afterSeq: 0 } })
+        expect(closeChart).toHaveBeenCalledTimes(1)   // no chart from the last conversation over the empty one (2026-11-17)
     })
 
     it('a live chart the user asked for docks on the shared chart surface', async () => {

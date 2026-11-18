@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { tradeIdeasService } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
+import { tradeIdeasService, IDEAS_CHANGED } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { useAutoRefresh } from './useAutoRefresh.js'
 import { useWindowEvent } from './useWindowEvent.js'
 
@@ -56,6 +56,8 @@ export function useTradeIdeas() {
         finally { setLoading(false) }
     }, [loadIdeas])
     useWindowEvent('workspace-mode-changed', reloadForWorkspace)
+    // A desk's commit wrote ideas on the server (a book Atlas generated): re-read now, not at the next poll.
+    useWindowEvent(IDEAS_CHANGED, loadIdeas)
 
     async function handleStatusChange(id, status) {
         // Optimistic update — React controlled selects snap back without this
