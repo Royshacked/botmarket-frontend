@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { tradeIdeasService, IDEAS_CHANGED } from '../services/tradeIdeas/tradeIdeas.service.remote.js'
 import { useAutoRefresh } from './useAutoRefresh.js'
 import { useWindowEvent } from './useWindowEvent.js'
@@ -33,10 +33,14 @@ export function useTradeIdeas() {
     // in the same tick cannot read it back from `ideas` or a ref — both only update on the next
     // render — so the array is handed straight back. (Used by the entry-confirm card route, which
     // has to resolve an idea the server just changed.) Returns null on failure, never throws.
+    // Only the LATEST load writes the list: a poll, a commit's announcement and a workspace switch can overlap, and an
+    // older answer landing last would put the stale list back (CR 2026-11-18).
+    const latest = useRef(0)
     const loadIdeas = useCallback(async () => {
+        const mine = ++latest.current
         try {
             const fetched = await tradeIdeasService.getIdeas()
-            setIdeas(fetched)
+            if (mine === latest.current) setIdeas(fetched)
             return fetched
         } catch (err) {
             console.error('[tradeIdeas] load failed', err)

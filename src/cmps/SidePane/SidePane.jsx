@@ -69,8 +69,12 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
         if (floor === lastFloor.current) return
         const left = lastFloor.current
         lastFloor.current = floor
-        // A desk that keeps nothing once its turn is done (the stock picker: his pick is handed on) closes as the floor leaves it.
-        if (left && surfaces[left]?.leavesWithFloor) closeSurface(left)
+        // A desk that keeps nothing once its work is handed on closes when the floor moves to the desk it hands to (the
+        // stock picker → the trader). Anywhere else — a question to Axl mid-search — it stays, as every tab does; a pinned
+        // one always stays (CR 2026-11-18).
+        const pane = sidePaneState()
+        const pinnedHere = pane.pinned && pane.active === left
+        if (left && surfaces[left]?.leavesWithFloor === floor && !pinnedHere) closeSurface(left)
         if (surfaces[floor]) openSurface(floor, { follow: true, collapse: isHandheld() })
     }, [floor, surfaces])
 

@@ -8,7 +8,7 @@ let handheld = false
 vi.mock('../EntityCard/entityPopup.js', () => ({ isHandheld: () => handheld }))
 
 const { SidePane } = await import('./SidePane.jsx')
-const { _resetSidePane, openSurface, sidePaneState, expandPane } = await import('./sidePane.store.js')
+const { _resetSidePane, openSurface, sidePaneState, expandPane, setPinned } = await import('./sidePane.store.js')
 
 const Mentor = ({ session }) => <p>mentor surface · floor {session.floor}</p>
 const Atlas  = () => <p>atlas surface</p>
@@ -26,14 +26,27 @@ describe('SidePane', () => {
         expect(screen.getByRole('dialog').className).toContain('side-pane--docked')
     })
 
-    it('a desk that keeps nothing (the stock picker) closes its tab as the floor leaves it — no "Finding a name" over a found name (2026-11-18)', () => {
+    it('the stock picker\'s tab closes when the floor moves to the desk he hands to — no "Finding a name" over a found name (2026-11-18)', () => {
         const Picker = () => <div>picker surface</div>
-        Picker.leavesWithFloor = true
+        Picker.leavesWithFloor = 'mentor'
         const withPicker = { ...surfaces, scanner: Picker }
         const { rerender } = render(<SidePane session={{ floor: 'scanner' }} surfaces={withPicker} />)
         expect(screen.getByRole('tab', { name: 'Finding a name' })).toBeTruthy()
         rerender(<SidePane session={{ floor: 'mentor' }} surfaces={withPicker} />)
         expect(screen.getAllByRole('tab').map(t => t.textContent)).toEqual(['Trade work'])
+    })
+
+    it('…but a question to Axl mid-search leaves his tab open, and a PINNED picker tab is never closed (CR 2026-11-18)', () => {
+        const Picker = () => <div>picker surface</div>
+        Picker.leavesWithFloor = 'mentor'
+        const withPicker = { ...surfaces, scanner: Picker }
+        const { rerender } = render(<SidePane session={{ floor: 'scanner' }} surfaces={withPicker} />)
+        rerender(<SidePane session={{ floor: 'axl' }} surfaces={withPicker} />)
+        expect(screen.getByRole('tab', { name: 'Finding a name' })).toBeTruthy()
+        rerender(<SidePane session={{ floor: 'scanner' }} surfaces={withPicker} />)
+        act(() => setPinned(true))
+        rerender(<SidePane session={{ floor: 'mentor' }} surfaces={withPicker} />)
+        expect(screen.getByRole('tab', { name: 'Finding a name' })).toBeTruthy()
     })
 
     it('the floor going back to Axl leaves it open; another desk adds its tab and comes forward', () => {

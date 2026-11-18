@@ -274,7 +274,9 @@
 
 // The house's book (HotlistBook; Roy, 2026-10-24): Swing and Long term sit after the day's horizons, set a little apart —
 // they are the house's coverage, not a day's board.
-.hot-horizons__btn--book { margin-left: 14px; }
+// Scoped under .hot-horizons so it outranks the global .toggle-chip's `margin: 0`, which lands LATER in the built CSS
+// (CR 2026-11-18: the gap before the book buttons was gone).
+.hot-horizons .hot-horizons__btn--book { margin-left: 14px; }
 .hot-book__from { font-size: 11px; color: var(--text-secondary); max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
 
 // What Argus spotted in the pool (ArgusSpots, 2026-10-24) — under his read, a line each.

@@ -6,6 +6,7 @@ import { TimelineRow, SpeakerTag } from './TimelineRow.jsx'
 import { startsRun, isEndedLine } from './timelineRows.js'
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog.jsx'
 import { ChatInputRow } from '../ChatInputRow.jsx'
+import { useEscapeLayer } from '../../customHooks/useEscapeLayer.js'
 
 const fmtDate = (ms) => (ms ? new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '')
 
@@ -46,19 +47,10 @@ export function SessionHistory({ scope = 'main', onClose, onResume = null, busy 
     askingRef.current = asking
 
     // A dialog: focus lands on it once, and Escape closes it — the delete ask first, when it is up (one Esc, one layer).
-    useEffect(() => {
-        closeRef.current?.focus()
-        // Captured and claimed, so the drawers under it (DrawerShell: the side pane, the detail panel) let this Esc be
-        // — one Esc closes one layer.
-        const onKey = (e) => {
-            if (e.key !== 'Escape' || e.defaultPrevented) return
-            e.preventDefault()
-            if (askingRef.current) setAsking(null)
-            else onCloseRef.current()
-        }
-        document.addEventListener('keydown', onKey, true)
-        return () => document.removeEventListener('keydown', onKey, true)
-    }, [])
+    useEffect(() => { closeRef.current?.focus() }, [])
+    // On the shared Esc stack (CR 2026-11-18 — a capture listener of its own answered before every other layer): one Esc
+    // closes one layer — the delete ask first, when it is up.
+    useEscapeLayer(true, () => (askingRef.current ? setAsking(null) : onCloseRef.current()))
 
     useEffect(() => {
         let live = true

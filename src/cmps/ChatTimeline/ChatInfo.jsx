@@ -7,6 +7,7 @@ import { FlowDiagram } from '../Floor/FlowDiagram.jsx'
 import { infoFlow } from '../Floor/infoFlow.js'
 import { useActivePanel } from '../DetailPanel/detailPanel.store.js'
 import { menuDesks } from '../Floor/FloorLists.jsx'
+import { useEscapeLayer } from '../../customHooks/useEscapeLayer.js'
 
 // INFO WHILE CHATTING, on a phone (Roy, 2026-10-29: "add an info tab when chatting"). The Floor's Info column sits beside
 // the chat on a desktop; a phone has no room for it, so the chat header carries an Info button that opens this over the
@@ -25,13 +26,10 @@ export function ChatInfo({ floor = 'axl', agentState = {}, rows = [], onClose })
     const agent = floor && floor !== 'axl' ? AGENTS[floor] ?? null : null
     const desks = DESKS.filter(d => !d.adminOnly || isAdmin)
     const flow = infoFlow({ floor, agentState, rows, list })
-    useEffect(() => {
-        closeRef.current?.focus()
-        // Captured and claimed, as History's: one Esc closes this, not what is under it too.
-        const onKey = (e) => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); onClose() } }
-        document.addEventListener('keydown', onKey, true)
-        return () => document.removeEventListener('keydown', onKey, true)
-    }, [onClose])
+    useEffect(() => { closeRef.current?.focus() }, [])
+    // On the shared Esc stack: one Esc closes the layer opened LAST — this, or Messages opened over it (CR 2026-11-18: a
+    // capture listener of its own answered before every other layer, whatever was on top).
+    useEscapeLayer(true, onClose)
     const atAxl = !agent && !list
     const canDo = (
         <>

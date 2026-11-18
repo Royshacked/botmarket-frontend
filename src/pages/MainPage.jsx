@@ -358,7 +358,8 @@ export function MainPage() {
     function handleDeskSaved({ agent, result }) {
         // (The coverage book itself reloads on COVERAGE_CHANGED, which the commit announces — session.service.remote.)
         if (agent === 'analyst') { setNewsTab('coverage'); return }
-        loadIdeas()
+        // The book itself reloads on IDEAS_CHANGED, which the press announces (sessionService.act) — a loadIdeas here
+        // fetched it twice (CR 2026-11-18).
         if (queuedAnything(result?.rebalance)) loadQueued()
     }
     // An adoption landed: straight into the book that now exists — the next thing to do is look at what was adopted.

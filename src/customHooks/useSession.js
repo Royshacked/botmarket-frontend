@@ -68,9 +68,12 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
     // Archived elsewhere (another tab pressed New) → follow it to the session that replaced it.
     // A desk's GO commits on the server and ends the session the same way (Mentor's trade, Atlas's book — no press
     // here to announce it): the lists re-read now rather than at their next poll (the drive, 2026-11-18).
+    // Either way it is another conversation: the docked chart was the last one's (CR 2026-11-18 — New and resume closed it,
+    // this path did not). Mentor's trade chart is a timeline row, not the dock, and stays with its session.
     useEffect(() => {
         if (state.status !== 'archived' || !state.next) return
         announceCommitted()
+        closeChart()
         load(() => api.getActive(scope))
     }, [state.status, state.next, api, scope, load])
 

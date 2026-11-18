@@ -10,6 +10,7 @@ import { initials } from '../services/util.service.js'
 import { useDesign } from '../customHooks/useDesign.js'
 import { openPanel } from './DetailPanel/detailPanel.store.js'
 import { menuDesks } from './Floor/FloorLists.jsx'
+import { useEscapeLayer } from '../customHooks/useEscapeLayer.js'
 
 // ── AppHeader · "axl" style (trial) ───────────────────────────────────────────
 // The calm aurora header: animated calm-water wave bottom edge, a centered AI
@@ -72,15 +73,12 @@ export function AppHeaderAxl() {
     useEffect(() => {
         if (!navOpen) return
         const onDown = (e) => { if (!rightRef.current?.contains(e.target)) setNavOpen(false) }
-        // Captured and claimed: one Esc closes the menu, not the drawer under it as well.
-        const onKey  = (e) => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); setNavOpen(false) } }
         document.addEventListener('pointerdown', onDown)
-        document.addEventListener('keydown', onKey, true)
-        return () => {
-            document.removeEventListener('pointerdown', onDown)
-            document.removeEventListener('keydown', onKey, true)
-        }
+        return () => document.removeEventListener('pointerdown', onDown)
     }, [navOpen])
+    // Esc on the shared stack: the menu closes when it is the layer on top (CR 2026-11-18 — its own capture listener
+    // closed it first even with Messages opened over it).
+    useEscapeLayer(navOpen, () => setNavOpen(false))
 
     // ── centered axl stream: messages arrive one at a time and fade ──
     useEffect(() => {

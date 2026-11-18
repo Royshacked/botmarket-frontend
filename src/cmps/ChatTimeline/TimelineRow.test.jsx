@@ -29,17 +29,17 @@ describe('SessionHistory — a dialog', () => {
         expect(onClose).toHaveBeenCalled()
     })
 
-    it('claims its Escape, so a drawer under it (the side pane) stays open — one Esc, one layer (8b CR)', () => {
+    it('one Esc closes it, and a drawer opened under it (the side pane) stays open — one Esc, one layer (8b CR; the shared stack, CR 2026-11-18)', async () => {
+        const { useEscapeLayer } = await import('../../customHooks/useEscapeLayer.js')
+        const drawerClose = vi.fn()
+        const Drawer = () => { useEscapeLayer(true, drawerClose); return null }
         const onClose = vi.fn()
         const api = { list: vi.fn(async () => []), messages: vi.fn() }
-        let seen = null
-        const under = (e) => { seen = e.defaultPrevented }
-        document.addEventListener('keydown', under)
-        render(<SessionHistory onClose={onClose} api={api} />)
+        const { rerender } = render(<Drawer />)
+        rerender(<><Drawer /><SessionHistory onClose={onClose} api={api} /></>)
         fireEvent.keyDown(document, { key: 'Escape' })
-        document.removeEventListener('keydown', under)
         expect(onClose).toHaveBeenCalledTimes(1)
-        expect(seen).toBe(true)
+        expect(drawerClose).not.toHaveBeenCalled()
     })
 })
 

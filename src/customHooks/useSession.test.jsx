@@ -127,6 +127,7 @@ describe('useSession', () => {
             act(() => ws.emit('session_state', { sessionId: 's1', archived: true, next: 's2' }))
             await waitFor(() => expect(result.current.sessionId).toBe('s2'))
             expect([...heard].sort()).toEqual([...events].sort())
+            expect(closeChart).toHaveBeenCalledTimes(1)   // another conversation: the docked chart was the last one's
         } finally { hs.forEach(([e, h]) => window.removeEventListener(e, h)) }
     })
 
