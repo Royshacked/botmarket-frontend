@@ -40,7 +40,7 @@
 
 .chat-timeline__actions { display: inline-flex; gap: 8px; flex-shrink: 0; }
 
-// An admin's desks the chat does not route to (Pythia, Aether) — a thin row under the header (phase 8e).
+// An admin's desks the chat does not route to (Pythia) — a thin row under the header (phase 8e).
 .chat-timeline__desks {
     display: flex;
     gap: 6px;

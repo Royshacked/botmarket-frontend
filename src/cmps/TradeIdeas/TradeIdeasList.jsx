@@ -16,7 +16,6 @@ import { SetupCard } from './SetupCard.jsx'
 import { EditButton, DeleteButton } from '../EntityCard/EntityCard.jsx'
 import { isArmed } from '../../services/entityStatus.js'
 import { Radar }     from '../Radar/Radar.jsx'
-import { AetherCandidates } from './AetherCandidates.jsx'
 import './TradeIdeas.scss'
 
 function _separateIdeas(ideas) {
@@ -351,7 +350,7 @@ CardList.propTypes = {
     renderCard: PropTypes.func, lead: PropTypes.node,
 }
 
-export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = false, onDelete, onStatusChange, onSymbolClick, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, onClosePositions, setups = [], setupsLoading = false, onArmSetup, onDisarmSetup, onDeleteSetup, onEditSetup, setupBusyId = null, radar, aetherCandidates }) {
+export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = false, onDelete, onStatusChange, onSymbolClick, onEditPortfolio, onDeletePortfolio, positions = [], positionsLoading = false, onRefreshPositions, onClosePosition, onClosePositions, setups = [], setupsLoading = false, onArmSetup, onDisarmSetup, onDeleteSetup, onEditSetup, setupBusyId = null, radar }) {
     const [expandedGroups, setExpandedGroups] = useState(new Set())
     const [activeFilter,   setActiveFilter]   = useState(null)    // null = hub landing
     // The close-at-market flow (confirm → fire → report) is shared with the Floor's book, so it
@@ -440,7 +439,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = fa
     const showIdeas      = activeFilter === 'ideas'
     const showPositions  = activeFilter === 'positions'
     const showRadar      = activeFilter === 'radar'
-    const showAether     = activeFilter === 'aether'
     const hasIdeasRows   = ideaRows.length > 0
     const hasPortfolios  = visibleGroups.length > 0
 
@@ -484,18 +482,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = fa
             key: 'positions', label: 'Positions', onSelect: selectPositions,
             icon: <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 5.5l6-3 6 3-6 3z"/><path d="M2 8.5l6 3 6-3"/><path d="M2 11.5l6 3 6-3"/></svg>,
             count: positions.length, hubCount: positions.length ? `${positions.length} open` : null,
-            body: 'custom',
-        },
-        {
-            key: 'aether', label: 'Event exposure',
-            icon: <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2L4.5 13.5H11L10 22l9.5-12H14z"/></svg>,
-            count: (aetherCandidates?.runs ?? []).reduce((n, r) => n + (r.candidates?.length ?? 0), 0),
-            hubCount: (() => {
-                const runs = aetherCandidates?.runs ?? []
-                if (!runs.length) return null
-                const names = runs.reduce((n, r) => n + (r.candidates?.length ?? 0), 0)
-                return `${names} across ${runs.length} event${runs.length > 1 ? 's' : ''}`
-            })(),
             body: 'custom',
         },
     ]
@@ -668,16 +654,6 @@ export function TradeIdeasList({ ideas, chatTab, buildingPortfolio, loading = fa
                             onOpen={handleOpenPosition}
                         />
                     )
-                ) : showAether ? (
-                    <AetherCandidates
-                        runs={aetherCandidates?.runs ?? []}
-                        loading={aetherCandidates?.loading}
-                        error={aetherCandidates?.error}
-                        onRead={aetherCandidates?.onRead}
-                        onSymbolClick={onSymbolClick}
-                        onTradeWithMentor={aetherCandidates?.onTradeWithMentor}
-                        setups={setups}
-                    />
                 ) : (
                     (!hasPortfolios && !buildingPortfolio) ? (
                         <p className="trade-ideas-list__empty">No portfolios yet</p>
@@ -756,5 +732,4 @@ TradeIdeasList.propTypes = {
     onEditSetup:      PropTypes.func,
     setupBusyId:      PropTypes.string,
     radar:            PropTypes.object,
-    aetherCandidates: PropTypes.shape({ runs: PropTypes.array, loading: PropTypes.bool, error: PropTypes.string, onTradeWithMentor: PropTypes.func }),
 }

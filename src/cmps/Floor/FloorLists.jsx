@@ -20,7 +20,6 @@ import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
 import { FloorLeft } from './FloorLeft.jsx'
 
 import './Floor.scss'
-import { AetherCandidates } from '../TradeIdeas/AetherCandidates.jsx'
 
 // The Floor's right column: four desks, one open at a time — and the open one TAKES THE COLUMN.
 //
@@ -31,8 +30,8 @@ import { AetherCandidates } from '../TradeIdeas/AetherCandidates.jsx'
 //
 // Every row is ONE LINE and carries only what you'd scan for — never the whole entity. Anything
 // more is a click away — in the pop-out that kind already has (entityPopup.js: setups, ideas), or,
-// for the rows whose detail is a page of reading with no entity page behind it (coverage, the
-// events radar's names, Pythia's rows), in the DetailPanel over the chat column. Which is why there
+// for the rows whose detail is a page of reading with no entity page behind it (coverage,
+// Pythia's rows), in the DetailPanel over the chat column. Which is why there
 // are no cards here: a card exists to hold a summary you can't fit on a line, and once the detail
 // lives elsewhere there is nothing left for it to hold.
 //
@@ -58,9 +57,8 @@ const DESKS = [
     // with Argus's read of it; opens over the chat like the Calendar (HotlistPanel; daily-names.md §8,
     // Roy 2026-10-21). Named "Hotlist", not "Daily watchlist", to stay clear of the old Watchlists list.
     { key: 'hotlist',        label: 'Hotlist', panel: HOTLIST_PANEL_ID },
-    // HIDDEN FOR NOW (Roy, 2026-10-14), not deleted: its rows, counts and sorts all still work, and
-    // dropping the flag brings it back. MainPage still loads the candidates for the Aether desk.
-    { key: 'aether',         label: 'Events radar', hidden: true },
+    // An `aether` desk (Events radar) sat here, hidden since 2026-10-14 — deleted with the Aether event board on
+    // 2026-11-18 (Roy: "delete it like kairos"); the supply-chain simulator replaces it.
 
     // THE CALENDAR — one desk that opens a month grid in the detail panel (CalendarPanel), not a
     // list in this column (Roy, 2026-10-14). It replaced the Earnings, Fed and IPO desks: three
@@ -85,7 +83,7 @@ const DESKS = [
     // A `research_queue` desk sat here — the house research backlog, admin-only. Removed with the queue's manual side
     // (Roy, 2026-10-31: "we dont need anymore the research queue mechanism and list"); the house still researches
     // through it, unseen.
-    // A `channels` desk sat here — Aether's z-score per pressure channel. It went with the
+    // A `channels` desk sat here — the z-score per pressure channel. It went with the
     // channel engine on 2026-09-09, along with the collection behind it.
 ]
 
@@ -578,7 +576,7 @@ PortfolioRows.propTypes = {
 
 export function FloorLists({
     setups = [], ideas = [], positions = [],
-    coverage = [], queued = [], aetherCandidates = null,
+    coverage = [], queued = [],
     onSymbolClick,
     onEditSetup, onDeleteSetup,
     onEditPortfolio, onDeletePortfolio, onDeleteIdea, onActivatePortfolio,
@@ -643,10 +641,6 @@ export function FloorLists({
         queued:         queued.length,
         trade:          setups.length,
         portfolio:      portfoliosFromIdeas(ideas).length,
-        // One count per candidate ROW across every event in the window — a name three events
-        // reached counts three times (its chip says ×3). The backend caps whole runs, never rows,
-        // so this is the true count and not a ceiling: it read "(200)" once when it was a row cap.
-        aether: (aetherCandidates?.runs ?? []).reduce((n, r) => n + (r.candidates?.length ?? 0), 0),
         // No count on Forecasts: it is a standing map rather than a list, and "(1)" beside
         // it would invite the reader to expect one. (Channels was the other, and went with
         // the channel engine on 2026-09-10.) Nor on Calendar: its counts are per day, in the grid.
@@ -679,19 +673,11 @@ export function FloorLists({
     })
     const sorted = (key, rows) => sortRows(rows, key, sorts[key])
 
-    // How many rows the SORT reorders — not always the header count: the events desk counts names while it sorts events.
-    const aetherRuns = aetherCandidates?.runs ?? []
-    const sortableCount = {
-        ...counts,
-        aether:         aetherRuns.length,
-    }
-
-    // Empty = no ROWS to show, not a zero header count. A feed still loading is not "nothing here" yet, and Forecasts carries no count, so it is never dimmed.
-    const loadingFor = { aether: aetherCandidates?.loading }
-    const isEmpty = key => sortableCount[key] === 0 && !loadingFor[key]
+    // Empty = no ROWS to show. Forecasts carries no count, so it is never dimmed.
+    const isEmpty = key => counts[key] === 0
 
     // A desk's rows — in its window over the chat (every list since 2026-10-22), or in the column for a desk without one.
-    const sortable = (desk) => Boolean(DESK_SORTS[desk.key]) && sortableCount[desk.key] > 1
+    const sortable = (desk) => Boolean(DESK_SORTS[desk.key]) && counts[desk.key] > 1
     const sortBar = (desk, inHeader = false) => (sortable(desk)
         ? <SortBar deskKey={desk.key} sort={sorts[desk.key]} onChange={s => setSort(desk.key, s)} inHeader={inHeader} />
         : null)
@@ -731,18 +717,6 @@ export function FloorLists({
                     onDeleteIdea={onDeleteIdea} onActivatePortfolio={onActivatePortfolio}
                 />
             )}
-            {desk.key === 'aether' && (
-                <AetherCandidates
-                    runs={sorted('aether', aetherRuns)}
-                    loading={aetherCandidates?.loading}
-                    error={aetherCandidates?.error}
-                    onRead={aetherCandidates?.onRead}
-                    onSymbolClick={onSymbolClick}
-                    onTradeWithMentor={aetherCandidates?.onTradeWithMentor}
-                    setups={setups}
-                />
-            )}
-
             {desk.key === 'board' && (
                 <>
                     <button type="button" className="floor-board__map" onClick={() => openPanel(FORECAST_PANEL_ID)}>
@@ -803,7 +777,6 @@ FloorLists.propTypes = {
     positions:         PropTypes.array,
     coverage:          PropTypes.array,
     queued:            PropTypes.array,
-    aetherCandidates:  PropTypes.shape({ runs: PropTypes.array, loading: PropTypes.bool, error: PropTypes.string, onTradeWithMentor: PropTypes.func }),
     onExecuteQueued:   PropTypes.func,
     onCancelQueued:    PropTypes.func,
     queuedBusyId:      PropTypes.string,

@@ -19,7 +19,6 @@ import { SessionContext }    from '../context/SessionContext.jsx'
 import { useSession }        from '../customHooks/useSession.js'
 import { agentMeta }         from '../cmps/ChatTimeline/timelineRows.js'
 import { StrategyPanel }     from '../cmps/StrategyPanel/StrategyPanel.jsx'
-import { AetherPanel }       from '../cmps/AetherPanel/AetherPanel.jsx'
 import { TradeIdeasList }    from '../cmps/TradeIdeas/TradeIdeasList.jsx'
 import { FloorInfo }         from '../cmps/Floor/FloorInfo.jsx'
 import { FloorLists }        from '../cmps/Floor/FloorLists.jsx'
@@ -49,7 +48,6 @@ import { useTradeIdeas }     from '../customHooks/useTradeIdeas.js'
 import { useEntityList } from '../customHooks/useEntityList.js'
 import { useDesign }         from '../customHooks/useDesign.js'
 import { useSetups }         from '../customHooks/useSetups.js'
-import { useAetherCandidates } from '../customHooks/useAetherCandidates.js'
 import { deriveIdeaOverlay, deriveSetupOverlay } from '../cmps/TradeIdeas/chartOverlay.js'
 import { useAuth }           from '../context/AuthContext.jsx'
 import { coverageRoute }     from './coverageRoute.js'
@@ -134,13 +132,11 @@ function _moneyShort(v) {
 }
 
 // ── The side pane's tabs (phase 8e, K6) ──
-// Pythia and Aether still run their own chats (they are not on the session yet — D1), and the order ticket is a pad of
+// Pythia still runs her own chat (she is not on the session yet — D1), and the order ticket is a pad of
 // its own: each is a pane tab that stays MOUNTED while hidden (`keepMounted`, SidePane), so a conversation or a half-typed
-// order survives the pane closing. Admin-only for the two desks — their props are given to admins only.
+// order survives the pane closing. Admin-only for Pythia — her props are given to admins only.
 function PythiaSurface({ deskProps }) { return deskProps.pythia ? <StrategyPanel {...deskProps.pythia} /> : null }
 PythiaSurface.keepMounted = true
-function AetherSurface({ deskProps }) { return deskProps.aether ? <AetherPanel {...deskProps.aether} /> : null }
-AetherSurface.keepMounted = true
 function TicketSurface({ deskProps }) { return <div className="portfolio-panel">{deskProps.ticketPad}</div> }
 TicketSurface.keepMounted = true
 TicketSurface.paneLabel = 'Order ticket'
@@ -149,7 +145,7 @@ TicketSurface.paneLabel = 'Order ticket'
 // The desks whose work is drawn in the side pane, by agent (8b Mentor, 8c Atlas, 8d Argus and Prometheus, 8e the rest).
 const SURFACES = Object.freeze({
     mentor: MentorSurface, portfolio: PortfolioSurface, scanner: ScannerSurface, analyst: AnalystSurface,
-    strategy: PythiaSurface, aether: AetherSurface, ticket: TicketSurface,
+    strategy: PythiaSurface, ticket: TicketSurface,
 })
 
 export function MainPage() {
@@ -158,9 +154,8 @@ export function MainPage() {
     // Bumped by the daily market-brief card — the chat timeline writes the brief on every change, then clears it. See
     // the MARKET_BRIEF_OPEN listener for why it counts rather than latches.
     const [briefRequest, setBriefRequest]       = useState(0)
-    // A route Pythia's or Aether's panel offered (its RouteOffer) INTO the other — the panels still open on a seed.
+    // A route offered (a RouteOffer) INTO Pythia's panel — it still opens on a seed.
     const [pythiaSeed, setPythiaSeed] = useState(null)
-    const [aetherSeed, setAetherSeed] = useState(null)
     const [newsTab, setNewsTab]                 = useState('earnings')
 
     // The Analyst's living coverage book (Radar Coverage tab). Reloads on initiate/retire
@@ -213,8 +208,6 @@ export function MainPage() {
     const [deletingIdea, setDeletingIdea] = useState(false)
     const { setups, setupsLoading, refreshSetups } = useSetups()
     const [setupBusyId, setSetupBusyId] = useState(null)
-
-    const { runs: aetherRuns, loading: aetherLoading, error: aetherError, onRead: onAetherRead } = useAetherCandidates()
 
     // Arm / disarm / delete a setup from the Lists surface. Arming is the real gate — the server
     // re-runs the readiness check and refuses with `cannot_arm_<reason>`, so surface that rather
@@ -303,7 +296,7 @@ export function MainPage() {
         closePanel()
         // ON A PHONE a desk the user TALKS to opens with its work LOWERED (Roy, 2026-11-01): raised, the sheet covered the
         // whole chat box at the start of the conversation. "Show …" in the chat header raises it — their choice. A kept
-        // surface (the ticket, Pythia, Aether) has no chat under it: it IS the screen they asked for, so it comes up.
+        // surface (the ticket, Pythia) has no chat under it: it IS the screen they asked for, so it comes up.
         openSurface(agent, { collapse: isHandheld() && !SURFACES[agent]?.keepMounted })
     }
 
@@ -1230,8 +1223,8 @@ export function MainPage() {
     // it (RouteOffer), and the user pressed Go. The desk opens on the opening sentence the sender wrote, which is where
     // what it found travels — a hop added at any desk is a prompt edit there, never a handler here.
     //
-    // Since phase 8e only Pythia's and Aether's panels offer one (the session desks route through Axl, on the server).
-    // An edit opens the item; a desk on the session gets the opening as a turn; Pythia or Aether opens on it as a seed.
+    // Since phase 8e only Pythia's panel offers one (the session desks route through Axl, on the server).
+    // An edit opens the item; a desk on the session gets the opening as a turn; Pythia opens on it as a seed.
     async function handleRoute(offer) {
         const desk = DESKS.find(d => d.key === (offer?.edit?.desk ?? offer?.route))
         if (!desk) return
@@ -1242,9 +1235,9 @@ export function MainPage() {
             : symbol && agent === 'analyst' ? `Research ${symbol} for coverage.`
             : symbol && agent === 'mentor' ? `I want to work on my own ${symbol} trade.`
             : null
-        if (agent === 'strategy' || agent === 'aether') {
+        if (agent === 'strategy') {
             if (!isAdmin) return
-            if (opening) (agent === 'strategy' ? setPythiaSeed : setAetherSeed)({ key: Date.now(), message: opening })
+            if (opening) setPythiaSeed({ key: Date.now(), message: opening })
             openDesk(agent)
             return
         }
@@ -1311,13 +1304,12 @@ export function MainPage() {
     )
 
     // The side pane's props: what every surface reads (surfaceProps), and the kept tabs' — the ticket pad, and Pythia's
-    // and Aether's panels for an admin (their props are their own: a seed a route left, where a publish lands).
+    // panel for an admin (its props are its own: a seed a route left, where a publish lands).
     const paneProps = {
         ...surfaceProps,
         ticketPad,
         ...(isAdmin ? {
             pythia: { seed: pythiaSeed, onRoute: handleRoute, onPublished: () => setNewsTab('forecasts') },
-            aether: { seed: aetherSeed, onRoute: handleRoute },
         } : {}),
     }
 
@@ -1349,7 +1341,6 @@ export function MainPage() {
                                 week={week}
                                 assessments={assessments}
                                 themes={themes}
-                                aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError, onRead: onAetherRead, onTradeWithMentor: seedMentorChat }}
                                 onEarningSelect={handleBuildFromEarning}
                                 onIpoSelect={handleBuildFromIpo}
                                 onHotlistBuild={handleBuildFromHotlist}
@@ -1375,7 +1366,7 @@ export function MainPage() {
                         {/* Where a list row's detail docks on desktop (DetailPanel) — over the chat,
                             the widest column, with the chat still mounted underneath. */}
                         <DetailPanelSlot />
-                        {/* The chat and, beside it, the side pane: each desk's working surface (8b–8d), and Pythia, Aether and the
+                        {/* The chat and, beside it, the side pane: each desk's working surface (8b–8d), and Pythia and the
                             order ticket as kept tabs (8e). The chat column is always the timeline — no desk tab replaces it. */}
                         <SessionContext.Provider value={mainSession}>
                             <div className="chat-with-pane">
@@ -1386,10 +1377,9 @@ export function MainPage() {
                                     onOpenView={handleOpenView}
                                     briefRequest={briefRequest}
                                     onBriefStart={() => setBriefRequest(0)}
-                                    // The admin row that opened Pythia and Aether under the header is OFF for now (Roy,
-                                    // 2026-10-18). To bring it back: desks={isAdmin ? [{ agent: 'strategy', label: 'Pythia' },
-                                    // { agent: 'aether', label: 'Aether' }] : []} onOpenDesk={openDesk} — ChatTimeline still
-                                    // draws the row when given them.
+                                    // The admin row that opened Pythia under the header is OFF for now (Roy,
+                                    // 2026-10-18). To bring it back: desks={isAdmin ? [{ agent: 'strategy', label: 'Pythia' }]
+                                    // : []} onOpenDesk={openDesk} — ChatTimeline still draws the row when given them.
                                     paneSurfaces={SURFACES}
                                 />
                                 <SidePane session={mainSession} surfaces={SURFACES} deskProps={paneProps} />
@@ -1451,7 +1441,6 @@ export function MainPage() {
                                 ipoLoading,
                                 onIpoSelect:       handleBuildFromIpo,
                             }}
-                            aetherCandidates={{ runs: aetherRuns, loading: aetherLoading, error: aetherError, onRead: onAetherRead, onTradeWithMentor: seedMentorChat }}
                         />
                     </div>
                     )}

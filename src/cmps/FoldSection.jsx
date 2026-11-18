@@ -6,10 +6,10 @@ import './FoldSection.scss'
 // of one-line facts. The browser owns the open/closed state, so a poll that re-renders the parent
 // never snaps a section the user opened back shut.
 //
-// Lifted out of AetherCandidates (its drawer's `Section`) when the setup pop-out needed the same
+// Lifted out of the old event list's drawer (its `Section`) when the setup pop-out needed the same
 // shell — the shared shell, not the content: what goes in the tail is the caller's judgment.
 //
-// `className` is the caller's hook for its own modifiers (`aether-candidates__sec--warn`); the
+// `className` is the caller's hook for its own modifiers (`my-sec--warn`); the
 // element always carries `fold-section` too, which is what the styles key on.
 
 export function FoldSection({ title, tail = '', tailTitle, open = false, className = '', children }) {

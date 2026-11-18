@@ -33,18 +33,11 @@ describe('admin-only feeds', () => {
 // says where to look, which is the half that is checkable. The backend list lives in
 // api/chat/chat.service.js.
 //
-// They had drifted: aether was here and not there. Nothing posts under it server-side, so
-// postBotCard would have fallen back to Axl (its comment: "a missing entry doesn’t error, it
-// misattributes"), and because it is also absent from ADMIN_BOT_IDS an admin-only desk’s feed
-// would have appeared in a trader’s sidebar.
+// They once drifted (an id here and not there): postBotCard falls back to Axl for an unknown id
+// (its comment: "a missing entry doesn’t error, it misattributes"), and an id absent from
+// ADMIN_BOT_IDS puts an admin-only desk’s feed in a trader’s sidebar.
 describe('the bot registry', () => {
     it('matches the backend BOT_IDS exactly (api/chat/chat.service.js)', () => {
         expect(BOT_IDS).toEqual(['axl', 'portfolio', 'scanner', 'mentor', 'analyst', 'strategy'])
-    })
-
-    // Aether is admin-only everywhere else in the app. If it ever gains a notifier it needs four
-    // entries — both BOT_IDS and both ADMIN_BOT_IDS — so a half-add cannot leak the feed.
-    it('has no aether feed, because nothing posts one', () => {
-        expect(BOT_IDS).not.toContain('aether')
     })
 })

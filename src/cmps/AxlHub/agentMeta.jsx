@@ -133,34 +133,6 @@ export const AGENTS = {
             </>
         ),
     },
-    // Aether — the event-exposure desk. Admin-only. It IDENTIFIES rather than forecasts: the
-    // channel-graph engine this desk was built around was measured against held-out data,
-    // did not work, and was deleted on 2026-09-10.
-    // Key stays `aether`; Aether is both the key and the brand.
-    aether: {
-        tab:   'aether',
-        brand: 'Aether',
-        role:  'Event analyst',
-        work:  'Event exposure',
-        hue:   'cyan',
-        lead:  'Who an event reaches',
-        blurb: 'A named event in — the companies it reaches out, each verified against its own SEC filings.',
-        intro: "Give me an event and I'll name the companies it reaches, with what their own filings say about it.",
-        hint:  'Ask which names an event reaches, why one is on the list, what its filing said, or whether the move has already happened.',
-        // A sparse graph — dots at nodes, lines between them. Drawn for the channel lattice
-        // it no longer depicts, and kept because it reads just as well as one event and the
-        // names it reaches, which is what the desk does now.
-        icon: (
-            <>
-                <circle cx="6"  cy="12" r="1.8" />
-                <circle cx="18" cy="7"  r="1.8" />
-                <circle cx="18" cy="17" r="1.8" />
-                <line x1="7.7"  y1="11.1" x2="16.3" y2="7.9" />
-                <line x1="7.7"  y1="12.9" x2="16.3" y2="16.1" />
-                <line x1="18"   y1="8.8"  x2="18"   y2="15.2" />
-            </>
-        ),
-    },
     // Pythia — the top-down desk. Deliberately NOT an allocator and not a stock picker: Prometheus
     // works bottom-up on names, Atlas allocates, and this desk exists so the allocator reads a
     // house view it did not write itself. Key stays `strategy`; Pythia is the brand.
@@ -235,16 +207,8 @@ export function speakerOf(agentKey) {
 // nothing posts there and getConversations hides the old thread). The AGENTS entry above
 // stays for rendering history; being absent HERE is what removes it from the sidebar.
 //
-// NO `aether` either, and that one sat here for a while with no other half. Aether has no notifier:
-// nothing on the server posts under that id, and `isBot('aether')` is false there — so postBotCard
-// would silently fall back to Axl, the exact misattribution the backend's own comment warns about
-// (it is how Talos's setup cards once arrived from Axl). No aether thread can exist, so removing it
-// drops nothing.
-//
-// If an Aether notifier is ever built it needs FOUR entries, not one: this list and the backend
-// BOT_IDS, plus BOTH ADMIN_BOT_IDS. Aether is admin-only everywhere else — its routes are
-// requireAdmin, axl's ADMIN_DESKS withholds it from traders, and Axl's trader prompt says the desk
-// "does not exist" for them. Listed here and absent from ADMIN_BOT_IDS, it would have put an admin
+// An admin-only desk that ever gains a notifier needs FOUR entries, not one: this list and the backend
+// BOT_IDS, plus BOTH ADMIN_BOT_IDS. Listed here and absent from ADMIN_BOT_IDS, it would put an admin
 // desk's feed in a trader's sidebar the moment anything posted to it.
 export const BOT_IDS = ['axl', 'portfolio', 'scanner', 'mentor', 'analyst', 'strategy']
 export const isBotId = (id) => BOT_IDS.includes(id)
@@ -331,20 +295,6 @@ export const DESKS = [
         hue:       'amber',
         entryTab:  'strategy',
         agentKey:  'strategy',
-        adminOnly: true,
-    },
-    {
-        key:       'aether',
-        label:     'See who an event reaches',
-        lead:      'Events radar',
-        blurb:     'The companies a macro, trade or policy event reaches, with what each one\'s own filings say about it.',
-        hue:       'cyan',
-        entryTab:  'aether',
-        agentKey:  'aether',
-        // ADMIN ONLY, because POST /api/aether/stream is requireAdmin. Without this the
-        // hub offered the desk to every signed-in user and the chat answered 403 — a card
-        // that exists to be refused. The candidate LIST is unaffected: it is readable by
-        // everyone and lives in the right column, not behind this card.
         adminOnly: true,
     },
 ]

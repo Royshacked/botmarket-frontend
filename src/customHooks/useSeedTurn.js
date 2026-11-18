@@ -11,7 +11,7 @@ import { useEffect, useRef } from 'react'
 // SENT, not staged in the input: the words are the user's, the hand-off just says them for them.
 // It lands in whatever conversation is open — a panel that must start clean resets before seeding.
 //
-// ONCE, EVER (phase 8e CR): a seed's key is remembered across mounts. A Pythia / Aether tab closed and opened again
+// ONCE, EVER (phase 8e CR): a seed's key is remembered across mounts. A Pythia tab closed and opened again
 // remounts its panel with the same seed still in its props — re-sent, it would be a duplicate paid turn in a fresh
 // conversation. Keys are unique per hand-off (a timestamp), so remembering them costs nothing.
 //

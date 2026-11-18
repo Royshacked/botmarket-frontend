@@ -2,11 +2,11 @@ import { useSyncExternalStore } from 'react'
 
 // ── Which detail panel is open — ONE, across the whole app ───────────────────
 //
-// The lists that open a DetailPanel (coverage, the events radar's names, Pythia's industries,
+// The lists that open a DetailPanel (coverage, Pythia's industries,
 // assessments and themes) live in different desks and different components, and each used to hold
 // its own `open` flag for an inline drawer. A panel is not inline: they all land in the SAME place
 // (the chat column), so two open flags would stack two panels in one corner. The flag moves here,
-// keyed by an id the owning row chooses (`coverage:AAPL`, `aether:<run>|<ticker>`, …), and opening
+// keyed by an id the owning row chooses (`coverage:AAPL`, …), and opening
 // one is what closes the other.
 //
 // A module store rather than a context: the openers are spread across trees that share no parent

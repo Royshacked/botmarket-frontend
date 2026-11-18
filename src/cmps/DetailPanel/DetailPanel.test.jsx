@@ -4,7 +4,7 @@ import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { DetailPanel, DetailPanelSlot, SLOT_ID, LEAVE_MS } from './DetailPanel.jsx'
 import { activePanel, closePanel, openPanel, togglePanel, retainPanel } from './detailPanel.store.js'
 
-// The shell every Floor list opens its item's detail in (coverage, the events radar's names,
+// The shell every Floor list opens its item's detail in (coverage,
 // Pythia's industries, assessments and themes). Its content is the list's; these are the rules the
 // shell owns: one open across the app, where it lands, how it closes.
 

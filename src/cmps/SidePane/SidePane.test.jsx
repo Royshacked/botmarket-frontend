@@ -147,7 +147,7 @@ describe('SidePane', () => {
     })
 
     it('8e: a KEPT surface keeps its state while the pane closes and other tabs show; its own ✕ ends it', () => {
-        // A desk with its own conversation (Pythia's, Aether's panels) or a half-typed order (the ticket).
+        // A desk with its own conversation (Pythia's panel) or a half-typed order (the ticket).
         const Typed = () => <input aria-label="kept input" />
         Typed.keepMounted = true
         Typed.paneLabel = 'Order ticket'

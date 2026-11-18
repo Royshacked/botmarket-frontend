@@ -181,7 +181,7 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
                     <button type="button" className="chat-timeline__action" onClick={() => startNew()} disabled={busy || empty}>New session</button>
                 </span>
             </div>
-            {/* Desks the chat does not route to yet — Pythia's and Aether's, for an admin — opened beside it in the side pane
+            {/* Desks the chat does not route to yet — Pythia's, for an admin — opened beside it in the side pane
                 (unified-chat phase 8e, K6; temporary, plan §1 q4). A row of their own under the header: beside History and
                 New session they pushed the header off the narrow column the pane leaves. */}
             {onOpenDesk && desks.length > 0 && (
@@ -325,7 +325,7 @@ ChatTimeline.propTypes = {
     onBriefStart:  PropTypes.func,
     onOpenTicket:  PropTypes.func,
     onOpenView:    PropTypes.func,
-    // Desks opened from the header (admin: Pythia, Aether) — `{ agent, label, title? }` — and the opener.
+    // Desks opened from the header (admin: Pythia) — `{ agent, label, title? }` — and the opener.
     desks:         PropTypes.arrayOf(PropTypes.shape({ agent: PropTypes.string.isRequired, label: PropTypes.string.isRequired, title: PropTypes.string })),
     onOpenDesk:    PropTypes.func,
     // The desks with a side-pane surface — given, the header offers Show / Hide for the pane (PaneToggle).

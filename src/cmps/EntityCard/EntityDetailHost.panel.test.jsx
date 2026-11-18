@@ -23,7 +23,7 @@ const { DetailPanel } = await import('../DetailPanel/DetailPanel.jsx')
 const { openPanel, closePanel, activePanel } = await import('../DetailPanel/detailPanel.store.js')
 const { eventBus, ENTITY_DETAIL_OPEN } = await import('../../services/event-bus.service')
 
-const ID = 'aether:run1|LITE'
+const ID = 'coverage:LITE'
 const tick = (ms = 30) => act(() => new Promise(r => setTimeout(r, ms)))
 
 afterEach(() => { closePanel(); cleanup(); window.history.replaceState({}, '', '/') })

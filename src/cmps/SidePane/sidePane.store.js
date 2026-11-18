@@ -10,7 +10,7 @@ import { useSyncExternalStore } from 'react'
 //   tabs    the surfaces open, in the order they were opened — one tab per desk
 //   active  the one showing
 //   pinned  the user pinned the active tab: the floor moving to another desk adds that desk's tab but does not switch
-//   parked  tabs the pane was CLOSED over (closePane) — a surface that keeps its own conversation (Pythia, Aether, the
+//   parked  tabs the pane was CLOSED over (closePane) — a surface that keeps its own conversation (Pythia, the
 //           ticket — `keepMounted`) stays mounted, hidden, until its own tab is closed (phase 8e)
 //   hidden  `{ tabs, active }` the pane was last CLOSED over — what the chat header's toggle brings back (reopenPane).
 //           Closing a desk's own tab is "done with it", not hiding it, so it is not remembered; any open clears it.
@@ -31,7 +31,7 @@ export const sidePaneState = read
  * Open `agent`'s surface and show it. `{ follow: true }` is the floor moving — a pinned tab is not taken over.
  * `{ collapse: true }` (a phone): open it collapsed unless the sheet is already up — the floor moving AND a doorway
  * since 2026-11-01 (Roy: on a phone the work "covers all the chat box — open it only if the user chooses to"). The
- * caller decides: a doorway to a surface that IS the screen asked for (the ticket, Pythia, Aether) passes no collapse.
+ * caller decides: a doorway to a surface that IS the screen asked for (the ticket, Pythia) passes no collapse.
  */
 export function openSurface(agent, { follow = false, collapse = false } = {}) {
     if (!agent) return

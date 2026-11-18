@@ -90,7 +90,7 @@ test('a phone: following the floor opens the desk collapsed; raise, lower; a doo
     collapsePane()
     assert.deepEqual([sidePaneState().tabs, sidePaneState().collapsed], [['mentor', 'scanner'], true], 'lowered, not closed')
     openSurface('portfolio')
-    assert.equal(sidePaneState().collapsed, false, 'a doorway that asks for no collapse raises it (the ticket, Pythia, Aether)')
+    assert.equal(sidePaneState().collapsed, false, 'a doorway that asks for no collapse raises it (the ticket, Pythia)')
     closePane()
     assert.equal(sidePaneState().collapsed, false)
     openSurface('mentor', { follow: true })

@@ -254,12 +254,11 @@ describe('phase 7 CR (frontend)', () => {
         expect(send).not.toHaveBeenCalled()
     })
 
-    it("8e: the desks the header offers (an admin's Pythia and Aether) open beside the chat; none offered, none shown", () => {
+    it("8e: the desks the header offers (an admin's Pythia) open beside the chat; none offered, none shown", () => {
         const onOpenDesk = vi.fn()
-        render(<ChatTimeline desks={[{ agent: 'strategy', label: 'Pythia' }, { agent: 'aether', label: 'Aether' }]} onOpenDesk={onOpenDesk} />)
+        render(<ChatTimeline desks={[{ agent: 'strategy', label: 'Pythia' }]} onOpenDesk={onOpenDesk} />)
         fireEvent.click(screen.getByRole('button', { name: 'Pythia' }))
-        fireEvent.click(screen.getByRole('button', { name: 'Aether' }))
-        expect(onOpenDesk.mock.calls).toEqual([['strategy'], ['aether']])
+        expect(onOpenDesk.mock.calls).toEqual([['strategy']])
         cleanup()
         render(<ChatTimeline />)
         expect(screen.queryByRole('button', { name: 'Pythia' })).toBeNull()

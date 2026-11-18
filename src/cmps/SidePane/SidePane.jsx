@@ -19,7 +19,7 @@ import { paneTitle } from './paneTitle.js'
 // conversation stays readable and the input stays reachable. On a handheld it is a bottom sheet over the app, and the
 // phone's back gesture closes it. Esc closes it either way (DrawerShell — the top drawer only).
 
-// KEPT SURFACES (phase 8e). Pythia's and Aether's panels keep their own conversation (they are not on the session yet),
+// KEPT SURFACES (phase 8e). Pythia's panel keeps its own conversation (it is not on the session yet),
 // and the order ticket a half-typed order: unmounted, either is lost. A surface marked `keepMounted` is rendered ONCE,
 // into a host node of its own, through a portal — the node is moved into the pane while its tab shows and out of it
 // otherwise, so the component under it never unmounts while the pane hides, closes or switches tabs (only closing its
@@ -79,7 +79,7 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
     }, [floor, surfaces])
 
     // A NEW SESSION (a commit ended the last one — Roy, 2026-10-18 — or New session) starts back with Axl: the desks'
-    // tabs held the old session's work, so they close. A kept surface (Pythia, Aether, the ticket) is not session work
+    // tabs held the old session's work, so they close. A kept surface (Pythia, the ticket) is not session work
     // and stays. Not on the first load — there is nothing open yet to close.
     const lastSession = useRef(session?.sessionId ?? null)
     useEffect(() => {

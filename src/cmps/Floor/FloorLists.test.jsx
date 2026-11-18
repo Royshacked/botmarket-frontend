@@ -187,9 +187,9 @@ describe('FloorLists', () => {
                           'Calendar', 'Forecasts'])
         })
 
-        // Roy, 2026-10-14: Events radar hidden for now. The admin's Research queue went 2026-10-31.
-        it('hides Events radar, and an admin has no Research queue', () => {
-            const { container } = render(<FloorLists isAdmin aetherCandidates={{ runs: [{ run_id: 'r', candidates: [{}] }] }} />)
+        // The admin's Research queue went 2026-10-31; Events radar was deleted with the Aether event board 2026-11-18.
+        it('an admin has no Events radar and no Research queue', () => {
+            const { container } = render(<FloorLists isAdmin />)
             const labels = [...container.querySelectorAll('.floor-desk__label')].map(l => l.textContent)
             expect(labels).not.toContain('Events radar')
             expect(labels).not.toContain('Research queue')
@@ -197,8 +197,8 @@ describe('FloorLists', () => {
         })
 
         // A request for a desk that is not on screen must not fold the column around nothing.
-        it('ignores an initial desk that is hidden', () => {
-            const { container } = render(<FloorLists initialDesk="aether" />)
+        it('ignores an initial desk that is not on screen', () => {
+            const { container } = render(<FloorLists initialDesk="no-such-desk" />)
             expect(container.querySelector('.floor-lists').className).not.toMatch(/floor-lists--focused/)
             expect(container.querySelector('.floor-desk--folded')).toBeNull()
             expect(screen.queryByRole('navigation', { name: 'Desks' })).toBeNull()
@@ -693,7 +693,7 @@ describe('FloorLists row actions', () => {
 describe('every ticker in the column opens its chart', () => {
     // THE POINT IS THAT NO LIST IS MISSED. "In all lists, clicking the ticker gives the
     // chart" is a promise about the whole column, and the way it breaks is one list being
-    // forgotten — which is exactly how it was before, where the Aether list had a chart in
+    // forgotten — which is exactly how it was before, where the old events list had a chart in
     // the workspace tab and none here.
     //
     // Read off the source rather than rendered: mounting all six desks with enough fixture

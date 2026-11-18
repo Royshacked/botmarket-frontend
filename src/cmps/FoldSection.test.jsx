@@ -18,10 +18,10 @@ describe('FoldSection', () => {
     })
 
     it("opens on request and carries the caller's own class beside its own", () => {
-        render(<FoldSection title="Scenarios" open className="aether-candidates__sec aether-candidates__sec--warn">x</FoldSection>)
+        render(<FoldSection title="Scenarios" open className="my-sec my-sec--warn">x</FoldSection>)
         const details = document.querySelector('details')
         expect(details.open).toBe(true)
-        expect(details.className).toBe('fold-section aether-candidates__sec aether-candidates__sec--warn')
+        expect(details.className).toBe('fold-section my-sec my-sec--warn')
     })
 
     it('no tail, no tail element', () => {

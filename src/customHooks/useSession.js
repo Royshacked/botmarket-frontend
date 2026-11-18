@@ -20,7 +20,7 @@ const READY_MS = 10000
  *
  * The socket is connected by the app header (useChatWs); this only listens and sends.
  *
- * @param {'main'|'strategy'|'aether'} [scope]
+ * @param {'main'|'strategy'} [scope]
  * @param {{ ws?: object, api?: object }} [deps]  test seams
  */
 export function useSession(scope = 'main', { ws = chatWsService, api = sessionService } = {}) {

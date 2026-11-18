@@ -46,13 +46,6 @@ export const DESK_SORTS = {
         { key: 'holdings', label: 'Holdings', dir: 'desc', value: b => b.ideas.length },
         { key: 'pnl',      label: 'P&L',      dir: 'desc', value: (b, ctx) => num(ctx?.pnlOf?.(b)?.pnl) },
     ],
-    aether: [
-        DEFAULT,
-        { key: 'date',     label: 'Event date', dir: 'desc', value: r => toMs(r.event_date || r.created_at) },
-        { key: 'names',    label: 'Names',      dir: 'desc', value: r => r.candidates?.length ?? 0 },
-        { key: 'category', label: 'Kind',       dir: 'asc',  value: r => str(r.event_category) },
-        { key: 'subject',  label: 'Subject',    dir: 'asc',  value: r => str(r.subject || r.event) },
-    ],
 }
 
 /** The option a stored sort points at, or null for default / unknown (a renamed key falls back). */

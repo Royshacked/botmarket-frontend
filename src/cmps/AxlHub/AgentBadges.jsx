@@ -136,27 +136,6 @@ export function PythiaBadge(props) {
     )
 }
 
-// Aether — the event-exposure desk. One event at the centre and the names it reaches: three
-// exposed companies on the near ring, each with a step-removed one behind it. That IS the desk's
-// output — a run is a named event, its tier-1 names, and the tier-2 names that are the reason for
-// running it at all — so the figure says what the desk does rather than decorating it.
-export function AetherBadge(props) {
-    return (
-        <Badge {...props} title="Event analyst">
-            <circle cx="100" cy="100" r="17" />
-            <line x1="100"   y1="83"    x2="100" y2="56" />
-            <line x1="114.7" y1="108.5" x2="138" y2="122" />
-            <line x1="85.3"  y1="108.5" x2="62"  y2="122" />
-            <circle cx="100" cy="46"  r="10" />
-            <circle cx="147" cy="127" r="10" />
-            <circle cx="53"  cy="127" r="10" />
-            <circle cx="100" cy="28"  r="4.5" />
-            <circle cx="163" cy="154" r="4.5" />
-            <circle cx="37"  cy="154" r="4.5" />
-        </Badge>
-    )
-}
-
 // Minos — the idea-monitoring persona (crown of the judge-king over a labyrinth of conditions).
 export function MinosBadge(props) {
     return (
@@ -191,7 +170,7 @@ export function TalosBadge(props) {
     )
 }
 
-const AGENT_BADGES  = { idea: IdeaBadge, portfolio: AtlasBadge, scanner: ArgusBadge, mentor: MentorBadge, analyst: PrometheusBadge, strategy: PythiaBadge, aether: AetherBadge, proteus: ProteusBadge }
+const AGENT_BADGES  = { idea: IdeaBadge, portfolio: AtlasBadge, scanner: ArgusBadge, mentor: MentorBadge, analyst: PrometheusBadge, strategy: PythiaBadge, proteus: ProteusBadge }
 // Notification/list context: ideas show Minos, setups show Talos; the rest reuse
 // their agent figure.
 const NOTIFY_BADGES = { idea: MinosBadge, mentor: TalosBadge, portfolio: AtlasBadge, scanner: ArgusBadge, analyst: PrometheusBadge, strategy: PythiaBadge }

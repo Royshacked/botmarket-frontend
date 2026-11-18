@@ -1,7 +1,7 @@
 import { httpService } from '../http.service'
 
 // Client for the thread API (see api/threads on the backend). Since the unified chat (phase 9, 2026-10-20) only
-// Pythia's and Aether's panels keep their own chats here — save a draft, link it to what it produced, discard it.
+// Pythia's panel keeps its own chats here — save a draft, link it to what it produced, discard it.
 // Every other desk talks in the session; the desks' list / get / pin / badge reads went with their panels.
 
 const BASE = 'api/threads'
