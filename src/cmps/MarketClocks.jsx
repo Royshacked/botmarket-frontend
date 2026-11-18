@@ -200,15 +200,17 @@ export function MarketClocks() {
                                 const [x, y] = handPoint(c.frac, 11.6)
                                 return <polygon key={c.frac} className="market-clocks__star" points={starPoints(x, y, 2, 0.9)} />
                             })}
+                            <line className="market-clocks__hand market-clocks__hand--hour" x1="18" y1="18" x2={hx.toFixed(2)} y2={hy.toFixed(2)} />
+                            <line className="market-clocks__hand market-clocks__hand--min" x1="18" y1="18" x2={mx.toFixed(2)} y2={my.toFixed(2)} />
+                            {/* The words go OVER the hands, each on a halo of the face colour (AppHeaderAxl.scss): drawn
+                                under them, a hand passing the market's name struck through it — "CHI-FUT" read "CH|-FUT"
+                                (drive:all, 2026-11-17). The hub stays on top: it is where the hands meet. */}
                             {/* Current hour (real 24h) at its own dial mark. Replaces the fixed 12/24 marker. */}
                             {r.deco === 'sun' && (
                                 <text className="market-clocks__hour" x={nx.toFixed(2)} y={ny.toFixed(2)}
                                       textAnchor="middle" dominantBaseline="central">{hourNow}</text>
                             )}
-
                             <text className="market-clocks__label" x="18" y={labelY} textAnchor="middle" dominantBaseline="central">{r.label}</text>
-                            <line className="market-clocks__hand market-clocks__hand--hour" x1="18" y1="18" x2={hx.toFixed(2)} y2={hy.toFixed(2)} />
-                            <line className="market-clocks__hand market-clocks__hand--min" x1="18" y1="18" x2={mx.toFixed(2)} y2={my.toFixed(2)} />
                             <circle className="market-clocks__hub" cx="18" cy="18" r="1.4" />
                         </svg>
                         <span className="market-clocks__status">{status}</span>

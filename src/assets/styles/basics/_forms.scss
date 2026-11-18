@@ -1,3 +1,9 @@
+// Family only, not the whole `font`: sizes across the app were tuned against the browser's
+// default control size, but no control should draw in Arial in a themed app (drive:all, 2026-11-17).
+button, input, select, textarea {
+	font-family: inherit;
+}
+
 button {
 	border: 0;
 	background-color: $clr1;

@@ -17,6 +17,18 @@ export const FLOWS = Object.freeze({
     technicals: { title: 'How a stock trades', steps: ['Measuring', 'Profile & example chart'] },
 })
 
+// A LIST's Info (drive:all, 2026-11-17: every list but the Hotlist showed its name over an empty column). Not a flow the
+// user is IN, so nothing is lit (`current: -1`) — the steps say what the list holds and how a row gets there and leaves.
+// Copy from the app's own vocabulary: entityStatus BUCKET_LABEL, the queue rule (CLAUDE.md), the map's own legend.
+export const LIST_FLOWS = Object.freeze({
+    positions: { title: 'Positions',       steps: ['A trade or a holding fills', 'Open here, with its P&L', 'Leaves when it closes'] },
+    queued:    { title: 'Awaiting orders', steps: ['You confirm a decision', 'Its venue is shut — queued, never fired', 'Sent when the venue opens'] },
+    trade:     { title: 'Your trades',     steps: ['Built in the chat', 'Watching — the monitor reads it', 'Ready — the order is placed', 'In position', 'Closed'] },
+    portfolio: { title: 'Your portfolios', steps: ['Built in the chat', 'Waiting — not activated yet', 'Activated — its holdings are watched', 'Holdings enter and close'] },
+    calendar:  { title: 'Calendar',        steps: ['Each day: earnings, Fed, IPOs', 'Open a day for its names', 'A ticker opens its chart'] },
+    forecasts: { title: 'Forecasts',       steps: ["Colour: each industry's move against the S&P", "Letter: the strategist's verdict", 'Open an industry for its companies'] },
+})
+
 /** The trader's build record: what is SETTLED on the name being built (the server's ledger, mentorBuild.util). */
 function settledOf(mentor) {
     const build = mentor?.draft?.build
@@ -48,7 +60,10 @@ export function infoFlow({ floor = null, agentState = {}, rows = [], hotlistOpen
     // its own flow from its first step, whatever the chat behind it is building; a list whose Info is not written yet
     // shows its name — never the chat's diagram. The chat's flow comes back when the list closes.
     if (hotlistOpen || list?.key === 'hotlist') return at('hotlist', 0)
-    if (list?.label) return { key: `list:${list.key}`, title: list.label, steps: [], current: 0 }
+    if (list?.label) {
+        const f = LIST_FLOWS[list.key]
+        return { key: `list:${list.key}`, title: f?.title ?? list.label, steps: f?.steps ?? [], current: -1 }
+    }
     if (floor === 'mentor') return at('trade', mentorAt ? tradeStep(mentorAt) : 0)
     if (floor === 'portfolio') {
         const p = st.portfolio ?? {}

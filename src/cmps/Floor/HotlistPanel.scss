@@ -80,7 +80,7 @@
 .hot-star { color: var(--color-warning); font-family: var(--font-mono); font-size: 11.5px; }
 .hot-sym {
     background: none; border: 0; padding: 0; cursor: pointer;
-    font-family: var(--font-mono); font-weight: 600; color: var(--text-primary);
+    font-family: var(--font-mono); font-weight: 400; color: var(--text-primary);   // regular: see .floor-row__sym
     &:hover { color: var(--accent-light); }
 }
 .hot-name { display: block; font-size: 11px; color: var(--text-dim); max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
@@ -115,13 +115,7 @@
 // size up from the status filter under them.
 .hot-horizons {
     display: flex; gap: 4px; flex-wrap: wrap; margin: 2px 0 8px;
-    &__btn {
-        font-size: 12.5px; padding: 3px 10px; border-radius: 4px; cursor: pointer;
-        background: transparent; color: var(--text-secondary); border: 1px solid var(--border);
-        &:hover:not(:disabled) { background: var(--bg-hover); }
-        &:disabled { opacity: .45; cursor: default; }
-        &--on { color: var(--text-primary); border-color: var(--accent-light); background: var(--bg-raised); }
-    }
+    // &__btn's look is the shared .toggle-chip (basics/_helpers.scss) — the same chooser as the forecast filter.
 }
 
 // Prometheus's catalyst target on a week row, and his read under it (§3).
@@ -201,6 +195,17 @@
 .hot-toggle {
     background: none; border: 0; padding: 0 6px 0 0; cursor: pointer; color: var(--text-secondary); font-size: 12px;
     &:hover { color: var(--text-primary); }
+}
+
+// A thumb on a phone needs ~24px; these in-cell buttons are one text line (10–33px × 15px) so the row
+// stays one line. An invisible ::after grows the TOUCH area instead of the box — the row height and
+// the column widths do not move (drive:all, 2026-11-17).
+@media (max-width: 767px) {
+    .hot-toggle, .hot-sym, .hot-sort {
+        position: relative;
+        &::after { content: ''; position: absolute; inset: -6px -5px; }
+    }
+    .hot-toggle::after { inset: -6px -2px -6px -15px; }   // only 10px wide: reach into the gutter on its LEFT, not into the ticker on its right
 }
 .hot-avoid { color: var(--color-short); font-size: 11px; }
 .hot-spark-cell--sm { width: 62px; }

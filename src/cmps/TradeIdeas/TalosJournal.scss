@@ -37,7 +37,7 @@
 
     &__chip {
         font-family: var(--font-mono);
-        font-size: 0.66rem;
+        font-size: max(10px, 0.66rem);   // floored: the root is fluid, and 0.66rem fell to ~9.4px on a laptop (drive:all, 2026-11-17)
         letter-spacing: 0.03em;
         text-transform: none;
         color: var(--text-muted);
@@ -75,7 +75,7 @@
         border: none;
         background: none;
         font-family: var(--font-mono);
-        font-size: 0.68rem;
+        font-size: max(10px, 0.68rem);
         text-transform: uppercase;
         letter-spacing: 0.04em;
         color: var(--text-muted);
@@ -92,7 +92,7 @@
 
     &__time   { color: var(--text-secondary); font-weight: 600; white-space: nowrap; }
     &__price  { color: var(--accent); }
-    &__caret  { flex-shrink: 0; font-size: 0.66rem; color: var(--accent); }
+    &__caret  { flex-shrink: 0; font-size: max(10px, 0.66rem); color: var(--accent); }
 
     &__verdict {
         margin-left: auto;
@@ -160,7 +160,7 @@
         flex-shrink: 0;
         min-width: 84px;
         font-family: var(--font-mono);
-        font-size: 0.66rem;
+        font-size: max(10px, 0.66rem);
         text-transform: uppercase;
         letter-spacing: 0.04em;
         color: var(--accent);
@@ -194,7 +194,7 @@
         border-radius: 5px;
         background: none;
         font-family: var(--font-mono);
-        font-size: 0.68rem;
+        font-size: max(10px, 0.68rem);
         color: var(--text-muted);
         cursor: pointer;
 

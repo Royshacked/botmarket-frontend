@@ -27,6 +27,7 @@ vi.mock('./ConversationList', () => ({ ConversationList: () => <div data-testid=
 vi.mock('./ChatWindow',       () => ({ ChatWindow:       ({ messages = [] }) => <div data-testid="window">{messages.map(m => `${m.id}:${m.status ?? '-'}:${m.resolveNote ?? '-'}`).join('|')}</div> }))
 
 import { SocialChat }  from './SocialChat.jsx'
+import { DrawerShell } from '../DrawerShell/DrawerShell.jsx'
 import { chatService } from '../../services/chat/chat.service'
 
 // Every component below calls useAuth(); without a provider it is null and the
@@ -98,5 +99,46 @@ describe('SocialChat live updates', () => {
         await act(async () => { fire('connected', null) })
 
         await waitFor(() => expect(onUnreadChange).toHaveBeenLastCalledWith(3))
+    })
+})
+
+// drive:all (2026-11-17): Messages was the one panel Escape did not close (History and Info do).
+describe('SocialChat keyboard', () => {
+    it('Escape closes the drawer (after its close animation)', async () => {
+        vi.useFakeTimers()
+        try {
+            const onClose = vi.fn()
+            render(<SocialChat currentUserId="u_1" onClose={onClose} />)
+            act(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+            expect(onClose).not.toHaveBeenCalled()
+            act(() => { vi.advanceTimersByTime(300) })
+            expect(onClose).toHaveBeenCalledTimes(1)
+        } finally { vi.useRealTimers() }
+    })
+
+    it('opened over a panel, one Escape closes Messages — not the panel behind it', () => {
+        vi.useFakeTimers()
+        try {
+            const panelClose = vi.fn(), chatClose = vi.fn()
+            render(<><DrawerShell isOpen onClose={panelClose} label="Your trades"><p>rows</p></DrawerShell>
+                <SocialChat currentUserId="u_1" onClose={chatClose} /></>)
+            act(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })) })
+            act(() => { vi.advanceTimersByTime(300) })
+            expect(chatClose).toHaveBeenCalledTimes(1)
+            expect(panelClose).not.toHaveBeenCalled()
+        } finally { vi.useRealTimers() }
+    })
+
+    it('an Escape something inside already claimed is left alone — one Esc, one layer', () => {
+        vi.useFakeTimers()
+        try {
+            const onClose = vi.fn()
+            render(<SocialChat currentUserId="u_1" onClose={onClose} />)
+            const e = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+            e.preventDefault()
+            act(() => { document.dispatchEvent(e) })
+            act(() => { vi.advanceTimersByTime(300) })
+            expect(onClose).not.toHaveBeenCalled()
+        } finally { vi.useRealTimers() }
     })
 })

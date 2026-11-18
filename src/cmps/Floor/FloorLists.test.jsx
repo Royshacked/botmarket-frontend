@@ -280,6 +280,15 @@ describe('FloorLists', () => {
         expect(screen.getAllByText('setup').length).toBe(2)
     })
 
+    it('two rows on one name say what tells them apart — type and day (drive:all, 2026-11-17)', () => {
+        render(<FloorLists initialDesk="trade" setups={[
+            setup({ id: 'a', type: 'intraday', savedAt: new Date(2026, 10, 17, 10, 0).getTime() }),
+            setup({ id: 'b', type: 'swing',    savedAt: new Date(2026, 10, 12, 16, 30).getTime() }),
+        ]} />)
+        expect(screen.getByText('· intraday · Nov 17, 10:00')).toBeTruthy()
+        expect(screen.getByText('· swing · Nov 12, 16:30')).toBeTruthy()
+    })
+
     // Urgency order, not ladder order — a row awaiting confirm must sit above a live position.
     it('orders lifecycle groups most-urgent first', () => {
         render(<FloorLists

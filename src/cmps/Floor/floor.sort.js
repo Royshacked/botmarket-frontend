@@ -1,3 +1,4 @@
+import { toMs } from './floor.utils.js'
 // How each Floor desk can be sorted — the options per desk, and ONE comparator for all of them.
 //
 // Same split as the rest of the column: the MECHANISM is shared (nulls last whichever way you
@@ -17,12 +18,7 @@
 // their day. Those desks became the Calendar panel on 2026-10-14, which nothing sorts; both went.
 // The "Analyst companies" desk's options went the same day, with the desk (the Forecasts map).
 
-const toMs = (v) => {
-    if (v == null || v === '') return null
-    if (typeof v === 'number') return Number.isFinite(v) ? v : null
-    const t = Date.parse(v)
-    return Number.isFinite(t) ? t : null
-}
+// toMs lives in floor.utils (shared with the trade row's saved-at label).
 const num = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v))
 const str = (v) => (v == null || v === '' ? null : String(v))
 

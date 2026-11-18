@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useEscapeLayer } from '../../customHooks/useEscapeLayer.js'
 import PropTypes from 'prop-types'
 import { chatService }   from '../../services/chat/chat.service'
 import { mentorService } from '../../services/mentor/mentor.service.remote'
@@ -57,6 +58,10 @@ export function SocialChat({ currentUserId, initialConvId, initialMsgId, onUnrea
         setClosing(true)
         setTimeout(() => onClose?.(), 260)
     }
+
+    // Escape closes it, on the same stack as every other drawer (DrawerShell's useEscapeLayer): opened over a list
+    // panel, one Esc closes Messages — not the panel behind it (drive:all, 2026-11-17).
+    useEscapeLayer(true, handleClose)
 
     // ── Load conversation list ──────────────────────────────────────────────
     const loadedRef = useRef(false)   // the list has been read once — the badge is reported from then on

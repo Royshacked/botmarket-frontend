@@ -38,6 +38,37 @@
 .portrait-ratio {
     @include aspect-ratio(9, 16);
 }
+// ── A pick-one chip ──────────────────────────────────────────────────────────
+//
+// The in-panel choosers — the Hotlist's horizons, the forecast map's verdict filter — are the same
+// control, so they wear one look: a pill, the chosen one outlined in the accent. They used to be
+// three (square boxes, pills, header squares), which read as three different kinds of control
+// (drive:all, 2026-11-17). The chosen state is `aria-pressed`, which every one of them already
+// announces, so the look cannot disagree with what a screen reader is told.
+//
+// The panel-HEADER buttons (‹ ›, 1m · 3m, Board — .cal-nav__btn) stay squares on purpose: they sit
+// beside the ✕ and match its height.
+.toggle-chip {
+    margin: 0;
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: none;
+    font: inherit;
+    font-size: 11.5px;
+    line-height: 1.4;
+    color: var(--text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+
+    &:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+    &:disabled { opacity: .45; cursor: default; }
+    &[aria-pressed="true"] { border-color: var(--accent-light); color: var(--text-primary); background: var(--bg-raised); }
+
+    // A thumb, not a pointer: 28px tall on a phone (WCAG 2.5.8 asks 24).
+    @include for-mobile-layout { min-height: 28px; padding: 4px 12px; }
+}
+
 // ── A ticker you can click ───────────────────────────────────────────────────
 //
 // Every list in the app shows tickers, and in all of them the ticker opens that name's

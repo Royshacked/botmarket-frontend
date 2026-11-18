@@ -567,6 +567,9 @@
     &__hand--min  { stroke-width: 0.9; }
     &__hub  { fill: var(--axl-aurora); }
     &__label { fill: var(--axl-aurora); font-family: 'Space Mono', monospace; font-size: 3.3px; letter-spacing: 0.04em; }   // market name, on the face
+    // Drawn over the hands (MarketClocks.jsx), so each word sits on a halo of the base colour — the hand stops at the
+    // letters instead of striking through them. paint-order puts the stroke UNDER the fill: the glyphs keep their shape.
+    &__label, &__hour { paint-order: stroke; stroke: var(--bg-base); stroke-width: 0.9px; stroke-linejoin: round; }
 
     // The two hour numbers the hand sits between (real 24h hour) — dial elements, dial hue.
     &__hour { fill: var(--axl-aurora); font-family: 'Space Mono', monospace; font-size: 3.6px; font-weight: 700; letter-spacing: 0.02em; }

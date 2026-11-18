@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
 import { useBackGesture } from '../../customHooks/useBackGesture.js'
+import { useEscapeLayer } from '../../customHooks/useEscapeLayer.js'
 
 // ── The drawer's mechanics, shared (unified-chat plan phase 8b, K5) ──────────
 //
@@ -14,7 +15,7 @@ import { useBackGesture } from '../../customHooks/useBackGesture.js'
 // beside it), and one Esc closing both would throw away the one the user was not looking at. Open shells stack in
 // the order they opened; only the last one answers Esc.
 
-const open = []
+// The stack and its hook live in customHooks/useEscapeLayer.js, shared with surfaces that draw their own frame.
 
 /**
  * @param {{ isOpen: boolean, onClose: Function, portalTo?: Element|null, label?: string, className?: string,
@@ -22,27 +23,11 @@ const open = []
  */
 export function DrawerShell({ isOpen, onClose, portalTo = null, label = 'Panel', className = '', modal = false, autoFocus = true, history = null, children }) {
     const ref = useRef(null)
-    // The latest close, read at fire time — the listeners below are registered once per opening.
+    // The latest close, read at fire time — the listeners are registered once per opening.
     const closeRef = useRef(onClose)
     closeRef.current = onClose
 
-    useEffect(() => {
-        if (!isOpen) return
-        const token = {}
-        open.push(token)
-        // Unless something inside (a confirm dialog, a select) already handled it.
-        const onKey = (e) => {
-            if (e.key !== 'Escape' || e.defaultPrevented || open.at(-1) !== token) return
-            e.preventDefault()
-            closeRef.current?.()
-        }
-        document.addEventListener('keydown', onKey)
-        return () => {
-            document.removeEventListener('keydown', onKey)
-            const i = open.indexOf(token)
-            if (i >= 0) open.splice(i, 1)
-        }
-    }, [isOpen])
+    useEscapeLayer(isOpen, onClose)
 
     // Focus into the shell on open and back to whatever had it on close — the opener, normally — so a keyboard
     // reader is not stranded behind a surface they cannot Tab into. Only when focus would otherwise be lost (it was

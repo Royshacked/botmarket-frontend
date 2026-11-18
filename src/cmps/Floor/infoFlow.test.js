@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { infoFlow, FLOWS } from './infoFlow.js'
+import { infoFlow, FLOWS, LIST_FLOWS } from './infoFlow.js'
 
 // Info as a diagram (backend one-axl.md §6): which flow, and the step the user is on — read off state, never guessed.
 
@@ -49,7 +49,19 @@ test('talking with Axl: one step, "Ask Axl" (Roy, 2026-11-13); a role with no fl
 test('an open LIST owns Info — it covers the chat (Roy, 2026-11-13); its name until its Info is written', () => {
     const trading = { mentor: mentor({ direction: 'long' }) }
     assert.deepEqual(infoFlow({ floor: 'mentor', agentState: trading, list: { key: 'positions', label: 'Positions' } }),
-        { key: 'list:positions', title: 'Positions', steps: [], current: 0 })
+        { key: 'list:positions', title: 'Positions', steps: LIST_FLOWS.positions.steps, current: -1 })
     assert.equal(infoFlow({ floor: 'mentor', agentState: trading, list: { key: 'hotlist', label: 'Hotlist' } }).key, 'hotlist')
     assert.equal(infoFlow({ floor: 'mentor', agentState: trading, list: null }).key, 'trade', 'the list closed → the chat\'s flow')
+})
+
+// drive:all (2026-11-17): every list but the Hotlist used to show its name over an empty Info column.
+test('every list with a panel has Info of its own, with nothing lit', () => {
+    for (const key of ['positions', 'queued', 'trade', 'portfolio', 'calendar', 'forecasts']) {
+        const f = infoFlow({ list: { key, label: key } })
+        assert.equal(f.key, `list:${key}`)
+        assert.ok(f.steps.length >= 3, `${key} says what it holds`)
+        assert.equal(f.current, -1, `${key}: a list is not a flow the user is in — no step is "you are here"`)
+    }
+    assert.deepEqual(infoFlow({ list: { key: 'board', label: 'Forecast board' } }),
+        { key: 'list:board', title: 'Forecast board', steps: [], current: -1 }, 'a list not written yet still shows its name')
 })

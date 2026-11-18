@@ -84,7 +84,7 @@
 
         &--admin  { color: var(--accent-bright); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
         &--live   { color: var(--color-long);    border-color: color-mix(in srgb, var(--color-long) 45%, transparent); }
-        &--paper  { color: #e6a817;              border-color: rgba(230, 168, 23, 0.45); }
+        &--paper  { color: var(--color-warning); border-color: color-mix(in srgb, var(--color-warning) 45%, transparent); }   // the theme's amber, not a hard-coded one
         &--manual { color: var(--accent-light);  border-color: color-mix(in srgb, var(--accent-light) 45%, transparent); }
     }
 
@@ -211,7 +211,7 @@
     // Sits beside a venue's title when that venue is the selected workspace. Replaces the
     // old dim-and-disable of the OTHER two: the workspace is a view, not a permission.
     &__active-badge {
-        font-size: 0.6rem;
+        font-size: max(10px, 0.6rem);
         letter-spacing: 0.12em;
         padding: 1px 7px;
         border-radius: 999px;
@@ -326,7 +326,9 @@
         &--signout {
             background: none;
             border: 1px solid var(--border-mid);
-            color: rgba(229, 115, 115, 0.6);
+            // Quiet but readable: the secondary text colour at rest (the old 60% red was 3:1 on the
+            // panel), the error red only when you reach for it (drive:all, 2026-11-17).
+            color: var(--text-secondary);
             padding: 9px 18px;
             flex: none;
 

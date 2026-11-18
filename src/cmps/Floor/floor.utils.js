@@ -113,11 +113,33 @@ export function groupByDay(items = []) {
 // and the Floor already renders from it.
 export function tradeFloorItems(setups = []) {
     return [
-        ...setups.map(s => ({ kind: 'setup', entity: s, id: s.id, ticker: s.asset ?? s.symbol, direction: s.direction, status: s.status })),
+        ...setups.map(s => ({
+            kind: 'setup', entity: s, id: s.id, ticker: s.asset ?? s.symbol, direction: s.direction, status: s.status,
+            // What tells two rows on one name apart: the trade's type and WHEN it was saved ('intraday · Nov 17, 14:02').
+            // The time too: six KDP rows were built the same afternoon. savedAt is epoch ms (Date.now()) — read via toMs.
+            detail: [s.type, fmtSavedAt(s.savedAt)].filter(Boolean).join(' · '),
+        })),
     ]
 }
 
 // ── dates, once ───────────────────────────────────────────────────────────────
+
+/** An instant as epoch ms, from a number or anything Date.parse reads; null when it is neither. Shared with floor.sort. */
+export function toMs(v) {
+    if (v == null || v === '') return null
+    if (typeof v === 'number') return Number.isFinite(v) ? v : null
+    const t = Date.parse(v)
+    return Number.isFinite(t) ? t : null
+}
+
+/** "Nov 17, 14:02" — an instant in the reader's own time zone; '' when there is none. */
+export function fmtSavedAt(v) {
+    const ms = toMs(v)
+    if (ms == null) return ''
+    const d = new Date(ms)
+    const two = (n) => String(n).padStart(2, '0')
+    return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${two(d.getHours())}:${two(d.getMinutes())}`
+}
 
 const MONTHS   = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']

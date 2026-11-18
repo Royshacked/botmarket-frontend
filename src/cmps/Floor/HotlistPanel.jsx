@@ -575,14 +575,14 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
                 {/* Intraday first (2026-11-11): the day boards, always there — before the first board its list says when. */}
                 <button type="button" aria-pressed={intradayView}
                     title="The day boards — names in play at 09:20, 10:30 and 14:30 ET; moving up so far, not a call on where they go"
-                    className={`hot-horizons__btn${intradayView ? ' hot-horizons__btn--on' : ''}`}
+                    className={`toggle-chip hot-horizons__btn${intradayView ? ' hot-horizons__btn--on' : ''}`}
                     onClick={() => chooseHorizon(INTRADAY)}>{intradayCount === null ? INTRADAY_LABEL : `${INTRADAY_LABEL} ${intradayCount}`}</button>
                 {/* The archived day horizons (2026-10-25) show only on a past day that still has their names. This
                     week is always there — the panel opens on it, and an empty night's list says why. */}
                 {COLUMN_ORDER.filter(c => c === 'week' || hCounts[c]).map(c => (
                     <button key={c} type="button" aria-pressed={horizon === c} disabled={c !== 'week' && !hCounts[c]}
                         title={`${COLUMN_TITLE[c]} — ${tabCount(c)} on the list (${defaultView(c) === 'confirmed' ? 'confirmed by the analyst' : 'picks'}) of ${hCounts[c] ?? 0} screened`}
-                        className={`hot-horizons__btn${horizon === c ? ' hot-horizons__btn--on' : ''}`}
+                        className={`toggle-chip hot-horizons__btn${horizon === c ? ' hot-horizons__btn--on' : ''}`}
                         onClick={() => chooseHorizon(c)}>{COLUMN_LABEL[c]} {tabCount(c)}</button>
                 ))}
                 {BOOK_ORDER.map((b, i) => {
@@ -594,14 +594,14 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
                     return (
                         <button key={b} type="button" aria-pressed={horizon === b} disabled={!n && !picks}
                             title={`${BOOK_TITLE[b]} — ${survivors} confirmed by the analyst of ${picks} the chain sent; ${n} in the book`}
-                            className={`hot-horizons__btn${i === 0 ? ' hot-horizons__btn--book' : ''}${horizon === b ? ' hot-horizons__btn--on' : ''}`}
+                            className={`toggle-chip hot-horizons__btn${i === 0 ? ' hot-horizons__btn--book' : ''}${horizon === b ? ' hot-horizons__btn--on' : ''}`}
                             onClick={() => chooseHorizon(b)}>{BOOK_LABEL[b]} {survivors}</button>
                     )
                 })}
                 {/* The whole book, both horizons, and Prometheus's scorecard. */}
                 <button type="button" aria-pressed={horizon === COVERED}
                     title="Every company the analyst covers — swing and long term, the desk’s too — and the scorecard"
-                    className={`hot-horizons__btn${horizon === COVERED ? ' hot-horizons__btn--on' : ''}`}
+                    className={`toggle-chip hot-horizons__btn${horizon === COVERED ? ' hot-horizons__btn--on' : ''}`}
                     onClick={() => chooseHorizon(COVERED)}>{COVERED_LABEL} {coveredRows(book).length}</button>
             </div>}
             {intradayView ? (

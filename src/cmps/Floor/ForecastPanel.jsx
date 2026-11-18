@@ -239,7 +239,7 @@ function HeatMap({ map, tiles, themes = [], win, filter, onFilter, onRetry, onPi
         <div className="fm-map">
             <div className="fm-filters" role="group" aria-label="Verdict filter">
                 {FILTERS.map(f => (
-                    <button key={f.key} type="button" className={`fm-filter${filter === f.key ? ' fm-filter--on' : ''}`}
+                    <button key={f.key} type="button" className={`toggle-chip fm-filter${filter === f.key ? ' fm-filter--on' : ''}`}
                         aria-pressed={filter === f.key} onClick={() => onFilter(f.key)}>{f.label}</button>
                 ))}
             </div>
@@ -273,7 +273,7 @@ function HeatMap({ map, tiles, themes = [], win, filter, onFilter, onRetry, onPi
                 <section className="fm-sector" aria-label="Covered, not on the map">
                     <h3 className="fm-sector__head">Covered, not on the map<span className="fm-sector__line">no GICS sub-industry on file</span></h3>
                     <div className="fm-syms">
-                        {unmapped.map(sym => <button key={sym} type="button" className="fm-filter" onClick={() => onPickSymbol(sym)}>{sym}</button>)}
+                        {unmapped.map(sym => <button key={sym} type="button" className="toggle-chip fm-filter" onClick={() => onPickSymbol(sym)}>{sym}</button>)}
                     </div>
                 </section>
             )}

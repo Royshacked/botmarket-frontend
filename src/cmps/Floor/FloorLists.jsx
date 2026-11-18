@@ -384,7 +384,9 @@ function TradeRows({ setups, onEditSetup, onDeleteSetup, onSymbolClick }) {
                             {it.direction === 'short' ? '▾' : '▴'}
                         </span>
                         <SymbolCell className="floor-row__sym" symbol={it.ticker} onSymbolClick={onSymbolClick} />
-                        <span className="floor-row__kind">{it.kind}</span>
+                        {/* The kind, then what tells two rows on one name apart — its type and the day it was built
+                            (three ARMK rows read identically before: drive:all, 2026-11-17). */}
+                        <span className="floor-row__kind">{it.kind}{it.detail && <span className="floor-row__detail"> · {it.detail}</span>}</span>
                         <span className={`floor-row__status floor-row__status--${it.status}`}>{it.status}</span>
                     </button>
                 </RowHost>

@@ -447,7 +447,7 @@
 
         svg { width: 13px; height: 13px; }
 
-        &--cyan   { color: #22d3ee; }
+        &--cyan   { color: var(--accent-light); }   // Axl's — every card's since One Axl; the theme accent, so it follows the user's hue
         &--green  { color: #34d399; }
         &--violet { color: #a78bfa; }
         &--amber  { color: #f59e0b; }

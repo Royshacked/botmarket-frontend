@@ -2,7 +2,7 @@
 // Node's built-in harness:  node --test src/cmps/Floor/
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { positionsByAccount, groupByDay, tradeFloorItems, fmtDay, fmtShortDay } from './floor.utils.js'
+import { positionsByAccount, groupByDay, tradeFloorItems, fmtDay, fmtShortDay, toMs } from './floor.utils.js'
 
 const pos = (over = {}) => ({
     id: 'p1', broker: 'ctrader', accountId: 'A1', accountNo: '111',
@@ -259,4 +259,23 @@ test('nothing in, nothing out', () => {
     assert.equal(fmtShortDay(''), '')
     assert.equal(fmtDay(null), '')
     assert.equal(fmtShortDay(undefined), '')
+})
+
+// drive:all (2026-11-17): three ARMK rows read identically — the row now says what tells them apart.
+test('a trade row carries its type and when it was saved — epoch ms, as the server writes it', () => {
+    // Local time, as the reader sees it: build the expected text the same way rather than pin a zone.
+    const at = new Date(2026, 10, 17, 14, 2).getTime()
+    const [a] = tradeFloorItems([setup({ type: 'intraday', savedAt: at })])
+    assert.equal(a.detail, 'intraday · Nov 17, 14:02')
+    assert.ok(!/\d{10}/.test(a.detail), 'never the raw epoch (the first version printed 1794932263975)')
+    const [b] = tradeFloorItems([setup({ savedAt: new Date(2026, 10, 3, 9, 5).toISOString() })])
+    assert.equal(b.detail, 'Nov 3, 09:05', 'an ISO string reads the same; no type → the time alone')
+    const [c] = tradeFloorItems([setup({ savedAt: 'not a date' })])
+    assert.equal(c.detail, '', 'unreadable or missing → nothing, not a stray separator')
+})
+
+test('toMs reads numbers and date strings, and nothing else', () => {
+    assert.equal(toMs(5), 5)
+    assert.equal(toMs('2026-11-17T00:00:00Z'), Date.UTC(2026, 10, 17))
+    for (const v of [null, undefined, '', 'x', NaN, Infinity]) assert.equal(toMs(v), null, String(v))
 })

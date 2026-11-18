@@ -319,7 +319,9 @@ $desk-h: rem(36px);
     &__sym {
         font-family: var(--font-mono);
         font-size: 12.5px;
-        font-weight: 700;
+        // Regular, not bold: Space Mono's bold M and W fill in at row size (HWM read "HMM").
+        // The near-white colour against the muted row is the emphasis (drive:all, 2026-11-17).
+        font-weight: 400;
         color: var(--text-primary);
         width: $sym-w;
         flex-shrink: 0;
@@ -492,7 +494,7 @@ $desk-h: rem(36px);
 
     &--quiet  { color: var(--text-dim); }
     // The neighbouring months' days: there to complete the weeks, quieter than this month's.
-    &--out     { opacity: .45; }
+    &--out     { opacity: .7; }   // the next/last month's days: quieter, still readable (.45 put them at 2.7:1)
     &--today   { border-color: var(--accent-light); }
     &--today &__num { color: var(--accent-light); }
 }
@@ -556,7 +558,9 @@ $desk-h: rem(36px);
     &__sym {
         font-family: var(--font-mono);
         font-size: 12.5px;
-        font-weight: 700;
+        // Regular, not bold: Space Mono's bold M and W fill in at row size (HWM read "HMM").
+        // The near-white colour against the muted row is the emphasis (drive:all, 2026-11-17).
+        font-weight: 400;
         color: var(--text-primary);
         width: $sym-w;
         flex-shrink: 0;
@@ -718,6 +722,9 @@ $desk-h: rem(36px);
         align-items: center;
         gap: 8px;
         height: $desk-h;
+        // margin 0: the global button margin (5px) put the head 5px inside a box that clips it at
+        // $desk-h — and a click scrolled the focused head into view, jumping the row 5px left and up.
+        margin: 0;
         padding: 0 $row-pad-end 0 12px;
         background: none;
         border: 0;
@@ -919,7 +926,9 @@ $desk-h: rem(36px);
     &__sym {
         font-family: var(--font-mono);
         font-size: 12.5px;
-        font-weight: 700;
+        // Regular, not bold: Space Mono's bold M and W fill in at row size (HWM read "HMM").
+        // The near-white colour against the muted row is the emphasis (drive:all, 2026-11-17).
+        font-weight: 400;
         width: $sym-w;
         flex-shrink: 0;
 
@@ -1144,6 +1153,20 @@ $desk-h: rem(36px);
     // so the mouse path is governed by :hover alone, exactly as it reads.
     &:hover &__actions,
     &:has(:focus-visible) &__actions { display: flex; }
+
+    // ...and the values it covers step out while it is there. The fade alone left a half-word under
+    // it — a book row with three actions read "WAITI ▷ ✎ 🗑" (drive:all, 2026-11-17). Hidden, not
+    // removed: `visibility` keeps their width, so nothing in the row moves.
+    &:has(&__actions):hover .floor-row__status,
+    &:has(&__actions):hover .floor-row__pnl,
+    &:has(:focus-visible):has(&__actions) .floor-row__status,
+    &:has(:focus-visible):has(&__actions) .floor-row__pnl { visibility: hidden; }
+
+    // A 17px icon is a pointer's target, not a thumb's: on a phone each grows an invisible 24px+ touch area.
+    @media (max-width: 767px) {
+        &__actions .icon-btn { position: relative; }
+        &__actions .icon-btn::after { content: ''; position: absolute; inset: -4px; }
+    }
 
     // Row scale is asked for at the call site (`size="sm"`), not overridden here — the shared
     // button owns its own sizes, so the Floor can't drift from the cards by a pixel.
@@ -1403,20 +1426,7 @@ $desk-h: rem(36px);
     margin-bottom: 6px;
 }
 
-.fm-filter {
-    margin: 0;
-    padding: 3px 10px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: none;
-    font: inherit;
-    font-size: 11.5px;
-    color: var(--text-secondary);
-    cursor: pointer;
-
-    &:hover { background: var(--bg-hover); color: var(--text-primary); }
-    &--on { border-color: var(--accent-light); color: var(--text-primary); background: var(--bg-raised); }
-}
+// .fm-filter's look is the shared .toggle-chip (basics/_helpers.scss); the class stays as the hook.
 
 // A theme's link on its page in the Forecasts window: a door to that industry, as bold as the name it replaces.
 .themes-view__link { font-weight: 600; }
@@ -1578,7 +1588,7 @@ $fm-steps: (1: 14%, 2: 26%, 3: 40%, 4: 56%);
     &--covered { cursor: pointer; color: var(--text-primary); }
     &--covered:hover { background: var(--bg-hover); }
 
-    &__sym  { font-family: var(--font-mono); font-weight: 700; }
+    &__sym  { font-family: var(--font-mono); font-weight: 400; }   // regular: see .floor-row__sym
     &__name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     &__cap  { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); text-align: right; }
     &__cov  { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
