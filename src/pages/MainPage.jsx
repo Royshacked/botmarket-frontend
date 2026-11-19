@@ -1234,6 +1234,7 @@ export function MainPage() {
         const opening = typeof offer.opening === 'string' && offer.opening.trim() ? offer.opening.trim()
             : symbol && agent === 'analyst' ? `Research ${symbol} for coverage.`
             : symbol && agent === 'mentor' ? `I want to work on my own ${symbol} trade.`
+            : symbol && agent === 'echo' ? `Which companies does news on ${symbol} reach through the supply chain?`
             : null
         if (agent === 'strategy') {
             if (!isAdmin) return
@@ -1269,6 +1270,14 @@ export function MainPage() {
     function handleTechnicalsFromHotlist(symbol) {
         if (!symbol) return
         talkTo('proteus', `How does ${symbol} trade?`)
+    }
+
+    // The Hotlist's Echo tab → the event analyst, on that forward-test event (backend echo-desk.md): its id rides the
+    // question, so he reads that map with get_event_map rather than mapping it again.
+    function handleEchoFromHotlist(ev) {
+        if (!ev?.id) return
+        const who = ev.tickers?.length ? ev.tickers.join(' / ') : ev.origin
+        talkTo('echo', `Walk me through the ${who} event of ${ev.date} (${ev.id}) — who does it reach, and where does the test stand?`)
     }
 
     function handleBuildFromEarning(earning) {
@@ -1345,6 +1354,7 @@ export function MainPage() {
                                 onIpoSelect={handleBuildFromIpo}
                                 onHotlistBuild={handleBuildFromHotlist}
                                 onHotlistTechnicals={handleTechnicalsFromHotlist}
+                                onHotlistEcho={handleEchoFromHotlist}
                                 onEditSetup={handleEditSetup}
                                 onDeleteSetup={handleDeleteSetup}
                                 onEditPortfolio={handleEditPortfolio}

@@ -27,7 +27,7 @@ function LinkRows({ links, onSymbolClick }) {
     })
 }
 
-function EventDetail({ id, onSymbolClick }) {
+function EventDetail({ id, onSymbolClick, onAsk = null }) {
     const [state, setState] = useState({ status: 'loading' })
     const [all, setAll] = useState(false)
     useEffect(() => {
@@ -67,13 +67,15 @@ function EventDetail({ id, onSymbolClick }) {
                 </button>
             )}
             <p className="hot-note hot-dim">Mapped by {ev.map?.model ?? 'the model'} · prompt {ev.map?.promptVersion ?? '—'}</p>
+            {/* The event analyst on THIS event (echo-desk.md §5) — handed off like Build, the Hotlist kept to come back to. */}
+            {onAsk && <button type="button" className="toggle-chip echo-ask" onClick={() => onAsk(ev)}>Ask about this event</button>}
         </div>
     )
 }
-EventDetail.propTypes = { id: PropTypes.string.isRequired, onSymbolClick: PropTypes.func }
+EventDetail.propTypes = { id: PropTypes.string.isRequired, onSymbolClick: PropTypes.func, onAsk: PropTypes.func }
 
 /** The Echo tab: the label, the record so far, the events newest first — one opened at a time, its links below it. */
-export function HotlistEcho({ onSymbolClick }) {
+export function HotlistEcho({ onSymbolClick, onAsk = null }) {
     const [data, setData] = useState({ status: 'loading' })
     const [open, setOpen] = useState(null)
     const [tick, setTick] = useState(0)
@@ -120,7 +122,7 @@ export function HotlistEcho({ onSymbolClick }) {
                                                 </tr>
                                                 {isOpen && (
                                                     <tr className="hot-note-row echo-open">
-                                                        <td colSpan={4 + ECHO_HORIZONS.length}><EventDetail id={e.id} onSymbolClick={onSymbolClick} /></td>
+                                                        <td colSpan={4 + ECHO_HORIZONS.length}><EventDetail id={e.id} onSymbolClick={onSymbolClick} onAsk={onAsk} /></td>
                                                     </tr>
                                                 )}
                                             </Fragment>
@@ -134,4 +136,4 @@ export function HotlistEcho({ onSymbolClick }) {
         </section>
     )
 }
-HotlistEcho.propTypes = { onSymbolClick: PropTypes.func }
+HotlistEcho.propTypes = { onSymbolClick: PropTypes.func, onAsk: PropTypes.func }

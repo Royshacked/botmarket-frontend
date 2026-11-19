@@ -72,6 +72,25 @@ describe('Echo — the tab', () => {
         expect(screen.getByText('Foxconn')).toBeTruthy()
     })
 
+    it('"Ask about this event" hands the event to the event analyst', async () => {
+        hotlistService.getEcho.mockResolvedValue({ events: [CSCO], record: RECORD })
+        hotlistService.getEchoEvent.mockResolvedValue({ ...CSCO, all: [link('JBL', 'flagged')], map: {} })
+        const onAsk = vi.fn()
+        render(<HotlistEcho onAsk={onAsk} />)
+        fireEvent.click(await screen.findByText('2026-11-12'))
+        fireEvent.click(await screen.findByRole('button', { name: 'Ask about this event' }))
+        expect(onAsk).toHaveBeenCalledWith(expect.objectContaining({ id: CSCO.id, tickers: ['CSCO'], date: '2026-11-12' }))
+    })
+
+    it('no ask handler, no button', async () => {
+        hotlistService.getEcho.mockResolvedValue({ events: [CSCO], record: RECORD })
+        hotlistService.getEchoEvent.mockResolvedValue({ ...CSCO, all: [link('JBL', 'flagged')], map: {} })
+        render(<HotlistEcho />)
+        fireEvent.click(await screen.findByText('2026-11-12'))
+        await screen.findByText('JBL')
+        expect(screen.queryByRole('button', { name: 'Ask about this event' })).toBeNull()
+    })
+
     it('a mapped event not checked yet lists every link', async () => {
         const mapped = { ...CSCO, status: 'mapped', flagged: [] }
         hotlistService.getEcho.mockResolvedValue({ events: [mapped], record: RECORD })

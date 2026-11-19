@@ -114,6 +114,29 @@ export const AGENTS = {
             </>
         ),
     },
+    // Echo — the event desk (backend docs/design/echo-desk.md, 2026-11-19): ONE event mapped to the companies it reaches
+    // through the supply chain (suppliers, their suppliers and infrastructure, substitutes), and the house's forward test
+    // of those maps — unproven until its verdict reads. Maps only — the levels are Mentor's, the business Prometheus's.
+    echo: {
+        tab:   'echo',
+        brand: 'Echo',
+        role:  'Event analyst',
+        work:  'Event maps',
+        hue:   'violet',   // a discovery desk, beside the analyst's
+        lead:  'Who an event reaches',
+        blurb: 'An event mapped through the supply chain — the links the market may be slow to connect.',
+        intro: "Name an event and I'll map who it reaches through the supply chain.",
+        hint:  'Name an event — a launch, a guidance cut, a strike, a deal — and ask which companies it reaches: suppliers, their suppliers, substitutes.',
+        // Sound travelling out from a point — an echo, and news reaching further out down the chain. The 0–24 twin of EchoBadge.
+        icon: (
+            <>
+                <path d="M6 10.4 a1.6 1.6 0 1 0 0.01 0" />
+                <path d="M9.5 8.5 a5 5 0 0 1 0 7" />
+                <path d="M12.5 6 a8.5 8.5 0 0 1 0 12" />
+                <path d="M15.5 3.5 a12 12 0 0 1 0 17" />
+            </>
+        ),
+    },
     analyst: {
         tab:   'analyst',
         brand: 'Prometheus',
@@ -277,6 +300,15 @@ export const DESKS = [
         hue:      'cyan',
         entryTab: 'proteus',
         agentKey: 'proteus',
+    },
+    {
+        key:      'events',
+        label:    'Map an event',
+        lead:     'Event analysis',
+        blurb:    'Name an event — a launch, a guidance cut, a strike — and see which companies it reaches through the supply chain.',
+        hue:      'violet',
+        entryTab: 'echo',
+        agentKey: 'echo',
     },
     {
         key:      'research',

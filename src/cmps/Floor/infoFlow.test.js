@@ -38,6 +38,13 @@ test('a portfolio, a coverage, a technical read — each from its own role\'s st
     assert.equal(t([{ agent: 'proteus', role: 'user' }, { agent: 'proteus', role: 'assistant' }]), 1)
     assert.equal(t([{ agent: 'proteus', role: 'assistant' }, { agent: 'proteus', role: 'user' }]), 0, 'a new question: measuring again')
     assert.equal(t([{ agent: 'proteus', role: 'assistant' }, { agent: 'axl', role: 'user' }]), 1, 'rows of another role do not move it')
+    // The event analyst (backend echo-desk.md, 2026-11-19): mapping the event, then the map.
+    assert.deepEqual(FLOWS.events.steps, ['Mapping the event', 'The map'])
+    const e = (rows) => infoFlow({ floor: 'echo', rows })
+    assert.equal(e([]).key, 'events')
+    assert.equal(e([{ agent: 'echo', role: 'user' }]).current, 0)
+    assert.equal(e([{ agent: 'echo', role: 'user' }, { agent: 'echo', role: 'assistant' }]).current, 1)
+    assert.equal(e([{ agent: 'echo', role: 'assistant' }, { agent: 'proteus', role: 'user' }]).current, 1, 'rows of another role do not move it')
 })
 
 test('talking with Axl: one step, "Ask Axl" (Roy, 2026-11-13); a role with no flow → null', () => {

@@ -121,6 +121,19 @@ export function ProteusBadge(props) {
     )
 }
 
+// Echo — the event desk. Sound travelling out from a point: an echo, and news reaching further down the chain with
+// each ring. The 200-space twin of the desk's line sigil.
+export function EchoBadge(props) {
+    return (
+        <Badge {...props} title="Echo">
+            <circle cx="50" cy="100" r="13" />
+            <path d="M79,71 a42,42 0 0 1 0,58" />
+            <path d="M104,50 a71,71 0 0 1 0,100" />
+            <path d="M129,29 a100,100 0 0 1 0,142" />
+        </Badge>
+    )
+}
+
 // Pythia — the strategy desk. The Delphic tripod: the seat the oracle spoke from, with the vapour
 // rising off it. Like Prometheus and Mentor, the badge is the 200-space twin of the desk's line
 // sigil, so the desk reads the same weight as the others wherever a glyph is drawn.
@@ -170,7 +183,7 @@ export function TalosBadge(props) {
     )
 }
 
-const AGENT_BADGES  = { idea: IdeaBadge, portfolio: AtlasBadge, scanner: ArgusBadge, mentor: MentorBadge, analyst: PrometheusBadge, strategy: PythiaBadge, proteus: ProteusBadge }
+const AGENT_BADGES  = { idea: IdeaBadge, portfolio: AtlasBadge, scanner: ArgusBadge, mentor: MentorBadge, analyst: PrometheusBadge, strategy: PythiaBadge, proteus: ProteusBadge, echo: EchoBadge }
 // Notification/list context: ideas show Minos, setups show Talos; the rest reuse
 // their agent figure.
 const NOTIFY_BADGES = { idea: MinosBadge, mentor: TalosBadge, portfolio: AtlasBadge, scanner: ArgusBadge, analyst: PrometheusBadge, strategy: PythiaBadge }
