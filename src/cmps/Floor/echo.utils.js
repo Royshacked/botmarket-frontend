@@ -1,17 +1,42 @@
-// Echo's pure helpers (docs/design/echo-desk.md) — the Hotlist's Echo tab's words and numbers.
+// Echo's pure helpers (backend docs/design/echo-pipeline.md) — the Hotlist's Echo tab's words and numbers. Echo is built to
+// the simulator design: every event mapped through the chain, every link scored on six factors (high at 8 of 12), checked
+// at the 5th session (the flags), watched, and graded against same-sector stand-ins.
 
 /** The Hotlist's view key for Echo's tab. */
 export const ECHO = 'echo'
 
-export const ECHO_HORIZONS = [20, 60, 120]
+export const GRADE_HORIZONS = [5, 20, 60, 120]
+export const HIGH = 8
 
 export const STATUS = {
-    detected: ['Mapping', 'found tonight — the map comes next'],
-    mapped:   ['Mapped', 'the market check runs at its 5th session’s close'],
-    late:     ['Missed', 'reached after its 5th session — not mapped, not graded'],
-    checked:  ['Grading', 'checked at day 5 — graded at 20, 60 and 120 sessions'],
-    done:     ['Graded', 'graded at every horizon'],
+    framed:   ['Recorded', 'found — the map comes next'],
+    mapped:   ['Mapped', 'mapped — the score comes next'],
+    scored:   ['Scored', 'scored — the market check runs at its 5th session’s close'],
+    watching: ['Watching', 'checked at day 5 — under the wave watch'],
+    expired:  ['Expired', 'the effect is absorbed — no new flags'],
 }
+
+export const FLAG = {
+    underreacted_winner: ['Underreacted', 'a high score and a small move against layer 1 by day 5 — the main target'],
+    overreacted_loser:   ['Overreacted', 'a hard drop on slow, indirect damage — a rebound candidate'],
+    fully_priced:        ['Priced', 'a big move that matches the score — skip'],
+}
+export const isFlag = (f) => f === 'underreacted_winner' || f === 'overreacted_loser'
+
+export const FACTORS = [
+    ['lockIn', 'Lock-in', 'Demand committed for years (budgets, contracts, capex) scores high; a price spike scores low'],
+    ['supplyResponse', 'Supply response', 'New capacity takes years to build scores high; adjusts within a season scores low'],
+    ['bottleneck', 'Bottleneck', 'Controls scarce capacity scores high; one of many interchangeable suppliers scores low'],
+    ['directness', 'Directness', 'Hits revenue now and measurably scores high; slow or indirect scores low'],
+    ['exposure', 'Exposure', 'A large share of revenue rides on the link scores high'],
+    ['coverage', 'Coverage', 'Few analysts, filed outside the theme, scores high'],
+]
+
+export const TYPE_WORDS = {
+    demand_shock: 'demand shock', supply_shock: 'supply shock', policy: 'policy', clinical: 'clinical',
+    geopolitical: 'geopolitical', capacity_deal: 'capacity deal', confirmation: 'confirmation',
+}
+export const words = (s) => String(s ?? '').replace(/_/g, ' ')
 
 /** A signed percent, one decimal: 0.034 → "+3.4%". */
 export function pct(x) {
@@ -21,43 +46,55 @@ export function pct(x) {
 }
 export const tone = (x) => (!Number.isFinite(x) ? 'hot-dim' : x > 0 ? 'hot-up' : x < 0 ? 'hot-down' : '')
 
-/** The model's own direction, from the link's note ("confidence high; model's direction gains; …"). */
-export function modelDirection(note) {
-    return /model's direction (gains|loses|unclear)/.exec(note ?? '')?.[1] ?? null
+/** A link's filing evidence in a few words: a stated share, named, or not. */
+export function evidenceWords(f) {
+    if (!f) return '—'
+    if (f.share) return `${f.share.atLeast ? '>' : ''}${(Math.round(f.share.share * 1000) / 10).toFixed(1)}% of revenue`
+    if (f.named === true) return 'named in filings'
+    if (f.named === false) return 'not named'
+    return '—'
 }
 
-/** Why the direction is what it is: the rule follows the ORIGIN'S MOVE, not the model's reading of the news. */
-export function directionLine(ev) {
-    const who = ev.origin ?? ev.tickers?.[0] ?? 'The origin'
-    const way = ev.effect === 'up' ? 'rose' : 'fell'
-    const same = ev.effect === 'up' ? 'gain' : 'lose'
-    const other = ev.effect === 'up' ? 'lose' : 'gain'
-    return `${who} ${way} on the event, so its suppliers and infrastructure are expected to ${same} with it and its substitutes to ${other}; peers and customers could go either way. Where the model read it differently, its own call is shown beside it.`
+/** The validation record in one line — always "so far", never the verdict. */
+export function recordLine(report) {
+    if (!report?.events) return 'Nothing graded yet — the flags are unproven until the validation has its events.'
+    const parts = [20, 60, 120].filter(h => report.horizons?.[h]?.vsStandIns?.n).map(h => {
+        const v = report.horizons[h].vsStandIns
+        return `${h} sessions: flagged ${pct(v.mean)} vs same-sector stand-ins (${v.n} events)`
+    })
+    return `${parts.length ? `So far — ${parts.join(' · ')}.` : 'Graded at 5 sessions only so far.'} ${report.walkForward?.note ?? ''}`.trim()
 }
 
-/** A linked name's tiles for its page (HotlistRowPage `facts`): the link, the rule's direction, day 5, the grades. */
+/** A linked name's tiles for its page (HotlistRowPage `facts`): the link, the score, the day-5 move, the flag. */
 export function linkFacts(l) {
-    const own = modelDirection(l.note)
     return [
-        ['Link', `${l.relation}${l.layer ? ` · layer ${l.layer}` : ''}`],
-        ['Direction', `${l.direction}${own && own !== l.direction ? ` (model: ${own})` : ''}`],
-        ['Day 5', pct(l.reaction), tone(l.reaction), 'Against SPY through the 5th session, signed by the direction'],
-        ...ECHO_HORIZONS.map(h => [`${h}d`, pct(l.spread?.[h]), tone(l.spread?.[h]), `From the day-5 close to ${h} sessions, against SPY and minus the same-sector stand-ins`]),
+        ['Link', `${words(l.relation)} · layer ${l.layer}`],
+        ['Direction', l.direction],
+        ['Score', l.total == null ? '—' : `${l.total} / 12${l.high ? ' · high' : ''}`, l.high ? 'hot-up' : null, 'Six factors, 0–2 each; high at 8'],
+        ['Day 5', pct(l.check?.signedMove), tone(l.check?.signedMove), 'Its move vs SPY through the 5th session, signed by its direction'],
+        ['Volume', Number.isFinite(l.check?.volume?.day5) ? `${l.check.volume.day5.toFixed(1)}×` : '—', null, 'Day 0 to day 5 against its 20-day average'],
+        ['Flag', l.flag ? FLAG[l.flag]?.[0] ?? words(l.flag) : '—', isFlag(l.flag) ? 'hot-up' : null, l.flag ? FLAG[l.flag]?.[1] : undefined],
     ]
 }
 
 /** Why Echo linked a name, in one sentence: the event, the link, the reason. */
 export function echoLine(ev, l) {
     const who = ev.origin ?? ev.tickers?.[0] ?? 'the origin'
-    const what = `${who} (${(ev.tickers ?? []).join('/') || '—'}) ${ev.effect === 'up' ? 'rose' : 'fell'} on its ${ev.date} results`
+    const what = ev.whatChanged ? `${ev.whatChanged} (${ev.date})` : `${who} on ${ev.date}`
     const why = l.why ? ` — ${String(l.why).replace(/[.\s]+$/, '')}` : ''
-    return `${what}; ${l.ticker ?? l.name} is its ${l.relation}${why}.`
+    return `${what}; ${l.ticker ?? l.name} is its ${words(l.relation)}${why}.`
 }
 
-/** The record so far, in one line per horizon graded. */
-export function recordLine(record) {
-    if (!record) return null
-    const parts = ECHO_HORIZONS.filter(h => record[h]?.n).map(h => `${h} sessions: ${pct(record[h].mean)} over ${record[h].n} (${Math.round(record[h].positive * 100)}% positive)`)
-    const head = parts.length ? `So far — ${parts.join(' · ')}.` : 'Nothing graded yet.'
-    return `${head} The verdict reads once, on the first ${record.verdictAt} events graded at 120 sessions (${record.gradedAt120} so far).`
+/**
+ * The hand-off to the trader (backend echo-pipeline.md Step 6): a REFERENCE — the event and the name — that the server
+ * reads back with the link, its score, its flag and the simulator rules' levels. The flags are long-side leads (a
+ * winner's continuation, a loser's rebound).
+ */
+export function echoHandoff(ev, l) {
+    if (!ev?.id || !l?.ticker) return null
+    return {
+        ticker: l.ticker, direction: 'long',
+        thesis: `${ev.origin}'s event reaches it as its ${words(l.relation)}: ${String(l.why ?? '').replace(/[.\s]+$/, '')}${l.flag ? ` — Echo flagged it ${FLAG[l.flag]?.[0]?.toLowerCase() ?? words(l.flag)}` : ''}`,
+        echo: { event: ev.id },
+    }
 }

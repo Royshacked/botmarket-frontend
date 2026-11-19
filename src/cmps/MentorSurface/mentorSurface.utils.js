@@ -87,6 +87,9 @@ export function handoffTurn(candidate) {
             // One off the Hotlist's SWING / LONG TERM lists rides as which list; the server reads the name's coverage —
             // its horizon and target — back itself (backend houseBook bookSeed).
             ...(candidate.book ? { book: { column: candidate.book.column } } : {}),
+            // One off the Hotlist's ECHO tab rides as which event; the server reads the event, the link, its score, flag and
+            // the simulator rules' levels back itself (backend echoLevels echoSeed).
+            ...(candidate.echo ? { echo: { event: candidate.echo.event } } : {}),
         },
     }
 }

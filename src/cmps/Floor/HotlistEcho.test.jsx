@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 
 vi.mock('../../services/hotlist/hotlist.service.remote.js', () => ({
     hotlistService: { getEcho: vi.fn(), getEchoEvent: vi.fn() },
@@ -14,170 +14,115 @@ vi.mock('./HotlistRowPage.jsx', () => ({
     ),
 }))
 import { HotlistEcho } from './HotlistEcho.jsx'
-import { pct, modelDirection, directionLine, recordLine, linkFacts, echoLine } from './echo.utils.js'
+import { pct, evidenceWords, recordLine, linkFacts, echoLine, echoHandoff } from './echo.utils.js'
+import { handoffTurn } from '../MentorSurface/mentorSurface.utils.js'
 
-// Echo in the Hotlist (docs/design/echo-desk.md): labelled a forward test first, the record "so far", an event opened
-// to its lagging links. Shapes as botmarket-backend echo.service sends them.
+// Echo in the Hotlist, built to the simulator design (backend docs/design/echo-pipeline.md): events of every kind, links
+// ranked by score with the six factors and their reasons, the day-5 flags, the trader and the event analyst a click away.
+// Shapes as botmarket-backend echo.service sends them.
 
 afterEach(cleanup)
 beforeEach(() => { hotlistService.getEcho.mockReset(); hotlistService.getEchoEvent.mockReset() })
 
-const RECORD = { 20: { n: 1, mean: 0.03, positive: 1 }, 60: { n: 0, mean: null, positive: null }, 120: { n: 0, mean: null, positive: null }, verdictAt: 30, gradedAt120: 0 }
-const link = (ticker, group, extra = {}) => ({ ticker, name: `${ticker} Inc.`, relation: 'supplier', layer: 2, direction: 'loses',
-    why: `${ticker} builds for the origin.`, note: "confidence high; model's direction gains; FMP: x", group, reaction: 0.01,
-    forward: {}, spread: { 20: 0.03, 60: null, 120: null }, ...extra })
-const CSCO = { id: 'csco-earnings-2026-11-12', date: '2026-11-12', origin: 'Cisco Systems, Inc.', tickers: ['CSCO'], effect: 'down',
-    size: 'Day 0 move -5.9% vs SPY', status: 'checked', links: 3, flagged: [link('JBL', 'flagged')], graded: [20], spread: { 20: 0.03, 60: null, 120: null } }
-const CEG = { id: 'ceg-earnings-2026-11-09', date: '2026-11-09', origin: 'Constellation', tickers: ['CEG'], effect: 'up', status: 'late',
-    links: 0, flagged: [], graded: [], spread: {} }
+const ID = 'ev_0b6f1c2a-1111-4222-8333-944455556666'
+const REPORT = { events: 2, horizons: { 20: { vsStandIns: { n: 2, mean: 0.031, median: 0.02 } } }, walkForward: { note: '0 of 30 events graded at 120 sessions — no reweighting yet' } }
+const SUMMARY = { id: ID, kind: 'house', mine: false, date: '2026-11-12', type: 'demand_shock', origin: 'Cisco Systems, Inc.', tickers: ['CSCO'], effect: 'down',
+    durability: 'price_spike', whatChanged: 'Cisco guided networking hardware lower', status: 'watching', links: 3, high: 1,
+    flagged: [{ ticker: 'FN', flag: 'overreacted_loser', total: 5 }], top: [{ ticker: 'VRT', total: 9 }, { ticker: 'PLUS', total: 6 }], graded: [] }
+const factors = {
+    lockIn: { score: 2, why: 'multi-year capex' }, supplyResponse: { score: 2, why: 'years to build' },
+    bottleneck: { score: 2, why: 'scarce cooling capacity', evidence: 'both', quote: 'Our record backlog provides clear visibility.' },
+    directness: { score: 1, why: 'a lag' }, exposure: { score: 1, source: 'estimated', why: 'a guess (estimated)' }, coverage: { score: 1, why: '14 analysts' },
+}
+const link = (ticker, extra = {}) => ({ ticker, name: `${ticker} Inc.`, relation: 'supplier', layer: 2, direction: 'loses', why: `${ticker} builds for Cisco.`,
+    total: 4, high: false, factors: null, filings: { named: false }, check: { signedMove: 0.01, volume: { day5: 0.8 } }, flag: null, flagWhy: null, grades: {}, supplySentences: [], ...extra })
+const EVENT = { ...SUMMARY, event: { date: '2026-11-12', whatChanged: 'Cisco guided networking hardware lower', size: 'Day 0 -5.9% vs SPY', durability: { kind: 'price_spike', why: 'one quarter' }, effect: 'down', tickers: ['CSCO'], origin: 'Cisco Systems, Inc.', source: 'earnings' },
+    map: { model: 'claude-opus-5-5' }, scored: { scoredAt: '2026-11-19T00:00:00Z' }, checked: { checkDay: '2026-11-19', yardstick: { median: 0.03 } }, triggers: [],
+    links: [
+        link('FN', { total: 5, flag: 'overreacted_loser', flagWhy: 'fell -12.0% vs SPY by day 5', filings: { named: true, share: { share: 0.199 }, excerpt: 'Cisco … 19.9%' }, check: { signedMove: 0.12, volume: { day5: 2.1 } } }),
+        link('VRT', { relation: 'infrastructure', layer: 3, total: 9, high: true, factors, check: { signedMove: 0.005 } }),
+        link('PLUS', { relation: 'customer', layer: 1, total: 6, filings: { named: true } }),
+    ] }
 
 describe('Echo — the pure parts', () => {
-    it('formats a signed percent', () => {
+    it('formats a signed percent and the filing evidence', () => {
         expect(pct(0.034)).toBe('+3.4%')
-        expect(pct(-0.0591)).toBe('-5.9%')
-        expect(pct(null)).toBe('—')
-    })
-    it("reads the model's own direction out of the note", () => {
-        expect(modelDirection("confidence high; model's direction gains; FMP: x")).toBe('gains')
-        expect(modelDirection('')).toBeNull()
-    })
-    it('says the direction follows the move, both ways', () => {
-        expect(directionLine({ origin: 'Cisco', effect: 'down' })).toMatch(/Cisco fell .* suppliers and infrastructure are expected to lose .* substitutes to gain/)
-        expect(directionLine({ origin: 'CEG', effect: 'up' })).toMatch(/rose .* expected to gain/)
+        expect(evidenceWords({ share: { share: 0.199 } })).toBe('19.9% of revenue')
+        expect(evidenceWords({ share: { share: 0.1, atLeast: true } })).toBe('>10.0% of revenue')
+        expect(evidenceWords({ named: true })).toBe('named in filings')
+        expect(evidenceWords({ named: null })).toBe('—')
     })
     it('never calls the record the verdict', () => {
-        expect(recordLine(RECORD)).toMatch(/^So far — 20 sessions: \+3\.0% over 1 \(100% positive\)\. The verdict reads once, on the first 30 events graded at 120 sessions \(0 so far\)\.$/)
-        expect(recordLine({ ...RECORD, 20: { n: 0 } })).toMatch(/^Nothing graded yet\./)
+        expect(recordLine(REPORT)).toMatch(/^So far — 20 sessions: flagged \+3\.1% vs same-sector stand-ins \(2 events\)\. 0 of 30/)
+        expect(recordLine(null)).toMatch(/unproven until the validation has its events/)
+    })
+    it('the hand-off to the trader is a reference — the event — the server reads the rest', () => {
+        const h = echoHandoff(EVENT, EVENT.links[0])
+        expect(h.echo).toEqual({ event: ID })
+        expect(h.direction).toBe('long')
+        expect(handoffTurn(h).seed.echo).toEqual({ event: ID })
+        expect(echoLine(EVENT, EVENT.links[1])).toBe('Cisco guided networking hardware lower (2026-11-12); VRT is its infrastructure — VRT builds for Cisco.')
+        expect(linkFacts(EVENT.links[1]).find(f => f[0] === 'Score')[1]).toBe('9 / 12 · high')
     })
 })
 
 describe('Echo — the tab', () => {
-    it('opens on the label, then the events', async () => {
-        hotlistService.getEcho.mockResolvedValue({ events: [CSCO, CEG], record: RECORD })
+    it('opens on the label, the record, then the events with their top scores and flags', async () => {
+        hotlistService.getEcho.mockResolvedValue({ events: [SUMMARY], report: REPORT })
         render(<HotlistEcho />)
-        expect(screen.getByText(/Forward test — unproven/)).toBeTruthy()
-        await screen.findByText('2026-11-12')
-        expect(screen.getByText('Grading')).toBeTruthy()
-        expect(screen.getByText('Missed')).toBeTruthy()
-        expect(screen.getByText('1 of 3')).toBeTruthy()
+        expect(screen.getByText(/Echo — unproven\./)).toBeTruthy()
+        await screen.findByText(/So far — 20 sessions/)
+        expect(screen.getByText('VRT 9 · PLUS 6')).toBeTruthy()
+        expect(screen.getByText('FN')).toBeTruthy()
+        expect(screen.getByText('demand shock')).toBeTruthy()
     })
 
-    it('an opened event shows its lagging links; "All links" shows the rest', async () => {
-        hotlistService.getEcho.mockResolvedValue({ events: [CSCO], record: RECORD })
-        hotlistService.getEchoEvent.mockResolvedValue({ ...CSCO, all: [link('JBL', 'flagged'), link('FLEX', 'unflagged'), link(null, null, { name: 'Foxconn' })],
-            map: { model: 'claude-opus-5-5', promptVersion: '2026-11-19' } })
-        const onSymbolClick = vi.fn()
-        render(<HotlistEcho onSymbolClick={onSymbolClick} />)
-        fireEvent.click(await screen.findByText('2026-11-12'))
-        await screen.findByText('JBL')
-        expect(screen.queryByText('FLEX')).toBeNull()
-        expect(screen.getByText(/Cisco Systems, Inc\. fell on the event/)).toBeTruthy()
-        expect(screen.getByText('model: gains')).toBeTruthy()   // in the cell, not on hover — a phone has none
-        fireEvent.click(screen.getByText('JBL'))
-        expect(onSymbolClick).toHaveBeenCalledWith('JBL')
-        fireEvent.click(screen.getByRole('button', { name: 'All 3 links' }))
-        expect(screen.getByText('FLEX')).toBeTruthy()
-        expect(screen.getByText('Foxconn')).toBeTruthy()
-    })
-
-    it('"Ask about this event" hands the event to the event analyst', async () => {
-        hotlistService.getEcho.mockResolvedValue({ events: [CSCO], record: RECORD })
-        hotlistService.getEchoEvent.mockResolvedValue({ ...CSCO, all: [link('JBL', 'flagged')], map: {} })
-        const onAsk = vi.fn()
-        render(<HotlistEcho onAsk={onAsk} />)
-        fireEvent.click(await screen.findByText('2026-11-12'))
-        fireEvent.click(await screen.findByRole('button', { name: 'Ask about this event' }))
-        expect(onAsk).toHaveBeenCalledWith(expect.objectContaining({ id: CSCO.id, tickers: ['CSCO'], date: '2026-11-12' }))
-    })
-
-    it('an event opens from its own button too — the way in by keyboard, announced open or shut (CR 2026-11-19)', async () => {
-        hotlistService.getEcho.mockResolvedValue({ events: [CSCO], record: RECORD })
-        hotlistService.getEchoEvent.mockResolvedValue({ ...CSCO, all: [link('JBL', 'flagged')], map: {} })
+    it('an opened event: its record, the check, the links ranked with score, evidence, day 5 and flag', async () => {
+        hotlistService.getEcho.mockResolvedValue({ events: [SUMMARY], report: REPORT })
+        hotlistService.getEchoEvent.mockResolvedValue(EVENT)
         render(<HotlistEcho />)
-        const toggle = await screen.findByRole('button', { name: 'CSCO event of 2026-11-12' })
-        expect(toggle.getAttribute('aria-expanded')).toBe('false')
-        fireEvent.click(toggle)
-        await screen.findByText('JBL')
-        expect(toggle.getAttribute('aria-expanded')).toBe('true')
-        fireEvent.click(toggle)
-        expect(screen.queryByText('JBL')).toBeNull()
-    })
-
-    it('no ask handler, no button', async () => {
-        hotlistService.getEcho.mockResolvedValue({ events: [CSCO], record: RECORD })
-        hotlistService.getEchoEvent.mockResolvedValue({ ...CSCO, all: [link('JBL', 'flagged')], map: {} })
-        render(<HotlistEcho />)
-        fireEvent.click(await screen.findByText('2026-11-12'))
-        await screen.findByText('JBL')
-        expect(screen.queryByRole('button', { name: 'Ask about this event' })).toBeNull()
-    })
-
-    it('a mapped event not checked yet lists every link', async () => {
-        const mapped = { ...CSCO, status: 'mapped', flagged: [] }
-        hotlistService.getEcho.mockResolvedValue({ events: [mapped], record: RECORD })
-        hotlistService.getEchoEvent.mockResolvedValue({ ...mapped, all: [link('JBL', null), link('FLEX', null)], map: {} })
-        render(<HotlistEcho />)
-        expect(await screen.findByText('3 links')).toBeTruthy()
-        fireEvent.click(screen.getByText('2026-11-12'))
-        await screen.findByText('FLEX')
-        expect(screen.queryByRole('button', { name: /All \d+ links/ })).toBeNull()
-    })
-
-    it('a failed read says so and retries', async () => {
-        hotlistService.getEcho.mockRejectedValueOnce(new Error('x')).mockResolvedValueOnce({ events: [], record: RECORD })
-        render(<HotlistEcho />)
-        fireEvent.click(await screen.findByRole('button', { name: 'Retry' }))
-        await waitFor(() => expect(screen.getByText(/No events yet/)).toBeTruthy())
-    })
-})
-
-describe('Echo — the reads (2026-11-19)', () => {
-    const COV = { symbol: 'JBL', rating: 'hold', price_target: { value: 263.25, horizon: '6m' }, status: 'active', thesis: 'Jabil thesis.' }
-    const open = async (props) => {
-        hotlistService.getEcho.mockResolvedValue({ events: [CSCO], record: RECORD })
-        hotlistService.getEchoEvent.mockResolvedValue({ ...CSCO, all: [link('JBL', 'flagged'), link('FLEX', 'flagged')], map: {} })
-        const r = render(<HotlistEcho {...props} />)
         fireEvent.click(await screen.findByRole('button', { name: 'CSCO event of 2026-11-12' }))
-        await screen.findByText('FLEX')
-        return r
-    }
-
-    it("the links table carries the analyst's rating and target where he covers the name", async () => {
-        await open({ coverage: [COV] })
-        const jbl = screen.getByText('JBL').closest('tr')
-        expect(jbl.textContent).toMatch(/hold/i)
-        expect(jbl.textContent).toMatch(/263/)
-        expect(screen.getByText('FLEX').closest('tr').querySelector('.echo-cov').textContent).toBe('—')
+        await screen.findByText('19.9% of revenue')
+        expect(screen.getByText(/Durability:/).textContent).toMatch(/price spike — one quarter/)
+        expect(screen.getByText(/Day-5 check \(2026-11-19\): layer 1 moved \+3\.0%/)).toBeTruthy()
+        const rows = [...document.querySelectorAll('.echo-links tbody tr')].map(r => r.getAttribute('data-symbol'))
+        expect(rows).toEqual(['FN', 'VRT', 'PLUS'])
+        expect(screen.getByText('9 ★')).toBeTruthy()
+        expect(screen.getByText('Overreacted')).toBeTruthy()
     })
 
-    it("a name clicked opens its page: swing (the technical analyst's profile), why Echo linked it, the analyst's thesis", async () => {
-        const onOpen = vi.fn()
-        const { rerender } = await open({ coverage: [COV], onOpen })
-        fireEvent.click(screen.getByText('JBL'))
-        expect(onOpen).toHaveBeenCalledWith('JBL')
-        rerender(<HotlistEcho coverage={[COV]} onOpen={onOpen} focus="JBL" onAsk={() => {}} />)
+    it("a name's page: why it scores, factor by factor with the evidence; the trader and the event analyst a click away", async () => {
+        hotlistService.getEcho.mockResolvedValue({ events: [SUMMARY], report: REPORT })
+        hotlistService.getEchoEvent.mockResolvedValue(EVENT)
+        const onOpen = vi.fn(), onBuild = vi.fn(), onAsk = vi.fn()
+        const { rerender } = render(<HotlistEcho onOpen={onOpen} onBuild={onBuild} onAsk={onAsk} />)
+        fireEvent.click(await screen.findByRole('button', { name: 'CSCO event of 2026-11-12' }))
+        fireEvent.click(await screen.findByRole('button', { name: 'VRT' }))
+        expect(onOpen).toHaveBeenCalledWith('VRT')
+        rerender(<HotlistEcho onOpen={onOpen} onBuild={onBuild} onAsk={onAsk} focus="VRT" />)
         const page = screen.getByTestId('row-page')
         expect(page.getAttribute('data-horizon')).toBe('swing')
-        expect(page.textContent).toMatch(/From Echo — lagging at day 5:/)
-        expect(page.textContent).toMatch(/Cisco Systems, Inc\. \(CSCO\) fell on its 2026-11-12 results; JBL is its supplier — JBL builds for the origin\./)
-        expect(page.textContent).toMatch(/not a pick/)
-        expect(page.textContent).toMatch(/Direction: loses \(model: gains\)/)
-        expect(page.textContent).toMatch(/Analyst: hold.*263/i)
-        expect(page.textContent).toMatch(/Jabil thesis\./)
-        expect(screen.getByRole('button', { name: 'Ask about this event' })).toBeTruthy()
+        expect(page.textContent).toMatch(/Why it scores 9 \/ 12 — high/)
+        expect(page.textContent).toMatch(/Bottleneck · both/)
+        expect(page.textContent).toMatch(/scarce cooling capacity/)
+        expect(page.textContent).toMatch(/Our record backlog provides clear visibility\./)
+        expect(page.textContent).toMatch(/a lead, not a pick/)
+        fireEvent.click(screen.getByRole('button', { name: 'Build with the trader' }))
+        expect(onBuild).toHaveBeenCalledWith(expect.objectContaining({ ticker: 'VRT', echo: { event: ID } }))
+        fireEvent.click(screen.getByRole('button', { name: 'Ask about this event' }))
+        expect(onAsk).toHaveBeenCalledWith(expect.objectContaining({ id: ID }))
     })
 
-    it('a lagging name not covered yet says where it goes', async () => {
-        const { rerender } = await open({ onOpen: () => {} })
-        rerender(<HotlistEcho onOpen={() => {}} focus="FLEX" />)
-        expect(screen.getByTestId('row-page').textContent).toMatch(/Not covered yet — a lagging name goes to the analyst for swing coverage after the day-5 check/)
-    })
-
-    it('the page helpers', () => {
-        const l = link('JBL', 'flagged')
-        expect(linkFacts(l).map(f => f[0])).toEqual(['Link', 'Direction', 'Day 5', '20d', '60d', '120d'])
-        expect(linkFacts({ ...l, note: "model's direction loses" })[1][1]).toBe('loses')
-        expect(echoLine({ origin: 'Constellation', tickers: ['CEG'], effect: 'up', date: '2026-11-09' }, { ticker: 'GEV', relation: 'supplier' }))
-            .toBe('Constellation (CEG) rose on its 2026-11-09 results; GEV is its supplier.')
+    it('an event not mapped yet says where it stands; a failed read retries', async () => {
+        hotlistService.getEcho.mockResolvedValue({ events: [{ ...SUMMARY, status: 'framed', top: [], flagged: [] }], report: null })
+        hotlistService.getEchoEvent.mockResolvedValue({ ...EVENT, status: 'framed', links: [], checked: null, scored: null, waiting: null })
+        render(<HotlistEcho />)
+        fireEvent.click(await screen.findByRole('button', { name: 'CSCO event of 2026-11-12' }))
+        expect((await screen.findAllByText(/found — the map comes next/)).length).toBeGreaterThan(0)
+        cleanup()
+        hotlistService.getEcho.mockRejectedValueOnce(new Error('down')).mockResolvedValueOnce({ events: [], report: null })
+        render(<HotlistEcho />)
+        fireEvent.click(await screen.findByRole('button', { name: 'Retry' }))
+        await screen.findByText(/No events yet/)
     })
 })

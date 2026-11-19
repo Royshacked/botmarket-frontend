@@ -64,7 +64,7 @@ const _day = (iso) => {
 // the view switches (Argus's names, the scorecard) and the screener's status line are the admin's — they explain how the
 // lists are made, and say why one is thin.
 
-export function HotlistPanel({ onBuild, onAskTechnicals = null, onAskEcho = null, onSymbolClick, coverage = [], isAdmin = false }) {
+export function HotlistPanel({ onBuild, onAskTechnicals = null, onAskEcho = null, onBuildEcho = null, onSymbolClick, coverage = [], isAdmin = false }) {
     const { isOpen, close } = useDetailPanel(HOTLIST_PANEL_ID)
     const [today, setToday] = useState({ status: 'idle', day: null, checkpoints: [], dayList: [], latest: null, working: null, stats: null })
     const [boardId, setBoardId] = useState(null)
@@ -323,7 +323,7 @@ export function HotlistPanel({ onBuild, onAskTechnicals = null, onAskEcho = null
                         record={record} book={book} coverage={coverage} isAdmin={isAdmin} focus={focus} onOpen={openRow}
                         dayBoards={dayBoards} onDayBoards={() => setDayTick(n => n + 1)} day={day}
                         dayBoardId={dayBoardId} onDayBoard={setDayBoardId}
-                        onSymbolClick={symbolClick} onBuild={handOff(onBuild)} onAskEcho={handOff(onAskEcho)} />
+                        onSymbolClick={symbolClick} onBuild={handOff(onBuild)} onAskEcho={handOff(onAskEcho)} onBuildEcho={handOff(onBuildEcho)} />
                     : <>
                         <Body today={today} board={board} picksOnly={picksOnly} setPicksOnly={setPicksOnly}
                             onRetry={retryLoad} onSymbolClick={symbolClick}
@@ -349,6 +349,7 @@ HotlistPanel.propTypes = {
     onBuild:       PropTypes.func,
     onAskTechnicals: PropTypes.func,
     onAskEcho:       PropTypes.func,
+    onBuildEcho:     PropTypes.func,
     onSymbolClick: PropTypes.func,
     isAdmin:       PropTypes.bool,
 }
@@ -460,7 +461,7 @@ Body.propTypes = {
  */
 function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, reads = new Map(), readsFailed = false,
     readsLoading = false, asked = {}, onAskRead, record = null, book = null, coverage = [], isAdmin = false, focus = null, onOpen = () => {},
-    dayBoards = null, onDayBoards = () => {}, day = null, dayBoardId = null, onDayBoard, onBuild, onSymbolClick, onAskEcho = null }) {
+    dayBoards = null, onDayBoards = () => {}, day = null, dayBoardId = null, onDayBoard, onBuild, onSymbolClick, onAskEcho = null, onBuildEcho = null }) {
     // INTRADAY (2026-11-11, argus-rework.md §3.3): the day boards — their own collection and their own view
     // (HotlistDayBoards), like the book's lists below; nothing of this week's list logic applies to them.
     const intradayView = horizon === INTRADAY
@@ -618,7 +619,7 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
                 <HotlistDayBoards data={dayBoards} day={day} boardId={dayBoardId} onBoard={onDayBoard}
                     onSymbolClick={onSymbolClick} onRetry={onDayBoards} focus={focus} onOpen={onOpen} onBuild={onBuild} />
             ) : echoView ? (
-                <HotlistEcho onSymbolClick={onSymbolClick} onAsk={onAskEcho} coverage={coverage} focus={focus} onOpen={onOpen} />
+                <HotlistEcho onSymbolClick={onSymbolClick} onAsk={onAskEcho} onBuild={onBuildEcho} coverage={coverage} focus={focus} onOpen={onOpen} />
             ) : bookView ? (
                 <HotlistBook key={horizon} book={book} column={horizon} coverage={coverage} isAdmin={isAdmin} focus={focus} onOpen={onOpen}
                     onBuild={onBuild} onSymbolClick={onSymbolClick} />
@@ -705,6 +706,7 @@ DayList.propTypes = {
     asked: PropTypes.object, onAskRead: PropTypes.func, record: PropTypes.object, book: PropTypes.object, coverage: PropTypes.array,
     isAdmin: PropTypes.bool, focus: PropTypes.string, onOpen: PropTypes.func, onBuild: PropTypes.func, onSymbolClick: PropTypes.func,
     onAskEcho: PropTypes.func,
+    onBuildEcho: PropTypes.func,
     dayBoards: PropTypes.object, onDayBoards: PropTypes.func, day: PropTypes.string, dayBoardId: PropTypes.string, onDayBoard: PropTypes.func,
 }
 

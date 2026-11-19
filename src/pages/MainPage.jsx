@@ -1272,12 +1272,22 @@ export function MainPage() {
         talkTo('proteus', `How does ${symbol} trade?`)
     }
 
-    // The Hotlist's Echo tab → the event analyst, on that forward-test event (backend echo-desk.md): its id rides the
-    // question, so he reads that map with get_event_map rather than mapping it again.
+    // The Hotlist's Echo tab → the event analyst, on that event (backend echo-pipeline.md): its id rides the question, so he
+    // reads it with get_event_map rather than mapping it again.
     function handleEchoFromHotlist(ev) {
         if (!ev?.id) return
         const who = ev.tickers?.length ? ev.tickers.join(' / ') : (ev.origin || 'this')
-        talkTo('echo', `Walk me through the ${who} event${ev.date ? ` of ${ev.date}` : ''} (${ev.id}) — who does it reach, and where does the test stand?`)
+        talkTo('echo', `Walk me through the ${who} event${ev.date ? ` of ${ev.date}` : ''} (${ev.id}) — who does it reach, which links score highest and why?`)
+    }
+
+    // An Echo name → the trader (backend echo-pipeline.md Step 6; Roy 2026-11-19: "Mentor considers its levels but trades
+    // his regular setup"). The seed is a reference — the event — and the server reads the link, its score, its flag and
+    // the simulator rules' levels back itself.
+    function handleBuildFromEcho(candidate) {
+        const turn = handoffTurn(candidate)
+        if (!turn) return
+        talkTo('mentor', turn.text, { seed: turn.seed })
+        openDesk('mentor')
     }
 
     function handleBuildFromEarning(earning) {
@@ -1355,6 +1365,7 @@ export function MainPage() {
                                 onHotlistBuild={handleBuildFromHotlist}
                                 onHotlistTechnicals={handleTechnicalsFromHotlist}
                                 onHotlistEcho={handleEchoFromHotlist}
+                                onHotlistEchoBuild={handleBuildFromEcho}
                                 onEditSetup={handleEditSetup}
                                 onDeleteSetup={handleDeleteSetup}
                                 onEditPortfolio={handleEditPortfolio}

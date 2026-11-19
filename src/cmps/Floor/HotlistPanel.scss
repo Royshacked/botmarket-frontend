@@ -381,6 +381,26 @@
     position: sticky; left: 0;
 }
 .echo-detail .toggle-chip { align-self: flex-start; }
-// The model's own direction where it differs from the rule's — in the cell, not on hover (a phone has none).
-.echo-own { display: block; font-size: 11px; color: var(--text-dim); }
 .echo-cov { white-space: nowrap; }
+.echo-evidence { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+
+// WHY IT SCORES (backend echo-pipeline.md Step 3): the six factors on a name's page, each with its score and its reason;
+// the filing's own words quoted beneath.
+.echo-factors {
+    margin: 4px 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
+    &__title { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--text-primary); }
+    &__list { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+}
+.echo-factor {
+    display: grid; grid-template-columns: minmax(150px, 190px) 1fr; gap: 8px; font-size: 13px;
+    dt { color: var(--text-primary); }
+    dd { margin: 0; color: var(--text-secondary); }
+    @media (max-width: 600px) { grid-template-columns: 1fr; gap: 0; }
+    &__score {
+        display: inline-block; min-width: 18px; text-align: center; border-radius: 4px; font-weight: 600; font-size: 12px;
+        border: 1px solid var(--border);
+        &--2 { color: var(--color-long); border-color: var(--color-long); }
+        &--0 { color: var(--text-dim); }
+    }
+}
+.echo-quote { display: block; margin-top: 2px; font-style: italic; color: var(--text-secondary); quotes: '“' '”'; }
