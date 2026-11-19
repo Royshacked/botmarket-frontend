@@ -32,7 +32,26 @@ export function directionLine(ev) {
     const way = ev.effect === 'up' ? 'rose' : 'fell'
     const same = ev.effect === 'up' ? 'gain' : 'lose'
     const other = ev.effect === 'up' ? 'lose' : 'gain'
-    return `${who} ${way} on the event, so its suppliers and infrastructure are expected to ${same} with it and its substitutes to ${other}; peers and customers could go either way. The model’s own call is on hover.`
+    return `${who} ${way} on the event, so its suppliers and infrastructure are expected to ${same} with it and its substitutes to ${other}; peers and customers could go either way. Where the model read it differently, its own call is shown beside it.`
+}
+
+/** A linked name's tiles for its page (HotlistRowPage `facts`): the link, the rule's direction, day 5, the grades. */
+export function linkFacts(l) {
+    const own = modelDirection(l.note)
+    return [
+        ['Link', `${l.relation}${l.layer ? ` · layer ${l.layer}` : ''}`],
+        ['Direction', `${l.direction}${own && own !== l.direction ? ` (model: ${own})` : ''}`],
+        ['Day 5', pct(l.reaction), tone(l.reaction), 'Against SPY through the 5th session, signed by the direction'],
+        ...ECHO_HORIZONS.map(h => [`${h}d`, pct(l.spread?.[h]), tone(l.spread?.[h]), `From the day-5 close to ${h} sessions, against SPY and minus the same-sector stand-ins`]),
+    ]
+}
+
+/** Why Echo linked a name, in one sentence: the event, the link, the reason. */
+export function echoLine(ev, l) {
+    const who = ev.origin ?? ev.tickers?.[0] ?? 'the origin'
+    const what = `${who} (${(ev.tickers ?? []).join('/') || '—'}) ${ev.effect === 'up' ? 'rose' : 'fell'} on its ${ev.date} results`
+    const why = l.why ? ` — ${String(l.why).replace(/[.\s]+$/, '')}` : ''
+    return `${what}; ${l.ticker ?? l.name} is its ${l.relation}${why}.`
 }
 
 /** The record so far, in one line per horizon graded. */

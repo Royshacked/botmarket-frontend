@@ -381,3 +381,6 @@
     position: sticky; left: 0;
 }
 .echo-detail .toggle-chip { align-self: flex-start; }
+// The model's own direction where it differs from the rule's — in the cell, not on hover (a phone has none).
+.echo-own { display: block; font-size: 11px; color: var(--text-dim); }
+.echo-cov { white-space: nowrap; }

@@ -5,8 +5,16 @@ vi.mock('../../services/hotlist/hotlist.service.remote.js', () => ({
     hotlistService: { getEcho: vi.fn(), getEchoEvent: vi.fn() },
 }))
 import { hotlistService } from '../../services/hotlist/hotlist.service.remote.js'
+// The name's page: its own parts (the profile, the chart) are HotlistRowPage's and tested there — stubbed to what it is given.
+vi.mock('./HotlistRowPage.jsx', () => ({
+    HotlistRowPage: ({ symbol, horizon, facts, children }) => (
+        <div data-testid="row-page" data-symbol={symbol} data-horizon={horizon}>
+            {facts.map(([label, value]) => <span key={label}>{`${label}: ${value}`}</span>)}{children}
+        </div>
+    ),
+}))
 import { HotlistEcho } from './HotlistEcho.jsx'
-import { pct, modelDirection, directionLine, recordLine } from './echo.utils.js'
+import { pct, modelDirection, directionLine, recordLine, linkFacts, echoLine } from './echo.utils.js'
 
 // Echo in the Hotlist (docs/design/echo-desk.md): labelled a forward test first, the record "so far", an event opened
 // to its lagging links. Shapes as botmarket-backend echo.service sends them.
@@ -64,7 +72,7 @@ describe('Echo — the tab', () => {
         await screen.findByText('JBL')
         expect(screen.queryByText('FLEX')).toBeNull()
         expect(screen.getByText(/Cisco Systems, Inc\. fell on the event/)).toBeTruthy()
-        expect(screen.getByText('loses').getAttribute('title')).toMatch(/The model said gains/)
+        expect(screen.getByText('model: gains')).toBeTruthy()   // in the cell, not on hover — a phone has none
         fireEvent.click(screen.getByText('JBL'))
         expect(onSymbolClick).toHaveBeenCalledWith('JBL')
         fireEvent.click(screen.getByRole('button', { name: 'All 3 links' }))
@@ -120,5 +128,56 @@ describe('Echo — the tab', () => {
         render(<HotlistEcho />)
         fireEvent.click(await screen.findByRole('button', { name: 'Retry' }))
         await waitFor(() => expect(screen.getByText(/No events yet/)).toBeTruthy())
+    })
+})
+
+describe('Echo — the reads (2026-11-19)', () => {
+    const COV = { symbol: 'JBL', rating: 'hold', price_target: { value: 263.25, horizon: '6m' }, status: 'active', thesis: 'Jabil thesis.' }
+    const open = async (props) => {
+        hotlistService.getEcho.mockResolvedValue({ events: [CSCO], record: RECORD })
+        hotlistService.getEchoEvent.mockResolvedValue({ ...CSCO, all: [link('JBL', 'flagged'), link('FLEX', 'flagged')], map: {} })
+        const r = render(<HotlistEcho {...props} />)
+        fireEvent.click(await screen.findByRole('button', { name: 'CSCO event of 2026-11-12' }))
+        await screen.findByText('FLEX')
+        return r
+    }
+
+    it("the links table carries the analyst's rating and target where he covers the name", async () => {
+        await open({ coverage: [COV] })
+        const jbl = screen.getByText('JBL').closest('tr')
+        expect(jbl.textContent).toMatch(/hold/i)
+        expect(jbl.textContent).toMatch(/263/)
+        expect(screen.getByText('FLEX').closest('tr').querySelector('.echo-cov').textContent).toBe('—')
+    })
+
+    it("a name clicked opens its page: swing (the technical analyst's profile), why Echo linked it, the analyst's thesis", async () => {
+        const onOpen = vi.fn()
+        const { rerender } = await open({ coverage: [COV], onOpen })
+        fireEvent.click(screen.getByText('JBL'))
+        expect(onOpen).toHaveBeenCalledWith('JBL')
+        rerender(<HotlistEcho coverage={[COV]} onOpen={onOpen} focus="JBL" onAsk={() => {}} />)
+        const page = screen.getByTestId('row-page')
+        expect(page.getAttribute('data-horizon')).toBe('swing')
+        expect(page.textContent).toMatch(/From Echo — lagging at day 5:/)
+        expect(page.textContent).toMatch(/Cisco Systems, Inc\. \(CSCO\) fell on its 2026-11-12 results; JBL is its supplier — JBL builds for the origin\./)
+        expect(page.textContent).toMatch(/not a pick/)
+        expect(page.textContent).toMatch(/Direction: loses \(model: gains\)/)
+        expect(page.textContent).toMatch(/Analyst: hold.*263/i)
+        expect(page.textContent).toMatch(/Jabil thesis\./)
+        expect(screen.getByRole('button', { name: 'Ask about this event' })).toBeTruthy()
+    })
+
+    it('a lagging name not covered yet says where it goes', async () => {
+        const { rerender } = await open({ onOpen: () => {} })
+        rerender(<HotlistEcho onOpen={() => {}} focus="FLEX" />)
+        expect(screen.getByTestId('row-page').textContent).toMatch(/Not covered yet — a lagging name goes to the analyst for swing coverage after the day-5 check/)
+    })
+
+    it('the page helpers', () => {
+        const l = link('JBL', 'flagged')
+        expect(linkFacts(l).map(f => f[0])).toEqual(['Link', 'Direction', 'Day 5', '20d', '60d', '120d'])
+        expect(linkFacts({ ...l, note: "model's direction loses" })[1][1]).toBe('loses')
+        expect(echoLine({ origin: 'Constellation', tickers: ['CEG'], effect: 'up', date: '2026-11-09' }, { ticker: 'GEV', relation: 'supplier' }))
+            .toBe('Constellation (CEG) rose on its 2026-11-09 results; GEV is its supplier.')
     })
 })

@@ -1,41 +1,54 @@
 import { Fragment, useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
 import { hotlistService } from '../../services/hotlist/hotlist.service.remote.js'
-import { ECHO_HORIZONS, STATUS, pct, tone, modelDirection, directionLine, recordLine } from './echo.utils.js'
+import { ECHO_HORIZONS, STATUS, pct, tone, modelDirection, directionLine, recordLine, linkFacts, echoLine } from './echo.utils.js'
+import { CoverageRating, CoverageMeta, CoverageDetail } from './CoverageDetail.jsx'
+import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
+import { HotlistRowPage } from './HotlistRowPage.jsx'
 
 // ECHO IN THE HOTLIST (docs/design/echo-desk.md, Roy 2026-11-19: "Hotlist, labelled"). The engine's forward test: a model
 // maps each big earnings move to the companies it reaches through the supply chain, the day-5 market check flags the
 // links the market has not caught up with, and the market grades them at 20 / 60 / 120 sessions. UNPROVEN — the filing
 // backtest found no edge — so the tab says so first, and the record is "so far", never the verdict.
+//
+// THE READS (echo-desk.md §6): a lagging name goes to the analyst (swing coverage) and the technical analyst (its
+// measured profile) after the day-5 check. The links table carries the analyst's rating and target where he covers
+// the name; a name clicked opens its page like any Hotlist row — how it trades (the profile, swing), the chart, the
+// analyst's thesis — with why Echo linked it.
 
-function LinkRows({ links, onSymbolClick }) {
+function LinkRows({ links, coverageOf, onOpen }) {
     return links.map((l, i) => {
         const own = modelDirection(l.note)
+        const cov = l.ticker ? coverageOf(l.ticker) : null
         return (
-            <tr key={`${l.ticker ?? l.name}-${i}`} className={`hot-row${l.group === 'flagged' ? ' hot-row--pick' : ''}`}>
+            <tr key={`${l.ticker ?? l.name}-${i}`} className={`hot-row${l.group === 'flagged' ? ' hot-row--pick' : ''}`} data-symbol={l.ticker ?? undefined}>
                 <td>
                     {l.ticker
-                        ? <button type="button" className="hot-sym" onClick={() => onSymbolClick?.(l.ticker)} title={l.name}>{l.ticker}</button>
+                        ? <button type="button" className="hot-sym" onClick={() => onOpen?.(l.ticker)} title={`${l.name} — open its page`}>{l.ticker}</button>
                         : <span className="hot-dim" title="No US listing — kept, not priced">{l.name}</span>}
                 </td>
                 <td title={l.why}>{l.relation}{l.group === 'flagged' && <span className="echo-flag"> · lagging</span>}</td>
-                <td title={own && own !== l.direction ? `The model said ${own}; the direction follows the move` : undefined}>{l.direction}</td>
+                {/* The model's own call, where it differs, IN the cell — a phone has no hover (2026-11-19). */}
+                <td>{l.direction}{own && own !== l.direction && <span className="echo-own"> model: {own}</span>}</td>
                 <td className={`hot-table__num ${tone(l.reaction)}`}>{pct(l.reaction)}</td>
                 {ECHO_HORIZONS.map(h => <td key={h} className={`hot-table__num ${tone(l.spread?.[h])}`}>{pct(l.spread?.[h])}</td>)}
+                <td className="echo-cov">{cov ? <><CoverageRating coverage={cov} />{cov.price_target?.value != null && <> <PriceTarget priceTarget={cov.price_target} gap={cov.gap} /></>}</> : <span className="hot-dim">—</span>}</td>
             </tr>
         )
     })
 }
 
-function EventDetail({ id, onSymbolClick, onAsk = null }) {
+function EventDetail({ id, coverageOf, onOpen, onLoaded, onAsk = null }) {
     const [state, setState] = useState({ status: 'loading' })
     const [all, setAll] = useState(false)
     useEffect(() => {
         let alive = true
         hotlistService.getEchoEvent(id)
-            .then(ev => { if (alive) setState({ status: 'ok', ev }) })
+            .then(ev => { if (alive) { setState({ status: 'ok', ev }); onLoaded?.(ev) } })
             .catch(() => { if (alive) setState({ status: 'error' }) })
         return () => { alive = false }
+    // onLoaded is the parent's setter wrapper; the map is read once per event.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id])
     if (state.status === 'loading') return <p className="hot-note">Loading the map…</p>
     if (state.status === 'error') return <p className="hot-note hot-note--warn">The map could not be read.</p>
@@ -55,9 +68,10 @@ function EventDetail({ id, onSymbolClick, onAsk = null }) {
                             <th scope="col">Name</th><th scope="col">Link</th><th scope="col">Direction</th>
                             <th scope="col" className="hot-table__num" title="Against SPY through the 5th session, signed by the direction">Day 5</th>
                             {ECHO_HORIZONS.map(h => <th key={h} scope="col" className="hot-table__num" title={`From the day-5 close to ${h} sessions, against SPY and minus the same-sector stand-ins`}>{h}d</th>)}
+                            <th scope="col" title="The analyst's rating and target, where he covers the name — a lagging name goes to him after the day-5 check">Analyst</th>
                         </tr>
                     </thead>
-                    <tbody><LinkRows links={shown} onSymbolClick={onSymbolClick} /></tbody>
+                    <tbody><LinkRows links={shown} coverageOf={coverageOf} onOpen={onOpen} /></tbody>
                 </table>
                 </div>
             )}
@@ -72,13 +86,41 @@ function EventDetail({ id, onSymbolClick, onAsk = null }) {
         </div>
     )
 }
-EventDetail.propTypes = { id: PropTypes.string.isRequired, onSymbolClick: PropTypes.func, onAsk: PropTypes.func }
+EventDetail.propTypes = { id: PropTypes.string.isRequired, coverageOf: PropTypes.func.isRequired, onOpen: PropTypes.func, onLoaded: PropTypes.func, onAsk: PropTypes.func }
 
-/** The Echo tab: the label, the record so far, the events newest first — one opened at a time, its links below it. */
-export function HotlistEcho({ onSymbolClick, onAsk = null }) {
+/** A linked name's page: why Echo linked it, the analyst's thesis, and (HotlistRowPage) how it trades and its chart. */
+function LinkPage({ ev, link, coverage, onAsk = null }) {
+    return (
+        <HotlistRowPage symbol={link.ticker} name={link.name ?? null} horizon="swing" facts={linkFacts(link)}>
+            <div className="hot-detail">
+                <p className="hot-detail__line"><b>From Echo{link.group === 'flagged' ? ' — lagging at day 5' : ''}:</b> {echoLine(ev, link)}</p>
+                <p className="hot-detail__line hot-dim">A forward test, still running — not a pick.</p>
+                {coverage
+                    ? <>
+                        <p className="hot-detail__line echo-analyst"><b>Analyst:</b> <CoverageMeta coverage={coverage} /></p>
+                        <CoverageDetail coverage={coverage} />
+                    </>
+                    : <p className="hot-detail__line hot-dim">{link.group === 'flagged'
+                        ? 'Not covered yet — a lagging name goes to the analyst for swing coverage after the day-5 check.'
+                        : 'Not covered by the analyst.'}</p>}
+                {onAsk && <div className="hot-detail__actions"><button type="button" className="floor-queued__btn" onClick={() => onAsk(ev)}>Ask about this event</button></div>}
+            </div>
+        </HotlistRowPage>
+    )
+}
+LinkPage.propTypes = { ev: PropTypes.object.isRequired, link: PropTypes.object.isRequired, coverage: PropTypes.object, onAsk: PropTypes.func }
+
+/**
+ * The Echo tab: the label, the record so far, the events newest first — one opened at a time, its links below it. A
+ * name clicked opens its page in the panel (`focus` / `onOpen`, the panel's — its header has the way back); without
+ * them (a standalone render) the name opens its chart.
+ */
+export function HotlistEcho({ onSymbolClick, onAsk = null, coverage = [], focus = null, onOpen = null }) {
     const [data, setData] = useState({ status: 'loading' })
     const [open, setOpen] = useState(null)
     const [tick, setTick] = useState(0)
+    // The opened event's map, kept here so a name's page (which replaces the table) has its link.
+    const [detail, setDetail] = useState(null)
     useEffect(() => {
         let alive = true
         hotlistService.getEcho()
@@ -86,6 +128,15 @@ export function HotlistEcho({ onSymbolClick, onAsk = null }) {
             .catch(() => { if (alive) setData({ status: 'error' }) })
         return () => { alive = false }
     }, [tick])
+    const bySymbol = new Map((coverage ?? []).map(c => [String(c?.symbol ?? '').toUpperCase(), c]))
+    const coverageOf = (s) => bySymbol.get(String(s).toUpperCase()) ?? null
+    const openName = onOpen ?? onSymbolClick
+
+    if (focus) {
+        const link = detail?.ev?.id === open ? detail.ev.all?.find(l => l.ticker === focus) : null
+        if (!link) return <p className="floor-empty">{focus} is not on the opened event’s map.</p>
+        return <LinkPage ev={detail.ev} link={link} coverage={coverageOf(focus)} onAsk={onAsk} />
+    }
 
     return (
         <section className="echo" aria-label="Echo — forward test">
@@ -129,7 +180,7 @@ export function HotlistEcho({ onSymbolClick, onAsk = null }) {
                                                 </tr>
                                                 {isOpen && (
                                                     <tr className="hot-note-row echo-open">
-                                                        <td colSpan={4 + ECHO_HORIZONS.length}><EventDetail id={e.id} onSymbolClick={onSymbolClick} onAsk={onAsk} /></td>
+                                                        <td colSpan={4 + ECHO_HORIZONS.length}><EventDetail id={e.id} coverageOf={coverageOf} onOpen={openName} onLoaded={(ev) => setDetail({ ev })} onAsk={onAsk} /></td>
                                                     </tr>
                                                 )}
                                             </Fragment>
@@ -143,4 +194,4 @@ export function HotlistEcho({ onSymbolClick, onAsk = null }) {
         </section>
     )
 }
-HotlistEcho.propTypes = { onSymbolClick: PropTypes.func, onAsk: PropTypes.func }
+HotlistEcho.propTypes = { onSymbolClick: PropTypes.func, onAsk: PropTypes.func, coverage: PropTypes.array, focus: PropTypes.string, onOpen: PropTypes.func }

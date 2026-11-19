@@ -618,7 +618,7 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
                 <HotlistDayBoards data={dayBoards} day={day} boardId={dayBoardId} onBoard={onDayBoard}
                     onSymbolClick={onSymbolClick} onRetry={onDayBoards} focus={focus} onOpen={onOpen} onBuild={onBuild} />
             ) : echoView ? (
-                <HotlistEcho onSymbolClick={onSymbolClick} onAsk={onAskEcho} />
+                <HotlistEcho onSymbolClick={onSymbolClick} onAsk={onAskEcho} coverage={coverage} focus={focus} onOpen={onOpen} />
             ) : bookView ? (
                 <HotlistBook key={horizon} book={book} column={horizon} coverage={coverage} isAdmin={isAdmin} focus={focus} onOpen={onOpen}
                     onBuild={onBuild} onSymbolClick={onSymbolClick} />
