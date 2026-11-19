@@ -111,7 +111,8 @@ export function HotlistPanel({ onBuild, onAskTechnicals = null, onAskEcho = null
         opened.current = null
         if (!sym || !body) return
         body.scrollTop = listScroll.current
-        body.querySelector(`tr[data-symbol="${sym}"] .hot-toggle`)?.focus({ preventScroll: true })
+        // A list row's toggle; an Echo link row's name button (it has no toggle — CR 2026-11-19).
+        body.querySelector(`tr[data-symbol="${sym}"] .hot-toggle, tr[data-symbol="${sym}"] .hot-sym`)?.focus({ preventScroll: true })
     }, [focus])
     // A phone's back gesture leaves the page for the list, not the whole Hotlist (code review 2026-10-31).
     useBackGesture({ active: isOpen && Boolean(focus) && isHandheld(), field: 'hotlistPage', key: focus, onBack: () => setFocus(null) })
@@ -253,7 +254,9 @@ export function HotlistPanel({ onBuild, onAskTechnicals = null, onAskEcho = null
     // A hand-off closes the list for the desk — and leaves the way back: the chat offers "‹ Back to the Hotlist".
     // From a row's page, the way back lands on that page (code review 2026-10-31), on the day it was on.
     const handOff = (fn) => fn && ((...args) => {
-        const resume = focus ? { focus, day } : null
+        // Not from Echo's name page: it lives inside an opened event the panel does not keep, so the way back is the Echo
+        // tab itself (CR 2026-11-19: it landed on "not on the opened event's map").
+        const resume = focus && horizon !== ECHO ? { focus, day } : null
         close()
         setReturnTo({ panel: HOTLIST_PANEL_ID, label: 'the Hotlist', ...(resume ? { resume } : {}) })
         fn(...args)

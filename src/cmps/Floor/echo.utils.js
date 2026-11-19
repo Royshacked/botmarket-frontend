@@ -6,7 +6,6 @@
 export const ECHO = 'echo'
 
 export const GRADE_HORIZONS = [5, 20, 60, 120]
-export const HIGH = 8
 
 export const STATUS = {
     framed:   ['Recorded', 'found — the map comes next'],
@@ -92,9 +91,15 @@ export function echoLine(ev, l) {
  */
 export function echoHandoff(ev, l) {
     if (!ev?.id || !l?.ticker) return null
-    return {
-        ticker: l.ticker, direction: 'long',
-        thesis: `${ev.origin}'s event reaches it as its ${words(l.relation)}: ${String(l.why ?? '').replace(/[.\s]+$/, '')}${l.flag ? ` — Echo flagged it ${FLAG[l.flag]?.[0]?.toLowerCase() ?? words(l.flag)}` : ''}`,
-        echo: { event: ev.id },
-    }
+    // A REFERENCE only (CR 2026-11-19): the server reads the event, the link, its score, flag and levels back — and its
+    // own thesis; a client's words would win over them (`seed.thesis ??=`).
+    return { ticker: l.ticker, direction: 'long', thesis: null, echo: { event: ev.id } }
+}
+
+/** The day-5 yardstick in words — what it was measured against (layer 1, or the origin when layer 1 was unpriced). */
+export function yardLine(checked) {
+    const y = checked?.yardstick
+    if (!y?.from || !Number.isFinite(y.median)) return `Day-5 check (${checked?.checkDay ?? '—'}): no yardstick — nothing to measure the links against.`
+    const what = y.from === 'layer 1' ? `layer 1 (${y.n} name${y.n === 1 ? '' : 's'}) moved` : `${y.from} moved`
+    return `Day-5 check (${checked.checkDay}): ${what} ${pct(y.median)} its way — the yardstick.`
 }

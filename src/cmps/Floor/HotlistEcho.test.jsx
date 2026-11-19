@@ -14,7 +14,7 @@ vi.mock('./HotlistRowPage.jsx', () => ({
     ),
 }))
 import { HotlistEcho } from './HotlistEcho.jsx'
-import { pct, evidenceWords, recordLine, linkFacts, echoLine, echoHandoff } from './echo.utils.js'
+import { pct, evidenceWords, recordLine, linkFacts, echoLine, echoHandoff, yardLine } from './echo.utils.js'
 import { handoffTurn } from '../MentorSurface/mentorSurface.utils.js'
 
 // Echo in the Hotlist, built to the simulator design (backend docs/design/echo-pipeline.md): events of every kind, links
@@ -37,7 +37,7 @@ const factors = {
 const link = (ticker, extra = {}) => ({ ticker, name: `${ticker} Inc.`, relation: 'supplier', layer: 2, direction: 'loses', why: `${ticker} builds for Cisco.`,
     total: 4, high: false, factors: null, filings: { named: false }, check: { signedMove: 0.01, volume: { day5: 0.8 } }, flag: null, flagWhy: null, grades: {}, supplySentences: [], ...extra })
 const EVENT = { ...SUMMARY, event: { date: '2026-11-12', whatChanged: 'Cisco guided networking hardware lower', size: 'Day 0 -5.9% vs SPY', durability: { kind: 'price_spike', why: 'one quarter' }, effect: 'down', tickers: ['CSCO'], origin: 'Cisco Systems, Inc.', source: 'earnings' },
-    map: { model: 'claude-opus-5-5' }, scored: { scoredAt: '2026-11-19T00:00:00Z' }, checked: { checkDay: '2026-11-19', yardstick: { median: 0.03 } }, triggers: [],
+    map: { model: 'claude-opus-5-5' }, scored: { scoredAt: '2026-11-19T00:00:00Z' }, checked: { checkDay: '2026-11-19', yardstick: { median: 0.03, from: 'layer 1', n: 2 } }, triggers: [],
     links: [
         link('FN', { total: 5, flag: 'overreacted_loser', flagWhy: 'fell -12.0% vs SPY by day 5', filings: { named: true, share: { share: 0.199 }, excerpt: 'Cisco … 19.9%' }, check: { signedMove: 0.12, volume: { day5: 2.1 } } }),
         link('VRT', { relation: 'infrastructure', layer: 3, total: 9, high: true, factors, check: { signedMove: 0.005 } }),
@@ -60,7 +60,10 @@ describe('Echo — the pure parts', () => {
         const h = echoHandoff(EVENT, EVENT.links[0])
         expect(h.echo).toEqual({ event: ID })
         expect(h.direction).toBe('long')
+        expect(h.thesis).toBe(null, 'a reference only — the server reads its own thesis back')
         expect(handoffTurn(h).seed.echo).toEqual({ event: ID })
+        expect(yardLine({ checkDay: '2026-11-19', yardstick: { median: 0.059, from: 'the origin', n: 1 } })).toBe('Day-5 check (2026-11-19): the origin moved +5.9% its way — the yardstick.')
+        expect(yardLine({ checkDay: '2026-11-19', yardstick: { median: null, from: null, n: 0 } })).toMatch(/no yardstick/)
         expect(echoLine(EVENT, EVENT.links[1])).toBe('Cisco guided networking hardware lower (2026-11-12); VRT is its infrastructure — VRT builds for Cisco.')
         expect(linkFacts(EVENT.links[1]).find(f => f[0] === 'Score')[1]).toBe('9 / 12 · high')
     })
@@ -84,7 +87,7 @@ describe('Echo — the tab', () => {
         fireEvent.click(await screen.findByRole('button', { name: 'CSCO event of 2026-11-12' }))
         await screen.findByText('19.9% of revenue')
         expect(screen.getByText(/Durability:/).textContent).toMatch(/price spike — one quarter/)
-        expect(screen.getByText(/Day-5 check \(2026-11-19\): layer 1 moved \+3\.0%/)).toBeTruthy()
+        expect(screen.getByText(/Day-5 check \(2026-11-19\): layer 1 \(2 names\) moved \+3\.0%/)).toBeTruthy()
         const rows = [...document.querySelectorAll('.echo-links tbody tr')].map(r => r.getAttribute('data-symbol'))
         expect(rows).toEqual(['FN', 'VRT', 'PLUS'])
         expect(screen.getByText('9 ★')).toBeTruthy()
@@ -107,10 +110,18 @@ describe('Echo — the tab', () => {
         expect(page.textContent).toMatch(/scarce cooling capacity/)
         expect(page.textContent).toMatch(/Our record backlog provides clear visibility\./)
         expect(page.textContent).toMatch(/a lead, not a pick/)
-        fireEvent.click(screen.getByRole('button', { name: 'Build with the trader' }))
-        expect(onBuild).toHaveBeenCalledWith(expect.objectContaining({ ticker: 'VRT', echo: { event: ID } }))
+        expect(screen.queryByRole('button', { name: 'Build with the trader' }), 'not flagged: no trade lead').toBeNull()
         fireEvent.click(screen.getByRole('button', { name: 'Ask about this event' }))
         expect(onAsk).toHaveBeenCalledWith(expect.objectContaining({ id: ID }))
+        // The flagged name: to the trader, as a reference.
+        rerender(<HotlistEcho onOpen={onOpen} onBuild={onBuild} onAsk={onAsk} focus="FN" />)
+        fireEvent.click(screen.getByRole('button', { name: 'Build with the trader' }))
+        expect(onBuild).toHaveBeenCalledWith({ ticker: 'FN', direction: 'long', thesis: null, echo: { event: ID } })
+        // Back: the list was there all along, the opened event with it.
+        rerender(<HotlistEcho onOpen={onOpen} onBuild={onBuild} onAsk={onAsk} />)
+        expect(screen.queryByTestId('row-page')).toBeNull()
+        expect(document.querySelectorAll('.echo-links tbody tr').length).toBe(3)
+        expect(hotlistService.getEchoEvent).toHaveBeenCalledTimes(1)
     })
 
     it('an event not mapped yet says where it stands; a failed read retries', async () => {

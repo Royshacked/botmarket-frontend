@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
 import { hotlistService } from '../../services/hotlist/hotlist.service.remote.js'
-import { STATUS, FLAG, FACTORS, TYPE_WORDS, GRADE_HORIZONS, isFlag, words, pct, tone, evidenceWords, recordLine, linkFacts, echoLine, echoHandoff } from './echo.utils.js'
+import { STATUS, FLAG, FACTORS, TYPE_WORDS, GRADE_HORIZONS, isFlag, words, pct, tone, evidenceWords, recordLine, linkFacts, echoLine, echoHandoff, yardLine } from './echo.utils.js'
 import { CoverageRating, CoverageMeta, CoverageDetail } from './CoverageDetail.jsx'
 import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 import { HotlistRowPage } from './HotlistRowPage.jsx'
@@ -52,10 +52,10 @@ function EventDetail({ id, coverageOf, onOpen, onLoaded, onAsk = null }) {
     const shown = all ? ev.links : ev.links.slice(0, SHOWN)
     return (
         <div className="echo-detail">
-            <p className="hot-note"><b>{e.whatChanged}.</b>{e.size ? ` ${e.size}.` : ''} Durability: <b>{words(e.durability?.kind)}</b>{e.durability?.why ? ` — ${e.durability.why}` : ''}.</p>
+            <p className="hot-note"><b>{e.whatChanged}.</b>{e.size ? ` ${e.size}.` : ''}{e.durability?.kind ? <> Durability: <b>{words(e.durability.kind)}</b>{e.durability.why ? ` — ${e.durability.why}` : ''}.</> : null}</p>
             {ev.checked
-                ? <p className="hot-note">Day-5 check ({ev.checked.checkDay}): layer 1 moved {pct(ev.checked.yardstick?.median)} its way — the yardstick.</p>
-                : <p className="hot-note hot-dim">{ev.waiting ?? STATUS[ev.status]?.[1] ?? ''}</p>}
+                ? <p className="hot-note">{yardLine(ev.checked)}</p>
+                : ev.links.length > 0 && <p className="hot-note hot-dim">{ev.waiting ?? STATUS[ev.status]?.[1] ?? ''}</p>}
             {ev.error && <p className="hot-note hot-note--warn">Stopped: {ev.error}</p>}
             {!ev.links.length
                 ? <p className="hot-note">{STATUS[ev.status]?.[1] ?? 'No map yet.'}</p>
@@ -82,7 +82,8 @@ function EventDetail({ id, coverageOf, onOpen, onLoaded, onAsk = null }) {
                 </button>
             )}
             {ev.triggers?.length > 0 && <p className="hot-note">Wave watch: {ev.triggers.slice(-3).map(t => t.what).join(' · ')}</p>}
-            <p className="hot-note hot-dim">{ev.map ? `Mapped by ${ev.map.model}` : ''}{ev.scored ? ` · scored ${String(ev.scored.scoredAt).slice(0, 10)}` : ''} · {ev.mine ? 'your event' : `the house's (${words(e.source) || 'intake'})`}</p>
+            <p className="hot-note hot-dim">{[ev.map ? `Mapped by ${ev.map.model}` : null, ev.scored ? `scored ${String(ev.scored.scoredAt).slice(0, 10)}` : null,
+                ev.mine ? (ev.kind === 'house' ? 'yours — Echo took it as a house event' : 'your event') : `the house's (${words(e.source) || 'intake'})`].filter(Boolean).join(' · ')}</p>
             {onAsk && <button type="button" className="toggle-chip echo-ask" onClick={() => onAsk(ev)}>Ask about this event</button>}
         </div>
     )
@@ -137,7 +138,8 @@ function LinkPage({ ev, link, coverage, onAsk = null, onBuild = null }) {
                     </>
                     : <p className="hot-detail__line hot-dim">{isFlag(link.flag) ? 'Not covered yet — a flagged name goes to the analyst for swing coverage after the day-5 check.' : 'Not covered by the analyst.'}</p>}
                 <div className="hot-detail__actions">
-                    {onBuild && <button type="button" className="floor-queued__btn" onClick={() => onBuild(echoHandoff(ev, link))}
+                    {/* To the trader: the FLAGGED names only — the leads the doc's rules have levels for (CR 2026-11-19). */}
+                    {onBuild && isFlag(link.flag) && <button type="button" className="floor-queued__btn" onClick={() => onBuild(echoHandoff(ev, link))}
                         title="The trader builds his regular setup, with Echo's facts and the simulator rules' levels as considerations">Build with the trader</button>}
                     {onAsk && <button type="button" className="floor-queued__btn" onClick={() => onAsk(ev)}>Ask about this event</button>}
                 </div>
@@ -169,14 +171,16 @@ export function HotlistEcho({ onSymbolClick, onAsk = null, onBuild = null, cover
     const coverageOf = (s) => bySymbol.get(String(s).toUpperCase()) ?? null
     const openName = onOpen ?? onSymbolClick
 
-    if (focus) {
-        const link = detail?.ev?.id === open ? detail.ev.links?.find(l => l.ticker === focus) : null
-        if (!link) return <p className="floor-empty">{focus} is not on the opened event’s map.</p>
-        return <LinkPage ev={detail.ev} link={link} coverage={coverageOf(focus)} onAsk={onAsk} onBuild={onBuild} />
-    }
+    // A name's page sits OVER the list, which stays mounted beneath it (hidden): Back finds the opened event and its rows
+    // where they were — no refetch, the scroll and the focus back on the name (CR 2026-11-19).
+    const focusLink = focus && detail?.ev?.id === open ? detail.ev.links?.find(l => l.ticker === focus) : null
+    const page = !focus ? null
+        : focusLink ? <LinkPage ev={detail.ev} link={focusLink} coverage={coverageOf(focus)} onAsk={onAsk} onBuild={onBuild} />
+            : <p className="floor-empty">{focus} is not on the opened event’s map.</p>
 
-    return (
-        <section className="echo" aria-label="Echo — events through the supply chain">
+    return (<>
+        {page}
+        <section className="echo" aria-label="Echo — events through the supply chain" hidden={Boolean(focus)}>
             <p className="echo-label"><strong>Echo — unproven.</strong> Events traced through the supply chain: every company they reach,
                 scored on six factors (high at 8 of 12), checked at the 5th session for the ones the market has not caught up with.
                 Graded against same-sector stand-ins — until that has its events, these are leads, not picks.</p>
@@ -185,7 +189,7 @@ export function HotlistEcho({ onSymbolClick, onAsk = null, onBuild = null, cover
             {data.status === 'ok' && <>
                 <p className="hot-note">{recordLine(data.report)}</p>
                 {!data.events.length
-                    ? <p className="floor-empty">No events yet — the intake reads its sources every three hours.</p>
+                    ? <p className="floor-empty">No events yet.</p>
                     : (
                         <div className="hot-table-wrap">
                             <table className="hot-table hot-table--list echo-events">
@@ -231,6 +235,6 @@ export function HotlistEcho({ onSymbolClick, onAsk = null, onBuild = null, cover
                     )}
             </>}
         </section>
-    )
+    </>)
 }
 HotlistEcho.propTypes = { onSymbolClick: PropTypes.func, onAsk: PropTypes.func, onBuild: PropTypes.func, coverage: PropTypes.array, focus: PropTypes.string, onOpen: PropTypes.func }

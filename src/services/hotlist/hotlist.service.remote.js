@@ -104,17 +104,17 @@ async function getBook() {
 }
 
 /**
- * ECHO'S FORWARD TEST (botmarket-backend echo.service, docs/design/echo-desk.md) → `{ events: [summary], record }`. A
- * summary: id, date, origin, tickers, effect, size, status (detected · mapped · late · checked · done), links (a count),
- * `flagged` (the links the market had not caught up with at the day-5 check), graded horizons, the event's spread. The
- * record is SO FAR — never the verdict (that reads once, on the first 30 events graded at 120 sessions).
+ * ECHO'S EVENTS (botmarket-backend echo.service, docs/design/echo-pipeline.md) → `{ events: [summary], report }`. A
+ * summary: id, kind, mine, date, type, origin, tickers, effect, durability, whatChanged, status (framed · mapped · scored ·
+ * watching · expired), links and high (counts), `top` (the best-scored names), `flagged` (the day-5 flags), graded
+ * horizons. The report is the validation SO FAR — never a verdict until walk-forward has its events.
  */
 async function getEcho() {
     const data = await httpService.get(`${BASE}/echo`)
-    return { events: data?.events ?? [], record: data?.record ?? null }
+    return { events: data?.events ?? [], report: data?.report ?? null }
 }
 
-/** One Echo event in full: `all` (every link, joined to the check), `map` (who mapped it), `grades`. */
+/** One Echo event in full: the record, the map's facts, and every link ranked — score, factors, filings, check, grades. */
 async function getEchoEvent(id) {
     return httpService.get(`${BASE}/echo/${encodeURIComponent(id)}`)
 }

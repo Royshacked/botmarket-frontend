@@ -360,7 +360,7 @@
     &__note { margin: 6px 0 0; font-size: 11px; color: var(--text-dim); }
 }
 
-// ── Echo (docs/design/echo-desk.md): the forward test's tab — set apart, and labelled before anything else ──
+// ── Echo (backend docs/design/echo-pipeline.md): the tab — set apart, and labelled before anything else ──
 // Scoped under .hot-horizons like the book's, or the global .toggle-chip (later in the built CSS) takes the margin and
 // the border back (CR 2026-11-19).
 .hot-horizons .hot-horizons__btn--echo { margin-left: auto; border-style: dashed; }
@@ -382,7 +382,7 @@
 }
 .echo-detail .toggle-chip { align-self: flex-start; }
 .echo-cov { white-space: nowrap; }
-.echo-evidence { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+.echo-evidence { font-size: 12px; color: var(--text-secondary); }   // wraps: a phone's table stays narrower (CR 2026-11-19)
 
 // WHY IT SCORES (backend echo-pipeline.md Step 3): the six factors on a name's page, each with its score and its reason;
 // the filing's own words quoted beneath.
