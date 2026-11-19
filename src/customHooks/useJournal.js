@@ -24,11 +24,22 @@ export function useJournal(id, version) {
 
     // The head: newest page, replacing whatever was shown. Older pages already loaded are kept
     // beneath it by `at`, so a refresh never collapses a scrolled-back history.
+    // Another setup: nothing of the last one's history, and its end, carries over (CR 2026-11-19).
+    useEffect(() => {
+        setRows([])
+        setDone(false)
+    }, [id])
+
     useEffect(() => {
         if (!id) return
         let alive = true
         ;(async () => {
-            const head = await mentorService.getSetupJournal(id, { limit: PAGE })
+            let head
+            try {
+                head = await mentorService.getSetupJournal(id, { limit: PAGE })
+            } catch {
+                return   // the next wake's version bump fetches it again
+            }
             if (!alive) return
             setRows(prev => {
                 const seen = new Set(head.map(journalKey))
@@ -43,14 +54,16 @@ export function useJournal(id, version) {
 
     const loadOlder = useCallback(async () => {
         if (!id || done || inFlight.current) return
-        const oldest = rows[rows.length - 1]?.at
+        const last = rows[rows.length - 1]
+        const oldest = last?.at
         if (!oldest) return
         inFlight.current = true
         setLoading(true)
         try {
-            // The cursor is inclusive (the server's `$lte`): the boundary millisecond comes back so a
-            // twin past the page is not skipped, and the rows already shown are dropped here by key.
-            const page = await mentorService.getSetupJournal(id, { before: oldest, limit: PAGE })
+            // The cursor is the oldest row's (at, id): strictly older, so a page never repeats or skips a
+            // row however many share a millisecond. Rows already shown are still dropped here by key — a
+            // server without the id cursor sends the boundary millisecond again.
+            const page = await mentorService.getSetupJournal(id, { before: oldest, beforeId: last.id, limit: PAGE })
             const have = new Set(rows.map(journalKey))
             const fresh = page.filter(r => !have.has(journalKey(r)))
             setRows(prev => {
@@ -60,6 +73,8 @@ export function useJournal(id, version) {
             // A short page is the end; so is a full page with nothing new (a whole page on one
             // millisecond — the cursor could not move past it).
             if (page.length < PAGE || fresh.length === 0) setDone(true)
+        } catch {
+            // A failed page leaves "older" in place to try again.
         } finally {
             inFlight.current = false
             setLoading(false)

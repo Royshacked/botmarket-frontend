@@ -82,6 +82,19 @@ describe('Echo — the tab', () => {
         expect(onAsk).toHaveBeenCalledWith(expect.objectContaining({ id: CSCO.id, tickers: ['CSCO'], date: '2026-11-12' }))
     })
 
+    it('an event opens from its own button too — the way in by keyboard, announced open or shut (CR 2026-11-19)', async () => {
+        hotlistService.getEcho.mockResolvedValue({ events: [CSCO], record: RECORD })
+        hotlistService.getEchoEvent.mockResolvedValue({ ...CSCO, all: [link('JBL', 'flagged')], map: {} })
+        render(<HotlistEcho />)
+        const toggle = await screen.findByRole('button', { name: 'CSCO event of 2026-11-12' })
+        expect(toggle.getAttribute('aria-expanded')).toBe('false')
+        fireEvent.click(toggle)
+        await screen.findByText('JBL')
+        expect(toggle.getAttribute('aria-expanded')).toBe('true')
+        fireEvent.click(toggle)
+        expect(screen.queryByText('JBL')).toBeNull()
+    })
+
     it('no ask handler, no button', async () => {
         hotlistService.getEcho.mockResolvedValue({ events: [CSCO], record: RECORD })
         hotlistService.getEchoEvent.mockResolvedValue({ ...CSCO, all: [link('JBL', 'flagged')], map: {} })

@@ -1276,8 +1276,8 @@ export function MainPage() {
     // question, so he reads that map with get_event_map rather than mapping it again.
     function handleEchoFromHotlist(ev) {
         if (!ev?.id) return
-        const who = ev.tickers?.length ? ev.tickers.join(' / ') : ev.origin
-        talkTo('echo', `Walk me through the ${who} event of ${ev.date} (${ev.id}) — who does it reach, and where does the test stand?`)
+        const who = ev.tickers?.length ? ev.tickers.join(' / ') : (ev.origin || 'this')
+        talkTo('echo', `Walk me through the ${who} event${ev.date ? ` of ${ev.date}` : ''} (${ev.id}) — who does it reach, and where does the test stand?`)
     }
 
     function handleBuildFromEarning(earning) {

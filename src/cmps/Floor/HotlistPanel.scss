@@ -361,15 +361,23 @@
 }
 
 // ── Echo (docs/design/echo-desk.md): the forward test's tab — set apart, and labelled before anything else ──
-.hot-horizons__btn--echo { margin-left: auto; border-style: dashed; }
+// Scoped under .hot-horizons like the book's, or the global .toggle-chip (later in the built CSS) takes the margin and
+// the border back (CR 2026-11-19).
+.hot-horizons .hot-horizons__btn--echo { margin-left: auto; border-style: dashed; }
 .echo-label {
     margin: 0 0 8px; padding: 8px 10px; font-size: 12px; line-height: 1.45; color: var(--text-dim);
     border: 1px dashed var(--border); border-radius: 6px;
     strong { color: var(--text-primary, inherit); }
 }
 .echo-flag { color: var(--color-long); }
-// The opened event sits in a colSpan cell: width 0 + min-width 100% keeps its wide links table from widening the
-// events table (it scrolls sideways in its own wrap instead), and its sentences wrap.
+// The opened event sits in a colSpan cell: width 0 + a min-width keeps its wide links table from widening the events
+// table (it scrolls sideways in its own wrap instead), and its sentences wrap. On a phone the events table itself is
+// wider than the screen: the detail is held to the screen's width and pinned left as the table scrolls, so its
+// sentences are read without scrolling sideways (CR 2026-11-19).
 .echo-open > td { white-space: normal; }
-.echo-detail { display: flex; flex-direction: column; gap: 8px; padding: 6px 0 10px; width: 0; min-width: 100%; }
+.echo-detail {
+    display: flex; flex-direction: column; gap: 8px; padding: 6px 0 10px;
+    width: 0; min-width: min(100%, calc(100vw - 48px));
+    position: sticky; left: 0;
+}
 .echo-detail .toggle-chip { align-self: flex-start; }

@@ -111,10 +111,17 @@ export function HotlistEcho({ onSymbolClick, onAsk = null }) {
                                     {data.events.map(e => {
                                         const [word, why] = STATUS[e.status] ?? [e.status, '']
                                         const isOpen = open === e.id
+                                        const toggle = () => setOpen(isOpen ? null : e.id)
+                                        const who = e.tickers?.join(' / ') || e.origin || e.id
                                         return (
                                             <Fragment key={e.id}>
-                                                <tr className="hot-row hot-row--line" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : e.id)}>
-                                                    <td>{e.date}</td>
+                                                {/* The row opens on a click; the button is the way in by keyboard and the one a screen reader announces. */}
+                                                <tr className="hot-row hot-row--line" onClick={toggle}>
+                                                    <td>
+                                                        <button type="button" className="hot-toggle" aria-expanded={isOpen} aria-label={`${who} event of ${e.date}`}
+                                                            onClick={(ev) => { ev.stopPropagation(); toggle() }}>{isOpen ? '▾' : '›'}</button>
+                                                        {' '}{e.date}
+                                                    </td>
                                                     <td title={e.size}>{e.tickers?.join(' · ') || e.origin} <span className="hot-dim">{e.effect === 'up' ? '▲' : '▼'}</span></td>
                                                     <td title={why}>{word}</td>
                                                     <td className="hot-table__num">{e.status === 'checked' || e.status === 'done' ? `${e.flagged.length} of ${e.links}` : e.links ? `${e.links} links` : '—'}</td>

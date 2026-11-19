@@ -75,11 +75,11 @@ function listSetups(status = null) { return api.list(status ? { status } : undef
 function getSetup(id) { return api.get(id) }
 
 /**
- * One page of Talos's journal, newest first (`GET /api/setups/:id/journal`). `before` is the `at`
- * of the oldest row already shown — the cursor for the next page. [] on failure.
+ * One page of Talos's journal, newest first (`GET /api/setups/:id/journal`). `before` / `beforeId`
+ * are the `at` and `id` of the oldest row already shown — the cursor for the next page. [] on failure.
  */
-async function getSetupJournal(id, { before = null, limit = 50 } = {}) {
-    const q = new URLSearchParams({ limit: String(limit), ...(before ? { before } : {}) })
+async function getSetupJournal(id, { before = null, beforeId = null, limit = 50 } = {}) {
+    const q = new URLSearchParams({ limit: String(limit), ...(before ? { before } : {}), ...(before && beforeId ? { beforeId } : {}) })
     return (await api.getPath(`/${encodeURIComponent(id)}/journal?${q}`)) ?? []
 }
 

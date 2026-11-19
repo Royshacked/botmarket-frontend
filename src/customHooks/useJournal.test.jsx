@@ -32,7 +32,7 @@ describe('useJournal — rows that share a timestamp', () => {
         // The server's cursor is inclusive: the boundary row comes back with its twin and an older row.
         getSetupJournal.mockResolvedValueOnce([row('b', T, 'ran past'), row('a', T, 'armed'), row('o', '2026-11-18T18:00:00.000Z', 'older')])
         await act(() => result.current.loadOlder())
-        expect(getSetupJournal).toHaveBeenLastCalledWith('s1', { before: T, limit: 50 })
+        expect(getSetupJournal).toHaveBeenLastCalledWith('s1', { before: T, beforeId: 'b', limit: 50 })
         expect(result.current.rows.slice(-3).map(r => r.note)).toEqual(['ran past', 'armed', 'older'])
         expect(result.current.done).toBe(true)
     })
@@ -56,5 +56,35 @@ describe('useJournal — rows that share a timestamp', () => {
         rerender({ v: 2 })
         await waitFor(() => expect(result.current.rows).toHaveLength(3))
         expect(result.current.rows.map(r => r.note)).toEqual(['new', 'ran past', 'armed'])
+    })
+})
+
+describe('useJournal — CR 2026-11-19', () => {
+    it("another setup starts clean: none of the last one's rows, and not marked done", async () => {
+        getSetupJournal.mockResolvedValueOnce([row('a', T, 'first setup')])
+        const { result, rerender } = renderHook(({ id }) => useJournal(id, 1), { initialProps: { id: 's1' } })
+        await waitFor(() => expect(result.current.done).toBe(true))
+        getSetupJournal.mockResolvedValueOnce(Array.from({ length: 50 }, (_, i) => row(`z${i}`, '2026-11-17T10:00:00.000Z', `z${i}`)))
+        rerender({ id: 's2' })
+        await waitFor(() => expect(result.current.rows).toHaveLength(50))
+        expect(result.current.rows.some(r => r.note === 'first setup')).toBe(false)
+        expect(result.current.done).toBe(false)
+    })
+
+    it('a failed page is caught and leaves "older" to try again', async () => {
+        getSetupJournal.mockResolvedValueOnce(Array.from({ length: 50 }, (_, i) => row(`n${i}`, T, `n${i}`)))
+        const { result } = renderHook(() => useJournal('s1', 1))
+        await waitFor(() => expect(result.current.rows).toHaveLength(50))
+        getSetupJournal.mockRejectedValueOnce(new Error('offline'))
+        await act(() => result.current.loadOlder())
+        expect(result.current.done).toBe(false)
+        expect(result.current.loading).toBe(false)
+    })
+
+    it('a failed head is caught', async () => {
+        getSetupJournal.mockRejectedValueOnce(new Error('offline'))
+        const { result } = renderHook(() => useJournal('s1', 1))
+        await waitFor(() => expect(getSetupJournal).toHaveBeenCalled())
+        expect(result.current.rows).toEqual([])
     })
 })
