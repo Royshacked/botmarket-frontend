@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { mentorService } from '../services/mentor/mentor.service.remote'
+import { journalKey } from '../cmps/TradeIdeas/monitorJournal.utils.js'
 
 const PAGE = 50
 
@@ -30,8 +31,9 @@ export function useJournal(id, version) {
             const head = await mentorService.getSetupJournal(id, { limit: PAGE })
             if (!alive) return
             setRows(prev => {
-                const seen = new Set(head.map(r => r.at))
-                const older = prev.filter(r => !seen.has(r.at) && (head.length ? r.at < head[head.length - 1].at : true))
+                const seen = new Set(head.map(journalKey))
+                // `<=`: a twin of the head's oldest row that fell onto the next page is kept.
+                const older = prev.filter(r => !seen.has(journalKey(r)) && (head.length ? r.at <= head[head.length - 1].at : true))
                 return [...head, ...older]
             })
             if (head.length < PAGE) setDone(true)
@@ -46,9 +48,18 @@ export function useJournal(id, version) {
         inFlight.current = true
         setLoading(true)
         try {
+            // The cursor is inclusive (the server's `$lte`): the boundary millisecond comes back so a
+            // twin past the page is not skipped, and the rows already shown are dropped here by key.
             const page = await mentorService.getSetupJournal(id, { before: oldest, limit: PAGE })
-            setRows(prev => [...prev, ...page.filter(r => !prev.some(p => p.at === r.at))])
-            if (page.length < PAGE) setDone(true)
+            const have = new Set(rows.map(journalKey))
+            const fresh = page.filter(r => !have.has(journalKey(r)))
+            setRows(prev => {
+                const keys = new Set(prev.map(journalKey))
+                return [...prev, ...fresh.filter(r => !keys.has(journalKey(r)))]
+            })
+            // A short page is the end; so is a full page with nothing new (a whole page on one
+            // millisecond — the cursor could not move past it).
+            if (page.length < PAGE || fresh.length === 0) setDone(true)
         } finally {
             inFlight.current = false
             setLoading(false)

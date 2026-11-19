@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
-import { tidyPrices, guardLabel, nextCall } from './monitorJournal.utils.js'
+import { tidyPrices, guardLabel, nextCall, journalKey } from './monitorJournal.utils.js'
 import './TalosJournal.scss'
 
 // ── Talos's journal ────────────────────────────────────────────────────────────
@@ -221,7 +221,7 @@ export function TalosJournal({ setup, rows, done, loading, onOlder }) {
             <JournalHead setup={setup} />
             {list.length === 0
                 ? <p className="talos-journal__empty">No reads yet — the journal fills in as the trade monitor reads this setup on every candle close.</p>
-                : list.map(row => <JournalRow key={row.at} row={row} setup={setup} />)}
+                : list.map(row => <JournalRow key={journalKey(row)} row={row} setup={setup} />)}
             {list.length > 0 && !done && (
                 <button type="button" className="talos-journal__older" onClick={onOlder} disabled={loading}>
                     {loading ? 'loading…' : 'older…'}

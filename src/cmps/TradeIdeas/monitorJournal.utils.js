@@ -131,3 +131,10 @@ export function nextCallLine(setup, now = Date.now()) {
     if (!when) return standing
     return tier === 'expensive' ? `next read ${when}` : `next check ${when}`
 }
+
+/**
+ * A journal row's identity. `at` is NOT unique — one wake can write two rows on the same
+ * millisecond (2026-11-18, ARMK) — so the server sends each row's `id`; `at` is only the fallback
+ * for a row from before it did.
+ */
+export const journalKey = (r) => r.id ?? r.at
