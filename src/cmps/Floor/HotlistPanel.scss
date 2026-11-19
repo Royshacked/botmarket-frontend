@@ -359,3 +359,17 @@
     }
     &__note { margin: 6px 0 0; font-size: 11px; color: var(--text-dim); }
 }
+
+// ── Echo (docs/design/echo-desk.md): the forward test's tab — set apart, and labelled before anything else ──
+.hot-horizons__btn--echo { margin-left: auto; border-style: dashed; }
+.echo-label {
+    margin: 0 0 8px; padding: 8px 10px; font-size: 12px; line-height: 1.45; color: var(--text-dim);
+    border: 1px dashed var(--border); border-radius: 6px;
+    strong { color: var(--text-primary, inherit); }
+}
+.echo-flag { color: var(--color-long); }
+// The opened event sits in a colSpan cell: width 0 + min-width 100% keeps its wide links table from widening the
+// events table (it scrolls sideways in its own wrap instead), and its sentences wrap.
+.echo-open > td { white-space: normal; }
+.echo-detail { display: flex; flex-direction: column; gap: 8px; padding: 6px 0 10px; width: 0; min-width: 100%; }
+.echo-detail .toggle-chip { align-self: flex-start; }

@@ -6,7 +6,7 @@ import { httpService } from '../http.service'
 
 const BASE = 'api/hotlist'
 
-export const hotlistService = { getToday, getBoard, getOutcomes, getReads, requestRead, getBook, getScorecard, getDayBoards, getProfile }
+export const hotlistService = { getToday, getBoard, getOutcomes, getReads, requestRead, getBook, getScorecard, getDayBoards, getProfile, getEcho, getEchoEvent }
 
 /**
  * PROMETHEUS'S SCORECARD (botmarket-backend prometheusCalls.service, 2026-10-27) → `{ coverage: { forward, backfill },
@@ -101,4 +101,20 @@ async function getProfile(symbol, horizon) {
 async function getBook() {
     const data = await httpService.get(`${BASE}/book`)
     return { asof: data?.asof ?? null, swing: data?.swing ?? [], long_term: data?.long_term ?? [], picks: data?.picks ?? null, record: data?.record ?? {} }
+}
+
+/**
+ * ECHO'S FORWARD TEST (botmarket-backend echo.service, docs/design/echo-desk.md) → `{ events: [summary], record }`. A
+ * summary: id, date, origin, tickers, effect, size, status (detected · mapped · late · checked · done), links (a count),
+ * `flagged` (the links the market had not caught up with at the day-5 check), graded horizons, the event's spread. The
+ * record is SO FAR — never the verdict (that reads once, on the first 30 events graded at 120 sessions).
+ */
+async function getEcho() {
+    const data = await httpService.get(`${BASE}/echo`)
+    return { events: data?.events ?? [], record: data?.record ?? null }
+}
+
+/** One Echo event in full: `all` (every link, joined to the check), `map` (who mapped it), `grades`. */
+async function getEchoEvent(id) {
+    return httpService.get(`${BASE}/echo/${encodeURIComponent(id)}`)
 }

@@ -19,6 +19,9 @@ import { HotlistBook } from './HotlistBook.jsx'
 import { HotlistRowPage } from './HotlistRowPage.jsx'
 import { HotlistDayBoards } from './HotlistDayBoards.jsx'
 import { INTRADAY, INTRADAY_LABEL, latestBoardId } from './hotlistDay.utils.js'
+import { HotlistEcho } from './HotlistEcho.jsx'
+// Echo's forward test (docs/design/echo-desk.md): its own tab, last, labelled — not a horizon of the day's list.
+import { ECHO } from './echo.utils.js'
 import './HotlistPanel.scss'
 import { TechnicalsProvider } from './TechnicalProfile.jsx'
 
@@ -461,7 +464,8 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
     // (HotlistDayBoards), like the book's lists below; nothing of this week's list logic applies to them.
     const intradayView = horizon === INTRADAY
     // SWING and LONG TERM (Roy, 2026-10-24) are the house's coverage, not the day's boards: their own list (BookList).
-    const bookView = BOOK_ORDER.includes(horizon) || horizon === COVERED || intradayView
+    const echoView = horizon === ECHO
+    const bookView = BOOK_ORDER.includes(horizon) || horizon === COVERED || intradayView || echoView
     // THE HORIZON first (horizon-chains.md §1): one column's list — its names, Argus's picks for it first. A header the
     // user clicked sorts it instead.
     const byHorizon = bookView ? [] : horizon ? horizonRows(today.dayList, horizon) : today.dayList
@@ -603,10 +607,17 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
                     title="Every company the analyst covers — swing and long term, the desk’s too — and the scorecard"
                     className={`toggle-chip hot-horizons__btn${horizon === COVERED ? ' hot-horizons__btn--on' : ''}`}
                     onClick={() => chooseHorizon(COVERED)}>{COVERED_LABEL} {coveredRows(book).length}</button>
+                {/* Echo, last and apart (Roy, 2026-11-19: in the Hotlist, labelled) — a forward test, not a list of picks. */}
+                <button type="button" aria-pressed={echoView}
+                    title="Echo — companies a big earnings move reaches through the supply chain. A forward test, still running: not picks"
+                    className={`toggle-chip hot-horizons__btn hot-horizons__btn--echo${echoView ? ' hot-horizons__btn--on' : ''}`}
+                    onClick={() => chooseHorizon(ECHO)}>Echo · test</button>
             </div>}
             {intradayView ? (
                 <HotlistDayBoards data={dayBoards} day={day} boardId={dayBoardId} onBoard={onDayBoard}
                     onSymbolClick={onSymbolClick} onRetry={onDayBoards} focus={focus} onOpen={onOpen} onBuild={onBuild} />
+            ) : echoView ? (
+                <HotlistEcho onSymbolClick={onSymbolClick} />
             ) : bookView ? (
                 <HotlistBook key={horizon} book={book} column={horizon} coverage={coverage} isAdmin={isAdmin} focus={focus} onOpen={onOpen}
                     onBuild={onBuild} onSymbolClick={onSymbolClick} />
