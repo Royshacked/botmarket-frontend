@@ -2,6 +2,12 @@
 
 export const STALE_MIN = 30
 export const CONFIRM = { mentor: 'generateArmed', portfolio: 'generate', analyst: 'generate' }
+
+/** The desk action Confirm presses: a trade is saved and armed; a book's REVIEW is accepted; a new book or coverage saved. */
+export function confirmAction(agent, state) {
+    if (agent === 'portfolio' && state?.reviewMode) return 'accept'
+    return CONFIRM[agent] ?? 'generate'
+}
 export const ROLE = { mentor: 'trader', portfolio: 'portfolio manager', analyst: 'analyst' }
 
 /** The build the bar is about: a ready one first, else a failed one. Pure. */

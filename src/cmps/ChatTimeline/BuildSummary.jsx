@@ -4,7 +4,7 @@ import { ChatBubble } from '../ChatBubble.jsx'
 import { MentorTradeChart } from '../MentorSurface/MentorTradeChart.jsx'
 import { tradeChartSetup } from '../MentorSurface/mentorSurface.utils.js'
 import { lastStep } from '../SidePane/buildStatus.js'
-import { STALE_MIN, CONFIRM, ROLE, ageMinutes } from './buildSummary.utils.js'
+import { STALE_MIN, ROLE, ageMinutes, confirmAction } from './buildSummary.utils.js'
 
 // THE BUILD'S SUMMARY above the prompt box (docs/design/modes-and-builders.md M9/M14/M15, step 6 — Roy, 2026-11-20): a
 // build is ready → the bar says so → "Watch summary" opens what was built — the builder's reasoning, the live trade chart
@@ -51,7 +51,7 @@ export function BuildSummary({ agent, build, session, accounts, mainAccountId, o
         else onClose?.()
         return r
     }
-    const confirm  = () => run(() => session.commit(agent, CONFIRM[agent] ?? 'generate', { accounts, mainAccountId }), 'It could not be saved')
+    const confirm  = () => run(() => session.commit(agent, confirmAction(agent, state), { accounts, mainAccountId }), 'It could not be saved')
     const recheck  = () => run(() => session.reworkBuild(agent, 'recheck'), 'The recheck did not start')
     const sendBack = () => run(() => session.reworkBuild(agent, 'change', change.trim()), 'The change did not go through')
     const dismiss  = () => run(() => session.commit(agent, 'discard'), 'It could not be dismissed')
@@ -95,7 +95,7 @@ export function BuildSummary({ agent, build, session, accounts, mainAccountId, o
                         {stale && <span className="build-summary__stale">Built {age} min ago — prices move.</span>}
                         {stale
                             ? <button type="button" className="build-summary__btn build-summary__btn--primary" onClick={recheck} disabled={sending}>Recheck it</button>
-                            : <button type="button" className="build-summary__btn build-summary__btn--primary" onClick={confirm} disabled={sending}>{agent === 'mentor' ? 'Confirm — save and arm' : 'Confirm'}</button>}
+                            : <button type="button" className="build-summary__btn build-summary__btn--primary" onClick={confirm} disabled={sending}>{agent === 'mentor' ? 'Confirm — save and arm' : agent === 'portfolio' && state?.reviewMode ? 'Accept the review' : 'Confirm'}</button>}
                         {stale && <button type="button" className="build-summary__btn" onClick={confirm} disabled={sending}>Confirm as is</button>}
                         <button type="button" className="build-summary__btn" onClick={() => setMode('change')} disabled={sending}>Change</button>
                         <button type="button" className="build-summary__btn" onClick={() => setMode('dismiss')} disabled={sending}>Dismiss</button>

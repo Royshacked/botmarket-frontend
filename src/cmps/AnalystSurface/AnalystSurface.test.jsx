@@ -92,12 +92,12 @@ describe('AnalystSurface', () => {
         expect(screen.queryByText('Discard')).toBeNull()
     })
 
-    it('a trader reads the draft but does not save it', () => {
+    it('a trader saves coverage too — for everyone (Roy, 2026-11-20, M17)', () => {
         admin = false
         mount({ draft: DRAFT, standing: true })
         expect(screen.getByText('Companion-animal pricing holds.')).toBeTruthy()
-        expect(screen.queryByText(/Initiate coverage/)).toBeNull()
-        expect(screen.getByText(/saved by an admin/)).toBeTruthy()
+        expect(screen.getByText(/Initiate coverage/)).toBeTruthy()
+        expect(screen.queryByText(/saved by an admin/)).toBeNull()
     })
 
     it('a refusal the analyst can act on explains itself', async () => {

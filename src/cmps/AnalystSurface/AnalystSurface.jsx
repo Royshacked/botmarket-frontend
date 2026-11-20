@@ -1,5 +1,4 @@
 import PropTypes from 'prop-types'
-import { useAuth } from '../../context/AuthContext.jsx'
 import { LaterButton } from '../LaterButton.jsx'
 import { PriceTarget } from '../PriceTarget/PriceTarget.jsx'
 import { useSurfacePress } from '../../customHooks/useSurfacePress.js'
@@ -16,8 +15,8 @@ import '../AnalystPanel/AnalystPanel.scss'
 // chain's — its "next name" is a decision card in the timeline — so nothing here paces it.
 //
 // ONLY A STANDING DRAFT IS SAVED (backend analyst.actions): the draft is also the conversation's subject, so a turn
-// without a <coverage> block keeps it on the table and withdraws only the right to save it. House coverage is an admin
-// write — a trader reads the draft, an admin saves it.
+// without a <coverage> block keeps it on the table and withdraws only the right to save it. EVERY user saves coverage,
+// and what they save is the house's, for everyone (Roy, 2026-11-20 — modes-and-builders.md M17; admin-only until then).
 
 /**
  * The drafted coverage — the variant-perception thesis, our PT vs the Street (the gap = the edge), the rating, and the
@@ -49,7 +48,6 @@ CoverageDraft.propTypes = { coverage: PropTypes.object.isRequired }
 const refusalText = (out) => (out.extra?.detail ? `${out.message} — ${out.extra.detail}` : out.message)
 
 export function AnalystSurface({ session, deskProps = {} }) {
-    const { isAdmin } = useAuth()
     const { coverage = [], onSaved } = deskProps
     const { pressing, note, press } = useSurfacePress(session, 'analyst', deskProps, { brand: 'The analyst' })
     const state   = session?.agentState?.analyst ?? null
@@ -110,7 +108,7 @@ export function AnalystSurface({ session, deskProps = {} }) {
                 while it answers. */}
             {(editingId || !turning) && (
                 <ChatActions><div className="portfolio-panel__action-bubble desk-surface__bar">
-                    {(proposal || editingId) && (isAdmin ? (
+                    {(proposal || editingId) && (
                         <button
                             className="portfolio-panel__review-btn portfolio-panel__review-btn--update"
                             onClick={() => commit(action, (r) => `${r.coverage?.symbol ?? name} is ${r.revised ? 'revised' : 'in coverage'}.`)}
@@ -118,9 +116,7 @@ export function AnalystSurface({ session, deskProps = {} }) {
                         >
                             {pressing ? 'Saving…' : label}
                         </button>
-                    ) : (
-                        <span className="analyst-panel__ask-hint">House coverage is saved by an admin.</span>
-                    ))}
+                    )}
                     {editingId && <LaterButton onClick={() => commit('later')} disabled={pressing || turning} />}
                     {editingId && turning && <span className="analyst-panel__ask-hint">The analyst is answering…</span>}
                     {!editingId && <DiscardButton what={`the ${symbol ?? ''} draft`} onDiscard={() => press('discard', { done: () => 'Discarded — the table is clear.' })} disabled={pressing} />}

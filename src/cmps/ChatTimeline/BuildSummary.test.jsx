@@ -79,6 +79,14 @@ describe('the summary', () => {
         expect(onError).toHaveBeenCalledWith('Mark an account first')
     })
 
+    it("a book's REVIEW is confirmed with Accept (step 9, M11)", async () => {
+        const b = build({ title: 'Growth review' })
+        const session = { rows: [], agentState: { portfolio: { reviewMode: true, reviewed: true, build: b } }, commit: vi.fn(async () => ({ ok: true })), reworkBuild: vi.fn() }
+        render(<BuildSummary agent="portfolio" build={b} session={session} accounts={accounts} />)
+        await act(async () => { fireEvent.click(screen.getByText('Accept the review')) })
+        expect(session.commit).toHaveBeenCalledWith('portfolio', 'accept', { accounts, mainAccountId: undefined })
+    })
+
     it("a book's Confirm is Generate — no chart", async () => {
         const b = build({ title: 'Growth book' })
         const session = { rows: [], agentState: { portfolio: { build: b } }, commit: vi.fn(async () => ({ ok: true })), reworkBuild: vi.fn() }
