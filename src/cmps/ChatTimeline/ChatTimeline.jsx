@@ -29,7 +29,7 @@ import { useReturnTo, openPanel, setReturnTo, panelMounted, nextReturnTo } from 
 import { OPENING_OPTIONS, LANDING_ASKS, OPENING_QUESTION } from './openingOptions.js'
 import { ModePicker } from './ModePicker.jsx'
 import { QuestionCard } from './QuestionCard.jsx'
-import { openCard } from './questionCard.utils.js'
+import { openCard, openMidCard } from './questionCard.utils.js'
 import { BuildBar, BuildSummary } from './BuildSummary.jsx'
 import { barBuild } from './buildSummary.utils.js'
 import { modeOf, modeOption } from './mode.utils.js'
@@ -131,7 +131,7 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
     }, [session, bar])
 
     // A builder's open question card (step 4) — shown while that builder is the mode.
-    const card = scope === 'main' ? openCard(rows, floor) : null
+    const card = scope === 'main' ? (openCard(rows, floor) ?? openMidCard(rows)) : null
     const answerCard = useCallback(async (answers, picked) => {
         // The account picked on the card is marked in the venue picker too, so the pane and the build agree.
         if (picked.length) onPickAccounts?.(picked.map(a => String(a.id)), String(picked[0].id))
@@ -348,7 +348,7 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
                 <QuestionCard
                     key={card.seq}
                     card={card}
-                    role={modeOption(mode).label}
+                    role={modeOption(card.agent).label}
                     accounts={allAccounts ?? accounts}
                     marked={accounts.map(a => String(a.id))}
                     main={mainAccountId}

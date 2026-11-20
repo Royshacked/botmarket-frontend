@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { QuestionCard } from './QuestionCard.jsx'
-import { openCard, initialAnswers, allAnswered, accountLabel, answeredLines } from './questionCard.utils.js'
+import { openCard, openMidCard, initialAnswers, allAnswered, accountLabel, answeredLines } from './questionCard.utils.js'
 import { isOffScreen } from './timelineRows.js'
 
 // A builder's question card (modes-and-builders.md step 4): every question at once, options + Other, the account, submit.
@@ -86,6 +86,19 @@ describe('QuestionCard', () => {
         expect(onSubmit.mock.calls[0][0].name).toEqual({ choice: null, other: 'AMD' })
         fireEvent.click(screen.getByText('NVDA'))
         expect(screen.getByLabelText('Name: other').value).toBe('')
+    })
+
+    it("a build's question card (step 8): shown whatever the mode, its options and Other, sent with Send", async () => {
+        const mid = { seq: 12, kind: 'questions', agent: 'mentor', role: 'assistant', content: 'AMD trade — a question before it goes on.',
+            ref: { state: 'open', mid: true, buildId: 'b1', questions: [{ id: 'answer', header: 'Answer', question: 'Which stop?', multiSelect: false, other: true, options: [{ label: '$393' }, { label: '$402' }] }] } }
+        expect(openMidCard([mid])).toBe(mid)
+        expect(openCard([mid], 'axl')).toBe(null)
+        expect(openMidCard([{ ...mid, ref: { ...mid.ref, state: 'answered' } }])).toBe(null)
+        const onSubmit = vi.fn(async () => ({ ok: true }))
+        render(<QuestionCard card={mid} role="Trader" accounts={[]} onSubmit={onSubmit} />)
+        fireEvent.click(screen.getByText('$402'))
+        await act(async () => { fireEvent.click(screen.getByText('Send')) })
+        expect(onSubmit).toHaveBeenCalledWith({ answer: { choice: '$402' } }, [])
     })
 
     it('a workspace with no accounts says so', () => {

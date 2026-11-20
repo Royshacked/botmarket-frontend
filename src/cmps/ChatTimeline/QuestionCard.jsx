@@ -108,7 +108,7 @@ export function QuestionCard({ card, role, accounts, marked = [], main = null, o
                 {error && <span className="question-card__error">{error}</span>}
                 <span className="question-card__hint">{ready ? 'Ready.' : 'Answer each question — or just type in the chat instead.'}</span>
                 <button type="button" className="question-card__submit" onClick={submit} disabled={!ready || sending || busy}>
-                    {sending ? 'Sending…' : 'Build it'}
+                    {sending ? 'Sending…' : card.ref.mid ? 'Send' : 'Build it'}
                 </button>
             </footer>
         </section>

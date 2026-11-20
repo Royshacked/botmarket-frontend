@@ -9,7 +9,7 @@ const b = (status) => ({ id: 'b1', status, title: 'NVDA trade', since: 1 })
 test('each status in words', () => {
     assert.equal(buildWords('mentor', b('building')), 'The trader is building NVDA trade in the background. The chat is free meanwhile.')
     assert.equal(buildWords('mentor', b('ready')), 'NVDA trade is ready. Review it here, then Generate.')
-    assert.match(buildWords('portfolio', b('awaiting')), /^The portfolio manager needs you/)
+    assert.match(buildWords('portfolio', b('awaiting')), /^The portfolio manager has a question on NVDA trade — answer it on the card/)
     assert.match(buildWords('mentor', b('queued')), /queued/)
     assert.equal(buildWords('mentor', null), null)
 })

@@ -27,6 +27,15 @@ export function openCard(rows, agent) {
     return null
 }
 
+/** A BUILD's open question card (step 8) — shown whatever the mode: the build runs in the background. Null when none. */
+export function openMidCard(rows) {
+    for (let i = (rows ?? []).length - 1; i >= 0; i--) {
+        const r = rows[i]
+        if (r.kind === 'questions' && r.ref?.mid && r.ref?.state === 'open') return r
+    }
+    return null
+}
+
 /**
  * The answers a card starts with: the recommended option where there is one, last time's number where it is offered, the
  * account(s) already marked. `marked`: the ids the venue picker has marked; `main` its main one.

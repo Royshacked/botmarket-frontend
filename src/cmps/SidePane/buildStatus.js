@@ -13,7 +13,7 @@ export function buildWords(agent, build) {
     switch (build.status) {
         case 'queued':   return `${build.title} — queued: it starts when the build ahead of it is done.`
         case 'building': return `${who} is building ${build.title} in the background. The chat is free meanwhile.`
-        case 'awaiting': return `${who} needs you on ${build.title} — answer in the chat.`
+        case 'awaiting': return `${who} has a question on ${build.title} — answer it on the card above the chat.`
         case 'ready':    return `${build.title} is ready. Review it here, then Generate.`
         case 'failed':   return `${build.title} did not finish — ask in the chat to try again.`
         default:         return null
