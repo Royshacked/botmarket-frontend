@@ -37,7 +37,7 @@ export function openMidCard(rows) {
 }
 
 /**
- * The answers a card starts with: the recommended option where there is one, last time's number where it is offered, the
+ * The answers a card starts with: the card's default, else the recommended option where there is one, last time's number where it is offered, the
  * account(s) already marked. `marked`: the ids the venue picker has marked; `main` its main one.
  */
 export function initialAnswers(questions, { marked = [], main = null, accounts = [] } = {}) {
@@ -52,7 +52,8 @@ export function initialAnswers(questions, { marked = [], main = null, accounts =
             if (only.length) out[q.id] = { accountIds: only }
             continue
         }
-        const rec = q.options.find(o => /\(recommended\)$/i.test(o.label)) ?? q.options.find(o => /^As last time/.test(o.label)) ?? null
+        // The card's own default first (a hand-off's name — Build trade off the Hotlist, Roy 2026-11-20).
+        const rec = q.options.find(o => q.default != null && o.label === q.default) ?? q.options.find(o => /\(recommended\)$/i.test(o.label)) ??q.options.find(o => /^As last time/.test(o.label)) ?? null
         if (rec) out[q.id] = { choice: q.multiSelect ? [rec.label] : rec.label }
     }
     return out

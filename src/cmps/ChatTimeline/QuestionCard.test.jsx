@@ -31,6 +31,11 @@ describe('question card helpers', () => {
         expect(allAnswered(QUESTIONS, { ...a, name: { choice: 'NVDA' }, size: { other: '1% risk' } })).toBe(true)
         expect(initialAnswers(QUESTIONS, { accounts: [ACCOUNTS[0]] }).account).toEqual({ accountIds: ['p1'] }, 'the only account is picked')
     })
+    it("a hand-off's name (the card's default — Build trade off the Hotlist) starts picked", () => {
+        const withDefault = [{ ...QUESTIONS[0], default: 'NVDA' }, ...QUESTIONS.slice(1)]
+        expect(initialAnswers(withDefault, { accounts: ACCOUNTS }).name).toEqual({ choice: 'NVDA' })
+        expect(initialAnswers([{ ...QUESTIONS[0], default: 'AMD' }]).name).toBeUndefined()
+    })
     it("accounts are named as the venue picker names them; an open or set-aside card is not drawn in the thread, an answered one is", () => {
         expect(accountLabel(ACCOUNTS[0])).toBe('Paper main')
         expect(accountLabel(ACCOUNTS[1])).toBe('Paper')
