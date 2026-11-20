@@ -41,11 +41,13 @@ function mergeRows(rows, incoming) {
 const maxSeq = (rows, prev) => rows.reduce((n, r) => Math.max(n, r.seq), prev)
 
 function liveFor(state, turnId, agent) {
-    return state.live?.turnId === turnId
-        // The server names who is answering; the client only guessed (the floor) when it sent — an "@Atlas"
-        // while Axl holds the floor is Atlas's turn.
-        ? { ...state.live, agent: agent ?? state.live.agent }
-        : { turnId, agent, text: '', reasoning: '', tool: null, targets: null, phase: null, status: 'running' }
+    if (state.live?.turnId !== turnId) return { turnId, agent, text: '', reasoning: '', tool: null, targets: null, phase: null, status: 'running' }
+    // A specialist Axl asks streams INSIDE his turn under its own role (modes-and-builders.md §3): when the writer changes,
+    // the bubble starts again — the role's words are never drawn under Axl's name, nor his after its.
+    if (agent && state.live.agent && agent !== state.live.agent) return { ...state.live, agent, text: '', reasoning: '', tool: null, targets: null, phase: null }
+    // The server names who is answering; the client only guessed (the floor) when it sent — an "@Atlas"
+    // while Axl holds the floor is Atlas's turn.
+    return { ...state.live, agent: agent ?? state.live.agent }
 }
 
 /** Revisions merged — the higher one wins, so a frame that arrives late never moves one backwards. */

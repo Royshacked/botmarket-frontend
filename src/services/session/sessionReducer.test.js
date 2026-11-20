@@ -53,6 +53,20 @@ test('a turn: sending → started → tokens → the reply row → done; Stop ha
     assert.deepEqual(s.lastTurn, { turnId: 't1', agent: 'axl', status: 'done', payload: { suggestions: ['A'] }, reason: null, message: null })
 })
 
+test("a specialist Axl asks streams under its own role inside his turn — its words never drawn under Axl's (modes-and-builders.md §3)", () => {
+    const d = (agent, text) => ({ type: 'session_delta', data: { sessionId: S, turnId: 't1', agent, type: 'token', data: { text } } })
+    let s = fold(loaded,
+        { type: 'sending', turnId: 't1', agent: 'axl' },
+        { type: 'session_turn', data: { sessionId: S, turnId: 't1', agent: 'axl', status: 'started' } },
+        d('axl', 'Let me ask. '),
+        d('echo', 'Broadcom '), d('echo', 'scores 9.'),
+    )
+    assert.deepEqual([s.live.agent, s.live.text], ['echo', 'Broadcom scores 9.'])
+    s = fold(s, { type: 'session_message', data: { sessionId: S, message: row(1, { agent: 'echo', content: 'Broadcom scores 9.' }) } }, d('axl', 'One line.'))
+    assert.deepEqual([s.live.agent, s.live.text], ['axl', 'One line.'])
+    assert.equal(s.live.turnId, 't1')
+})
+
 test('stopped / refused / error end the turn; another turn’s end leaves ours running', () => {
     const running = sessionReducer(loaded, { type: 'session_turn', data: { sessionId: S, turnId: 't1', agent: 'mentor', status: 'started' } })
     for (const status of ['stopped', 'refused', 'error']) {
