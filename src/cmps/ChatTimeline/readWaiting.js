@@ -12,9 +12,11 @@ const _time = (ms) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', min
 /** `waiting` (the session's map) → `[{ key, text }]`, oldest first. Pure but for the clock's locale. */
 export function readWaitingLines(waiting, now = Date.now()) {
     return Object.entries(waiting ?? {})
-        .filter(([, w]) => w?.symbol && !(Number.isFinite(w.since) && now - w.since > STALE_MS))
+        .filter(([, w]) => (w?.symbol || w?.text) && !(Number.isFinite(w.since) && now - w.since > STALE_MS))
         .sort(([, a], [, b]) => (a.since ?? 0) - (b.since ?? 0))
         .map(([key, w]) => {
+            // Background work that says itself (the event analyst mapping an event — modes-and-builders.md step 2).
+            if (w.text) return { key, text: w.text }
             const what = w.kind === 'catalyst' ? 'its catalyst' : 'the business'
             const on = w.horizon ? ` for the ${w.horizon} trade` : ''
             const where = w.running && !w.ahead ? 'reading it now'

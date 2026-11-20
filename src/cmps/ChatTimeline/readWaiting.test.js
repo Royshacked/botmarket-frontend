@@ -6,6 +6,14 @@ import { sessionReducer, emptySession } from '../../services/session/sessionRedu
 const NOW = Date.parse('2026-11-14T10:00:00Z')
 
 describe('the reads the chat is waiting on (Roy, 2026-11-14)', () => {
+    it('background work that says itself — the event analyst mapping (modes-and-builders.md step 2) — in its own words, stale ones dropped', () => {
+        const lines = readWaitingLines({
+            'echo|ev_1': { kind: 'echo_map', text: 'The event analyst is mapping "Anthropic IPO" through the supply chain.', since: NOW - 30_000 },
+            'echo|ev_0': { kind: 'echo_map', text: 'old', since: NOW - STALE_MS - 1 },
+        }, NOW)
+        assert.deepEqual(lines, [{ key: 'echo|ev_1', text: 'The event analyst is mapping "Anthropic IPO" through the supply chain.' }])
+    })
+
     it('says each read by role — the name, the horizon, where it stands in line, when it was asked — oldest first', () => {
         const lines = readWaitingLines({
             'AMD|catalyst': { symbol: 'AMD', horizon: 'short term swing', kind: 'catalyst', ahead: 0, running: true, since: NOW - 60_000 },
