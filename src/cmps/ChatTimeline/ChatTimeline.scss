@@ -787,3 +787,11 @@
     .build-summary { max-height: 65vh; }
     .build-summary__change textarea { font-size: 16px; }
 }
+
+.build-bar--declined { border-color: var(--border); background: color-mix(in srgb, var(--text-secondary) 8%, transparent); }
+.build-bar__change {
+    display: flex; gap: 6px; flex: 1 1 100%;
+    input { flex: 1; min-width: 0; padding: 4px 10px; border: 1px solid var(--border); border-radius: 12px; background: transparent; color: var(--text-primary); font-size: 13px; }
+}
+.build-bar { flex-wrap: wrap; }
+@media (max-width: 767px) { .build-bar__change input { font-size: 16px; } }

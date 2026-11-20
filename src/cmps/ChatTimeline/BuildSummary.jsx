@@ -12,12 +12,32 @@ import { STALE_MIN, ROLE, ageMinutes, confirmAction } from './buildSummary.utils
 // older than STALE_MIN is rechecked first. Change sends it back to the background with the user's words; Dismiss throws
 // it away (the queued build, if any, starts). A failed build's bar offers Retry.
 
-export function BuildBar({ agent, build, open, onOpen, onRetry, busy = false }) {
+export function BuildBar({ agent, build, open, onOpen, onRetry, onDrop, onChange, busy = false }) {
+    const [changing, setChanging] = useState(false)
+    const [text, setText] = useState('')
     if (build.status === 'failed') {
         return (
             <div className="build-bar build-bar--failed" role="status">
-                <span className="build-bar__text">{build.title} did not finish.</span>
+                <span className="build-bar__text">{build.title} did not finish{build.failedBy === 'restart' ? ' — the app restarted' : ''}.</span>
                 <button type="button" className="build-bar__btn" onClick={onRetry} disabled={busy}>Retry</button>
+                <button type="button" className="build-bar__btn" onClick={onDrop} disabled={busy}>Dismiss</button>
+            </div>
+        )
+    }
+    // DECLINED (step 10): the builder's verdict is that there is no trade — said, with Change or Dismiss.
+    if (build.status === 'declined') {
+        return (
+            <div className="build-bar build-bar--declined" role="status">
+                <span className="build-bar__text">No trade on {build.title.replace(/ trade$/, '')} — {build.reason}</span>
+                {changing ? (
+                    <span className="build-bar__change">
+                        <input value={text} onChange={e => setText(e.target.value)} placeholder="e.g. build the long on the pullback anyway" aria-label="The change" maxLength={1000} />
+                        <button type="button" className="build-bar__btn" onClick={() => { onChange?.(text.trim()); setChanging(false); setText('') }} disabled={!text.trim() || busy}>Rebuild</button>
+                    </span>
+                ) : (
+                    <button type="button" className="build-bar__btn" onClick={() => setChanging(true)} disabled={busy}>Change</button>
+                )}
+                <button type="button" className="build-bar__btn" onClick={onDrop} disabled={busy}>Dismiss</button>
             </div>
         )
     }
@@ -30,7 +50,7 @@ export function BuildBar({ agent, build, open, onOpen, onRetry, busy = false }) 
 }
 BuildBar.propTypes = {
     agent: PropTypes.string.isRequired, build: PropTypes.object.isRequired, open: PropTypes.bool,
-    onOpen: PropTypes.func, onRetry: PropTypes.func, busy: PropTypes.bool,
+    onOpen: PropTypes.func, onRetry: PropTypes.func, onDrop: PropTypes.func, onChange: PropTypes.func, busy: PropTypes.bool,
 }
 
 export function BuildSummary({ agent, build, session, accounts, mainAccountId, onClose, onError }) {

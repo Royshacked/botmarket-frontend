@@ -15,7 +15,8 @@ export function buildWords(agent, build) {
         case 'building': return `${who} is building ${build.title} in the background. The chat is free meanwhile.`
         case 'awaiting': return `${who} has a question on ${build.title} — answer it on the card above the chat.`
         case 'ready':    return `${build.title} is ready. Review it here, then Generate.`
-        case 'failed':   return `${build.title} did not finish — ask in the chat to try again.`
+        case 'failed':   return `${build.title} did not finish — Retry it from the bar above the chat.`
+        case 'declined': return `${who} found no trade on ${build.title.replace(/ trade$/, '')}: ${build.reason}`
         default:         return null
     }
 }

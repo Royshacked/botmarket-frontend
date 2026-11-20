@@ -125,9 +125,9 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
     const bar = scope === 'main' ? barBuild(session.agentState) : null
     const [summaryOpen, setSummaryOpen] = useState(false)
     useEffect(() => { if (!bar || bar.build.status !== 'ready') setSummaryOpen(false) }, [bar?.build?.id, bar?.build?.status]) // eslint-disable-line react-hooks/exhaustive-deps
-    const retryBuild = useCallback(async () => {
-        const r = await session.reworkBuild(bar.agent, 'retry')
-        if (!r.ok) showErrorMsg(r.message ?? 'The retry did not start')
+    const reworkBar = useCallback(async (action, text = null) => {
+        const r = await session.reworkBuild(bar.agent, action, text)
+        if (!r.ok) showErrorMsg(r.message ?? 'That did not go through')
     }, [session, bar])
 
     // A builder's open question card (step 4) — shown while that builder is the mode.
@@ -342,7 +342,8 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
                     onError={(m) => showErrorMsg(m)}
                 />
             )}
-            {bar && <BuildBar agent={bar.agent} build={bar.build} open={summaryOpen} onOpen={() => setSummaryOpen(v => !v)} onRetry={retryBuild} busy={busy} />}
+            {bar && <BuildBar agent={bar.agent} build={bar.build} open={summaryOpen} onOpen={() => setSummaryOpen(v => !v)}
+                onRetry={() => reworkBar('retry')} onDrop={() => reworkBar('drop')} onChange={(t) => reworkBar('change', t)} busy={busy} />}
 
             {card && (
                 <QuestionCard

@@ -26,6 +26,19 @@ describe('the bar', () => {
         expect(barBuild({ portfolio: { build: build({ status: 'failed' }) }, mentor: { build: build() } }).agent).toBe('mentor')
         expect(ageMinutes({ readyAt: 1_000_000 }, 1_000_000 + 45 * 60_000)).toBe(45)
     })
+    it('a declined build (no trade) says why, with Change and Dismiss (step 10)', () => {
+        const onChange = vi.fn(), onDrop = vi.fn()
+        render(<BuildBar agent="mentor" build={build({ status: 'declined', reason: 'the chart favors the short side' })} onChange={onChange} onDrop={onDrop} />)
+        expect(screen.getByText('No trade on AMD — the chart favors the short side')).toBeTruthy()
+        fireEvent.click(screen.getByText('Change'))
+        fireEvent.change(screen.getByLabelText('The change'), { target: { value: 'build the long anyway' } })
+        fireEvent.click(screen.getByText('Rebuild'))
+        expect(onChange).toHaveBeenCalledWith('build the long anyway')
+        fireEvent.click(screen.getByText('Dismiss'))
+        expect(onDrop).toHaveBeenCalled()
+        expect(barBuild({ mentor: { build: build({ status: 'declined' }) } }).agent).toBe('mentor')
+    })
+
     it('a failed build offers Retry', () => {
         const onRetry = vi.fn()
         render(<BuildBar agent="mentor" build={build({ status: 'failed' })} onRetry={onRetry} />)

@@ -10,9 +10,9 @@ export function confirmAction(agent, state) {
 }
 export const ROLE = { mentor: 'trader', portfolio: 'portfolio manager', analyst: 'analyst' }
 
-/** The build the bar is about: a ready one first, else a failed one. Pure. */
+/** The build the bar is about: a ready one first, then a declined one (no trade), then a failed one. Pure. */
 export function barBuild(agentState) {
-    for (const status of ['ready', 'failed']) {
+    for (const status of ['ready', 'declined', 'failed']) {
         for (const agent of ['mentor', 'portfolio', 'analyst']) {
             const b = agentState?.[agent]?.build
             if (b?.status === status) return { agent, build: b }
