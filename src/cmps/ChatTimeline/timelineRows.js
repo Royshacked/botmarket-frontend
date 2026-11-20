@@ -16,7 +16,10 @@ export function agentMeta(key) {
  * row's role says who took over) and a route's OPENING (the receiving role's first turn, written as the user's message —
  * the user typed once and sees it once). Both stay in the session, for the role and for History.
  */
+// A builder's question card is drawn above the prompt box while it is OPEN, and leaves nothing when set aside; an answered
+// one stays in the thread as what was answered (modes-and-builders.md step 4).
 export const isOffScreen = (row) => row?.kind === 'handoff' || (row?.role === 'user' && row?.ref?.opening === true)
+    || (row?.kind === 'questions' && row?.ref?.state !== 'answered')
 
 // Rows that name their own speaker: a hand-off names both sides.
 const SELF_NAMED = new Set(['handoff'])

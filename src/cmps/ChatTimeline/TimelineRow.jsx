@@ -7,6 +7,7 @@ import { bubbleOf } from '../../services/session/sessionReducer.js'
 import { ShowOffer } from './ShowOffer.jsx'
 import { speakerOf } from '../AxlHub/agentMeta.jsx'
 import { openEntityPopup } from '../EntityCard/entityPopup.js'
+import { answeredLines } from './questionCard.utils.js'
 
 // One row of the unified chat's timeline, by kind (plan phase 7, 7c). Every agent speaks in it; the speaker
 // tag marks where the voice changes. What a row's buttons do is the app's existing doorways — the session's
@@ -102,6 +103,21 @@ function EndedLine({ row, readOnly }) {
 
 EndedLine.propTypes = { row: PropTypes.object.isRequired, readOnly: PropTypes.bool }
 
+/** A builder's question card, answered — what the user said, one line a question (modes-and-builders.md step 4). */
+function AnsweredCard({ row }) {
+    return (
+        <div className="chat-timeline__answered">
+            <span className="chat-timeline__answered-title">Your answers</span>
+            <dl className="chat-timeline__answered-list">
+                {answeredLines(row).map(l => (
+                    <div key={l.id} className="chat-timeline__answered-line"><dt>{l.header}</dt><dd>{l.value}</dd></div>
+                ))}
+            </dl>
+        </div>
+    )
+}
+AnsweredCard.propTypes = { row: PropTypes.object.isRequired }
+
 /**
  * @param {{ row: object, decisionOpen?: boolean, onChoose: Function, onOpenTicket?: Function,
  *           readOnly?: boolean }} props
@@ -119,6 +135,8 @@ export function TimelineRow({ row, decisionOpen = false, onChoose, onOpenTicket,
     if (kind === 'sealed' && row.ref?.ended) return <EndedLine row={row} readOnly={readOnly} />
 
     if (kind === 'sealed') return <div className="chat-timeline__sealed">{row.content}</div>
+
+    if (kind === 'questions') return <AnsweredCard row={row} />
 
     return (
         <>

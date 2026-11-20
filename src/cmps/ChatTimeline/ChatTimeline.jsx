@@ -28,6 +28,8 @@ import { tradeChartSetup, tradeChartReady } from '../MentorSurface/mentorSurface
 import { useReturnTo, openPanel, setReturnTo, panelMounted, nextReturnTo } from '../DetailPanel/detailPanel.store.js'
 import { OPENING_OPTIONS, LANDING_ASKS, OPENING_QUESTION } from './openingOptions.js'
 import { ModePicker } from './ModePicker.jsx'
+import { QuestionCard } from './QuestionCard.jsx'
+import { openCard } from './questionCard.utils.js'
 import { modeOf, modeOption } from './mode.utils.js'
 import { showErrorMsg } from '../../services/event-bus.service.js'
 import './ChatTimeline.scss'
@@ -59,7 +61,7 @@ function OwnSessionTimeline(props) {
     return <TimelineView {...props} session={session} />
 }
 
-function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, briefRequest = 0, onBriefStart, onOpenTicket, onOpenView, desks = [], onOpenDesk, paneSurfaces = null, session }) {
+function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPickAccounts = null, mainAccountId = null, briefRequest = 0, onBriefStart, onOpenTicket, onOpenView, desks = [], onOpenDesk, paneSurfaces = null, session }) {
     const { user } = useAuth()
     const { rows, live, queuedTurn, lastTurn, chain, floor, send, stop, cancelQueued, choose, startNew, loadError } = session
     // The analyst's reads in line for this chat — said until they land (readWaiting.js, Roy 2026-11-14).
@@ -106,6 +108,14 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
         setDraft('')
         return send(t, { ...extras, ...more })
     }, [send, extras, queuedTurn])
+
+    // A builder's open question card (step 4) — shown while that builder is the mode.
+    const card = scope === 'main' ? openCard(rows, floor) : null
+    const answerCard = useCallback(async (answers, picked) => {
+        // The account picked on the card is marked in the venue picker too, so the pane and the build agree.
+        if (picked.length) onPickAccounts?.(picked.map(a => String(a.id)), String(picked[0].id))
+        return session.answer(card.seq, answers, { accounts: picked, mainAccountId: picked[0] ? String(picked[0].id) : null })
+    }, [session, card, onPickAccounts])
 
     const pickMode = useCallback(async (m) => {
         setPendingMode(m)
@@ -294,6 +304,19 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
                 </div>
             )}
 
+            {card && (
+                <QuestionCard
+                    key={card.seq}
+                    card={card}
+                    role={modeOption(mode).label}
+                    accounts={allAccounts ?? accounts}
+                    marked={accounts.map(a => String(a.id))}
+                    main={mainAccountId}
+                    onSubmit={answerCard}
+                    busy={busy}
+                />
+            )}
+
             <ChatInputRow
                 prefix="axl"
                 empty={empty}
@@ -324,6 +347,9 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
 ChatTimeline.propTypes = {
     scope:         PropTypes.string,
     accounts:      PropTypes.array,
+    // Every account in the workspace (a question card's account options) and the marking of the ones picked on it.
+    allAccounts:   PropTypes.array,
+    onPickAccounts: PropTypes.func,
     mainAccountId: PropTypes.string,
     briefRequest:  PropTypes.number,
     onBriefStart:  PropTypes.func,

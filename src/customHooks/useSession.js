@@ -216,5 +216,15 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
         }
     }, [api, _outcome, ready])
 
-    return { ...state, send, stop, cancelQueued, choose, startNew, resume, commit, edit, reopen, setMode }
+    /** Answer a builder's question card. @returns {Promise<object>} an outcome */
+    const answer = useCallback(async (seq, answers, { accounts = [], mainAccountId = null } = {}) => {
+        if (!(await ready())) return { ok: false, reason: 'not_found', message: 'The chat is not open yet', extra: {} }
+        try {
+            return { ok: true, result: await api.answer(ref.current.sessionId, { seq, answers, accounts, mainAccountId }) }
+        } catch (err) {
+            return _outcome(null, err, 'Those answers did not go through')
+        }
+    }, [api, _outcome, ready])
+
+    return { ...state, send, stop, cancelQueued, choose, startNew, resume, commit, edit, reopen, setMode, answer }
 }

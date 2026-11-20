@@ -256,6 +256,8 @@ export function MainPage() {
     }
     const { earnings, earningsFrom, earningsTo, earningsLoading, fed, fedLoading, ipo, ipoLoading, industries, industriesLoading, industriesError, week, assessments, themes } = useCalendarEvents()
     const { availableAccounts, selectedAccounts, setSelectedAccounts, mainAccountId, setMainAccountId } = useBrokerAccounts()
+    // A builder's question card picked the account(s): the venue picker marks the same ones (modes-and-builders.md step 4).
+    const pickAccounts = useCallback((ids, main) => { setSelectedAccounts(ids); setMainAccountId(main) }, [setSelectedAccounts, setMainAccountId])
     // The marked accounts as a ref, for the one-shot doorways below that must not re-register on
     // every selection change (SETUP_SHARED_OPEN reads it to ask readiness the right question).
     const timelineAccounts = useMemo(
@@ -1393,6 +1395,8 @@ export function MainPage() {
                             <div className="chat-with-pane">
                                 <ChatTimeline
                                     accounts={timelineAccounts}
+                                    allAccounts={availableAccounts}
+                                    onPickAccounts={pickAccounts}
                                     mainAccountId={mainAccountId}
                                     onOpenTicket={handleOpenTicket}
                                     onOpenView={handleOpenView}

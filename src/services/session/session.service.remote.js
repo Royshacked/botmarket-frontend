@@ -112,4 +112,15 @@ export const sessionService = {
     async setMode(sessionId, mode) {
         return httpService.post(`${BASE}/${encodeURIComponent(sessionId)}/mode`, { mode })
     },
+
+    /**
+     * A builder's question card answered (modes-and-builders.md step 4): the answers by question id, and the account
+     * objects picked on it. Accepted at once; the builder's turn streams on the socket. @returns {Promise<{ turnId, agent }>}
+     */
+    async answer(sessionId, { seq, answers, accounts = [], mainAccountId = null }) {
+        return httpService.post(`${BASE}/${encodeURIComponent(sessionId)}/answers`, {
+            seq, answers, accounts, mainAccountId,
+            clientTime: { clientNow: Date.now(), clientTz: Intl.DateTimeFormat().resolvedOptions().timeZone },
+        })
+    },
 }
