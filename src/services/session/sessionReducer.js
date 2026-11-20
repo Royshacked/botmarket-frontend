@@ -17,6 +17,9 @@ export const emptySession = Object.freeze({
     sessionId: null, scope: 'main', status: null, next: null,
     rows: [], lastSeq: 0,
     live: null,          // { turnId, agent, text, reasoning, tool, phase, status: 'queued' | 'running' }
+    // A BUILDER working while the user is with someone else (step 5a — Axl's turns run in their own lane): its frames
+    // never take the chat's live bubble. { turnId, agent, tool, targets, phase } — what the status line says.
+    background: null,
     queuedTurn: null,    // { turnId, agent, text } — the user spoke while another turn ran; it waits its turn
     lastTurn: null,      // { turnId, agent, status, payload, reason, message } — the last turn that ENDED
     floor: 'axl', agentState: {}, chain: null,
@@ -29,6 +32,14 @@ export const emptySession = Object.freeze({
 })
 
 const ENDED = new Set(['done', 'stopped', 'refused', 'error'])
+const BUILDERS = new Set(['mentor', 'portfolio', 'analyst'])
+
+/** A frame from a builder at work behind the user's back — not the turn the chat is drawing, and not the floor's. */
+const isBehind = (state, d) => BUILDERS.has(d.agent) && (state.floor ?? 'axl') !== d.agent && state.live?.turnId !== d.turnId
+const behind = (state, d, patch) => ({
+    ...state,
+    background: { ...(state.background?.turnId === d.turnId ? state.background : { tool: null, targets: null, phase: null }), turnId: d.turnId, agent: d.agent, ...patch },
+})
 
 /** Merge rows by seq (newer copy wins), in order. */
 function mergeRows(rows, incoming) {
@@ -140,6 +151,8 @@ export function sessionReducer(state, action) {
                 rows, lastSeq: maxSeq(rows, state.lastSeq), floor: d.floor ?? state.floor, status: d.status ?? state.status,
                 ...('chain' in d ? { chain: d.chain ?? null } : {}),
                 ...('waiting' in d ? { waiting: d.waiting ?? {} } : {}),
+                // The builder working behind the turn the user watches (step 5a).
+                background: d.background ? { turnId: d.background.turnId, agent: d.background.agent, tool: null, targets: null, phase: null } : null,
                 ...(d.agentState ? { agentState: d.agentState } : {}),
                 agentRev: mergeRevs(state.agentRev, d.agentRev),
             }
@@ -172,6 +185,12 @@ export function sessionReducer(state, action) {
         }
 
         case 'session_delta': {
+            if (isBehind(state, d)) {
+                const data = d.data ?? {}
+                if (d.type === 'status') return behind(state, d, { tool: data.tool ?? null, targets: Array.isArray(data.targets) ? data.targets : null })
+                if (d.type === 'phase') return behind(state, d, { phase: data.phase ?? null })
+                return state.background?.turnId === d.turnId ? state : behind(state, d, {})
+            }
             const live = liveFor(state, d.turnId, d.agent)
             const data = d.data ?? {}
             switch (d.type) {
@@ -184,6 +203,8 @@ export function sessionReducer(state, action) {
         }
 
         case 'session_turn': {
+            if (state.background?.turnId === d.turnId && ENDED.has(d.status)) return { ...state, background: null }
+            if (isBehind(state, d)) return d.status === 'started' ? behind(state, d, {}) : state
             if (d.status === 'started') return withLive(state, { ...liveFor(state, d.turnId, d.agent), status: 'running' })
             if (!ENDED.has(d.status)) return state
             const lastTurn = { turnId: d.turnId, agent: d.agent, status: d.status, payload: d.payload ?? null, reason: d.reason ?? null, message: d.message ?? null }

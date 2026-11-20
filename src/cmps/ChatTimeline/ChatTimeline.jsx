@@ -66,6 +66,10 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
     const { rows, live, queuedTurn, lastTurn, chain, floor, send, stop, cancelQueued, choose, startNew, loadError } = session
     // The analyst's reads in line for this chat — said until they land (readWaiting.js, Roy 2026-11-14).
     const readLines = readWaitingLines(session.waiting)
+    // A builder at work while the user is with Axl (step 5a) — said on one line, never in the chat's live bubble.
+    const behind = session.background
+        ? `The ${(speakerOf(session.background.agent).role ?? 'desk').toLowerCase()} is working in the background${session.background.tool ? ` — ${toolStatusLabel(session.background.tool, session.background.targets)}` : ''}.`
+        : null
     const [draft, setDraft]             = useState('')
     const [historyOpen, setHistoryOpen] = useState(false)
     // Info over the chat — a phone's (ChatInfo; the desktop Floor has its Info column). Stable: the sheet's Esc binds on it.
@@ -252,6 +256,11 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
                         {/* The finished plan stays in the thread; the levels so far only while Mentor has the floor. */}
                         {tradeSetup && (tradeReady || floor === 'mentor') && <MentorTradeChart setup={tradeSetup} ready={tradeReady} />}
 
+                        {behind && (
+                            <div className="chat-timeline__row chat-timeline__row--assistant chat-timeline__row--waiting-read chat-timeline__row--behind">
+                                <ToolStatusChip label={behind} />
+                            </div>
+                        )}
                         {readLines.map(l => (
                             <div key={l.key} className="chat-timeline__row chat-timeline__row--assistant chat-timeline__row--waiting-read">
                                 <ToolStatusChip label={l.text} />

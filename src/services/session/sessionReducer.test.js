@@ -8,6 +8,8 @@ const S = 'ses_1'
 const loaded = sessionReducer(emptySession, { type: 'load', session: { sessionId: S, scope: 'main', status: 'active', floor: 'axl', agentState: { mentor: { draft: 1 } } } })
 const row = (seq, over = {}) => ({ seq, agent: 'axl', role: 'assistant', kind: 'msg', content: `r${seq}`, ...over })
 const fold = (state, ...actions) => actions.reduce(sessionReducer, state)
+// The trader on the floor — the user is with him, so his turns are the chat's (not the background's: step 5a).
+const atMentor = sessionReducer(loaded, { type: 'session_state', data: { sessionId: S, floor: 'mentor' } })
 
 test('load: a fresh timeline from the header', () => {
     assert.equal(loaded.sessionId, S)
@@ -68,7 +70,7 @@ test("a specialist Axl asks streams under its own role inside his turn — its w
 })
 
 test('stopped / refused / error end the turn; another turn’s end leaves ours running', () => {
-    const running = sessionReducer(loaded, { type: 'session_turn', data: { sessionId: S, turnId: 't1', agent: 'mentor', status: 'started' } })
+    const running = sessionReducer(atMentor, { type: 'session_turn', data: { sessionId: S, turnId: 't1', agent: 'mentor', status: 'started' } })
     for (const status of ['stopped', 'refused', 'error']) {
         const s = sessionReducer(running, { type: 'session_turn', data: { sessionId: S, turnId: 't1', agent: 'mentor', status, reason: 'x', message: 'm' } })
         assert.equal(s.live, null)
@@ -79,7 +81,7 @@ test('stopped / refused / error end the turn; another turn’s end leaves ours r
 })
 
 test('a chain turn the client never sent shows up live from its first frame', () => {
-    const s = sessionReducer(loaded, { type: 'session_delta', data: { sessionId: S, turnId: 'chn_1_1', agent: 'mentor', type: 'token', data: { text: 'On it' } } })
+    const s = sessionReducer(atMentor, { type: 'session_delta', data: { sessionId: S, turnId: 'chn_1_1', agent: 'mentor', type: 'token', data: { text: 'On it' } } })
     assert.deepEqual([s.live.turnId, s.live.agent, s.live.text], ['chn_1_1', 'mentor', 'On it'])
 })
 
@@ -126,7 +128,7 @@ test('tap options: only under the last reply, gone once the user has answered', 
 // ─── Phase 7 CR ───────────────────────────────────────────────────────────────
 
 test('speaking while a turn runs queues behind it; it becomes live when the server starts it', () => {
-    let s = sessionReducer(loaded, { type: 'session_turn', data: { sessionId: S, turnId: 'chn_1', agent: 'mentor', status: 'started' } })
+    let s = sessionReducer(atMentor, { type: 'session_turn', data: { sessionId: S, turnId: 'chn_1', agent: 'mentor', status: 'started' } })
     s = sessionReducer(s, { type: 'sending', turnId: 't2', agent: 'mentor', text: 'wait, use AMD' })
     assert.equal(s.live.turnId, 'chn_1', 'the running turn keeps the screen')
     assert.deepEqual(s.queuedTurn, { turnId: 't2', agent: 'mentor', text: 'wait, use AMD' })
@@ -230,4 +232,21 @@ test('a tool status keeps the names it runs on; the next bare start or a token c
     assert.deepEqual([s.live.tool, s.live.targets], ['get_indicators', null])
     s = fold(s, d('status', { tool: 'get_indicators', targets: ['FCX'] }), d('token', { text: 'Pick' }))
     assert.deepEqual([s.live.tool, s.live.targets], [null, null])
+})
+
+test("lanes (step 5a): a builder's turn while the user is with Axl runs in the background — never in the chat's live bubble", () => {
+    const d = (agent, turnId, type, data) => ({ type: 'session_delta', data: { sessionId: S, turnId, agent, type, data } })
+    const t = (agent, turnId, status) => ({ type: 'session_turn', data: { sessionId: S, turnId, agent, status } })
+    let s = fold(loaded, t('mentor', 'tm', 'started'), d('mentor', 'tm', 'status', { tool: 'get_quote', targets: ['NVDA'] }), d('mentor', 'tm', 'token', { text: 'building' }))
+    assert.equal(s.live, null, 'the floor is Axl: nothing in the live bubble')
+    assert.deepEqual([s.background.turnId, s.background.agent, s.background.tool], ['tm', 'mentor', 'get_quote'])
+    // The user talks to Axl meanwhile: his turn is the live one; the trader's frames still go behind.
+    s = fold(s, { type: 'sending', turnId: 'ta', agent: 'axl' }, t('axl', 'ta', 'started'), d('axl', 'ta', 'token', { text: 'Hi' }), d('mentor', 'tm', 'token', { text: '…' }))
+    assert.deepEqual([s.live.turnId, s.live.text, s.queuedTurn], ['ta', 'Hi', null], "Axl's turn is not queued behind the trader's")
+    s = fold(s, t('mentor', 'tm', 'done'))
+    assert.equal(s.background, null)
+    assert.equal(s.live.turnId, 'ta', "the trader's end leaves Axl's turn running")
+    // With the trader on the floor, his frames are the chat's again.
+    s = fold(s, t('axl', 'ta', 'done'), { type: 'session_state', data: { sessionId: S, floor: 'mentor' } }, t('mentor', 'tm2', 'started'))
+    assert.equal(s.live.turnId, 'tm2')
 })
