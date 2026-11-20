@@ -30,8 +30,8 @@ export const PWA = {
 		scope:            '/',
 		display:          'standalone',
 		orientation:      'any',
-		theme_color:      '#06080b',   // --bg-base
-		background_color: '#06080b',
+		theme_color:      '#050505',   // the Black theme's --bg-base (install splash only)
+		background_color: '#050505',
 		icons: [
 			{ src: '/img/pwa-192.png',          sizes: '192x192', type: 'image/png' },
 			{ src: '/img/pwa-512.png',          sizes: '512x512', type: 'image/png' },

@@ -448,10 +448,22 @@ export function scoreCell(s, minJudge = 20) {
 }
 
 /** The book's sortable columns, each with the direction it sorts in first. */
-export const BOOK_SORTS = Object.freeze({ symbol: 'asc', upside: 'desc', since: 'desc', vs_spy: 'desc', progress: 'desc', days_left: 'asc' })
+// Every column of Swing / Long term / Covered sorts (Roy, 2026-11-20) — the first click goes the useful way: prices and
+// upside high first, the best rating first, Now before Wait, the nearest date first, names and origins A→Z.
+export const BOOK_SORTS = Object.freeze({
+    symbol: 'asc', upside: 'desc', since: 'desc', vs_spy: 'desc', progress: 'desc', days_left: 'asc',
+    last: 'desc', rating: 'desc', target: 'desc', timing: 'desc', from: 'asc',
+})
+// A rating's rank, best highest; a word not here sorts with the missing (last).
+const RATING_RANK = Object.freeze({ strong_buy: 5, buy: 4, outperform: 4, overweight: 4, hold: 3, neutral: 3, underperform: 2, underweight: 2, sell: 2, strong_sell: 1 })
+const TIMING_RANK = Object.freeze({ now: 2, wait: 1 })
 const BOOK_KEY = {
     symbol: (r) => r.symbol ?? '', upside: (r) => r.upside_pct, since: (r) => r.since_set_pct, vs_spy: (r) => r.vs_spy,
     progress: (r) => r.progress, days_left: (r) => r.days_left,
+    last: (r) => r.price, target: (r) => r.target,
+    rating: (r) => RATING_RANK[String(r.rating ?? '').toLowerCase()],
+    timing: (r) => TIMING_RANK[r.timing?.verdict],
+    from: (r) => String(bookOrigin(r).text ?? '').toLowerCase(),   // A→Z regardless of case: "desk" among "Banks", "Semis"
 }
 
 /** A book sorted by one column — missing values last either way; null key keeps the server's order. Pure. */
@@ -507,6 +519,8 @@ export function rowReason(row) {
 /** The sortable columns of the watchlist, each with the direction it sorts in first. */
 export const LIST_SORTS = Object.freeze({
     status: 'asc', symbol: 'asc', price: 'desc', chg: 'desc', vol: 'desc', atr: 'desc', grade: 'desc', earnings: 'asc', found: 'asc',
+    // Every column sorts (Roy, 2026-11-20): the most room first, the best result first, the most target still open first.
+    room: 'desc', result: 'desc', target: 'desc',
 })
 
 // The grade a row sorts on: THIS column's on a horizon's list (what the cell shows), else its best column's.
@@ -515,6 +529,32 @@ const _grade = (row, column = null) => {
     if (!col) return -1
     const c = row.cells[col]
     return GRADE_RANK[c.grade] * 1000 + (c.range?.open_sky ? 99 : (c.range?.atr_mult ?? 0))
+}
+// The column a row SHOWS on this list (rowView's rule): this horizon's when it is graded there, else its best.
+const _shownCell = (row, column) => {
+    const col = column && row.cells?.[column]?.grade ? column : bestColumn(row, COLUMN_ORDER)
+    return { col, cell: col ? row.cells?.[col] ?? null : null }
+}
+// Room: open sky is the most; then the ATR multiple (the % when there is none).
+const _room = (row, column) => {
+    const r = _shownCell(row, column).cell?.range
+    if (!r) return null
+    if (r.open_sky) return 1e6
+    return Number.isFinite(r.atr_mult) ? r.atr_mult : Number.isFinite(r.pct) ? r.pct / 100 : null
+}
+// Result: ✓ reached, then ↑ up, ↓ down, ✗ missed — each by its move; a window still open (or not scored) has none yet.
+const RESULT_TIER = Object.freeze({ reached: 3, up: 2, down: 1, missed: 0 })
+const _result = (row, column) => {
+    const { col } = _shownCell(row, column)
+    const res = col ? row.results?.[col] : null
+    if (!res || !(res.state in RESULT_TIER)) return null
+    const move = res.state === 'missed' ? res.mfe_pct : res.ret_pct
+    return RESULT_TIER[res.state] * 1e4 + (Number.isFinite(move) ? move : 0)
+}
+// Target: what is still open toward the analyst's target, from his read (reads: symbol → read; only This week has them).
+const _target = (row, _column, reads) => {
+    const t = reads?.get?.(row.symbol)?.target
+    return Number.isFinite(t?.open_pct) ? t.open_pct : null
 }
 const SORT_KEY = {
     status:   (r) => { const i = Object.keys(STATUS_LABEL).indexOf(rowStatus(r)); return i < 0 ? 9 : i },
@@ -526,6 +566,9 @@ const SORT_KEY = {
     grade:    _grade,
     earnings: (r) => r.next_earnings ?? null,
     found:    (r) => { const i = CHECKPOINT_ORDER.indexOf(r.first_seen); return i < 0 ? null : i },
+    room:     _room,
+    result:   _result,
+    target:   _target,
 }
 
 /**
@@ -533,8 +576,9 @@ const SORT_KEY = {
  * earnings date is not "the soonest"); ties keep Argus's picks first, then the symbol. Pure — a new array. `column`: a
  * horizon's list — the grade and the tie-break's pick are THAT column's (code review 2026-10-24).
  */
-export function sortList(rows, key, dir, column = null) {
-    const get = key === 'grade' ? (r) => _grade(r, column) : SORT_KEY[key] ?? SORT_KEY.status
+export function sortList(rows, key, dir, column = null, reads = null) {
+    const by = SORT_KEY[key] ?? SORT_KEY.status
+    const get = (r) => by(r, column, reads)   // grade, room and result read THIS column; target reads the analyst's reads
     const picked = (r) => (column ? pickFor(r, column) : r.pick) ? 0 : 1
     const sign = (dir ?? LIST_SORTS[key] ?? 'asc') === 'desc' ? -1 : 1
     const known = (v) => v != null && v !== '' && !(typeof v === 'number' && !Number.isFinite(v))

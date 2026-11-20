@@ -46,13 +46,13 @@ describe('MentorSurface — the table', () => {
         expect(container.querySelectorAll('.desk-surface button').length).toBe(0)
     })
 
-    it('the account picker is there from the empty table on — a trade’s account is chosen at its start (2026-10-19)', () => {
+    it('has no account picker — the account is chosen on the question card (style session 2026-11-20)', () => {
         const setSelectedAccounts = vi.fn()
         const { container, rerender } = render(<MentorSurface session={stub(null)} deskProps={{ ...desk(), setSelectedAccounts }} />)
         expect(screen.getByText(/Nothing on the table yet/)).toBeTruthy()
-        expect(container.querySelector('.mentor-surface__accounts')).toBeTruthy()
+        expect(container.querySelector('.mentor-surface__accounts')).toBeNull()
         rerender(<MentorSurface session={stub({ draft: SETUP, view: { readiness: READY } })} deskProps={{ ...desk(), setSelectedAccounts }} />)
-        expect(container.querySelectorAll('.mentor-surface__accounts')).toHaveLength(1)
+        expect(container.querySelector('.mentor-surface__accounts')).toBeNull()
     })
 
     it('the setup being built is the pane — always open, no coverage chips, no toggle (Roy, 2026-11-12)', () => {

@@ -4,7 +4,7 @@ import { OwnedBadge } from '../OwnedBadge/OwnedBadge.jsx'
 import { HotlistRowPage } from './HotlistRowPage.jsx'
 import {
     DAY_BOARD_LABEL, DAY_BOARD_TITLE, DAY_BOARD_RULE, quotedSpan, latestBoardId, orderedBoards, volText, gapText, catalystCell,
-    headlineTime, dayBoardsNote,
+    headlineTime, dayBoardsNote, DAY_SORTS, sortDayRows,
 } from './hotlistDay.utils.js'
 
 // THE INTRADAY TAB (botmarket-backend services/hotlist.day.js; docs/design/argus-rework.md §3.3 — revived 2026-11-11):
@@ -29,6 +29,26 @@ export function HotlistDayBoards({ data, day = null, boardId: heldId, onBoard, o
     const held = onBoard !== undefined
     const boardId = held ? heldId : ownId
     const choose = held ? onBoard : setOwnId
+    // Every column sorts (Roy, 2026-11-20): click — sort; again — the other way; a third time — the board's own order.
+    // Kept across boards: switching 09:20 → 10:30 keeps the column the user is reading by.
+    const [sort, setSort] = useState({ key: null, dir: null })
+    const onSort = (key) => setSort(s => {
+        if (s.key !== key) return { key, dir: null }
+        const cur = s.dir ?? DAY_SORTS[key]
+        if (s.dir && cur !== DAY_SORTS[key]) return { key: null, dir: null }
+        return { key, dir: cur === 'asc' ? 'desc' : 'asc' }
+    })
+    const th = (key, label, { cls, title } = {}) => {
+        const on = sort.key === key
+        const dir = on ? (sort.dir ?? DAY_SORTS[key]) : null
+        return (
+            <th scope="col" className={cls} title={title} aria-sort={on ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                <button type="button" className={`hot-sort${on ? ' hot-sort--on' : ''}`} onClick={() => onSort(key)}>
+                    {label}{on ? <span aria-hidden="true">{dir === 'asc' ? ' ▲' : ' ▼'}</span> : null}
+                </button>
+            </th>
+        )
+    }
     // A new answer (a reload, the next board landing) opens on its latest board — unless the one on screen is still there.
     useEffect(() => {
         const list = answered ?? []
@@ -48,8 +68,9 @@ export function HotlistDayBoards({ data, day = null, boardId: heldId, onBoard, o
     if (note.empty) return <p className="floor-empty">{note.empty}</p>
     const ordered = orderedBoards(boards)
     const board = ordered.find(b => b.id === boardId) ?? ordered[ordered.length - 1]
-    const rows = board.rows ?? []
-    const span = quotedSpan(rows)
+    const boardRows = board.rows ?? []
+    const rows = sortDayRows(boardRows, sort.key, sort.dir)
+    const span = quotedSpan(boardRows)
     const label = DAY_BOARD_LABEL[board.checkpoint] ?? board.checkpoint
 
     // A row's page, in place of the table.
@@ -89,12 +110,12 @@ export function HotlistDayBoards({ data, day = null, boardId: heldId, onBoard, o
                             <thead>
                                 <tr>
                                     <th scope="col" className="hot-table__star"><span className="hot-sr">Details</span></th>
-                                    <th scope="col">Sym</th>
-                                    <th scope="col" className="hot-table__num" title="The price when the board quoted it — not live">Last</th>
-                                    <th scope="col" className="hot-table__num" title="Change from the previous close">Chg%</th>
-                                    <th scope="col" className="hot-table__num hot-col--more" title="Volume against an ordinary day so far (before the open: % of a day)">Vol</th>
-                                    <th scope="col" className="hot-table__num hot-col--more" title="Average daily range, % of price">ATR%</th>
-                                    <th scope="col" title="Its freshest headline since the last close (ET), and a report or rating change">Why — the news</th>
+                                    {th('symbol', 'Sym')}
+                                    {th('price', 'Last', { cls: 'hot-table__num', title: 'The price when the board quoted it — not live' })}
+                                    {th('chg', 'Chg%', { cls: 'hot-table__num', title: 'Change from the previous close' })}
+                                    {th('vol', 'Vol', { cls: 'hot-table__num hot-col--more', title: 'Volume against an ordinary day so far (before the open: % of a day)' })}
+                                    {th('atr', 'ATR%', { cls: 'hot-table__num hot-col--more', title: 'Average daily range, % of price' })}
+                                    {th('news', 'Why — the news', { cls: 'hot-day-why', title: 'Its freshest headline since the last close (ET), and a report or rating change — sorts by its time' })}
                                 </tr>
                             </thead>
                             <tbody>
@@ -129,7 +150,7 @@ function Catalyst({ cat }) {
     return (
         <>
             {cat.title && <span title={cat.more ? `${cat.more} more headline${cat.more === 1 ? '' : 's'} since the last close — open the row` : undefined}>
-                {cat.time && <span className="hot-dim">{cat.time} </span>}{cat.title}</span>}
+                {cat.time && <span className="hot-dim hot-news-time">{cat.time} </span>}{cat.title}</span>}
             {cat.flags.map(f => <span key={f} className="hot-day-flag">{f}</span>)}
         </>
     )
@@ -166,7 +187,7 @@ function DayDetail({ row, board, label, onBuild = null }) {
             <p className="hot-detail__line">In play on the {label} board: {DAY_BOARD_RULE[board.checkpoint] ?? 'moving up so far'}.{row.why?.length ? ` ${row.why.join('; ')}.` : ''}</p>
             {flags.length > 0 && <p className="hot-detail__line">Since the last close: {flags.join(' and ')}.</p>}
             {news.length > 0
-                ? <ul className="hot-day-news">{news.map((n, i) => <li key={i}><span className="hot-dim">{headlineTime(n.at, board.day ?? null)} </span>{n.title}</li>)}</ul>
+                ? <ul className="hot-day-news">{news.map((n, i) => <li key={i}><span className="hot-dim hot-news-time">{headlineTime(n.at, board.day ?? null)} </span>{n.title}</li>)}</ul>
                 : <p className="hot-detail__line hot-dim">No headline since the last close.</p>}
             <div className="hot-detail__actions">
                 {onBuild && (

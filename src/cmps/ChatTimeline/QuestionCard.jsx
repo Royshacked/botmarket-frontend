@@ -5,6 +5,10 @@ import { accountOptions, initialAnswers, isAnswered, allAnswered } from './quest
 // A BUILDER'S QUESTION CARD above the prompt box (docs/design/modes-and-builders.md M5/M6, step 4 — Roy, 2026-11-20:
 // "like in Claude cli"): every question the build needs, at once — the options, "Other" where it is allowed, the account
 // from this workspace's accounts — and one submit. Typing in the chat instead sets it aside (the server's rule).
+//
+// NOT A CARD since the style session (2026-11-20, Roy: "don't need to be inside a card — make it all over the chat box;
+// divide the questions with numbers"): it takes the chat area above the prompt box while it is open (the thread steps
+// aside — ChatTimeline), and the questions are a numbered list. The class names keep "question-card" for the drives.
 const PLACEHOLDER = { name: 'Or type a ticker', size: 'e.g. $10,000', risk: 'e.g. $100, or 0.75% of the account', rr: 'e.g. 2.5' }
 
 export function QuestionCard({ card, role, accounts, marked = [], main = null, onSubmit, busy = false }) {
@@ -57,15 +61,16 @@ export function QuestionCard({ card, role, accounts, marked = [], main = null, o
                 <span className="question-card__role">{role}</span>
             </header>
             <div className="question-card__body">
-                {questions.map(q => {
+                {questions.map((q, i) => {
                     const a = answers[q.id] ?? {}
                     const done = isAnswered(q, a)
                     const choices = q.kind === 'account' ? accountChoices : q.options
                     return (
                         <fieldset key={q.id} className={`question-card__q${done ? ' is-done' : ''}`}>
                             <legend className="question-card__legend">
-                                <span className="question-card__chip">{q.header}</span>
+                                <span className="question-card__num" aria-hidden="true">{i + 1}.</span>
                                 <span className="question-card__question">{q.question}</span>
+                                <span className="question-card__chip">{q.header}</span>
                             </legend>
                             {q.kind === 'account' && !choices.length && (
                                 <p className="question-card__note">No accounts in this workspace — connect or add one first.</p>

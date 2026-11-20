@@ -410,7 +410,7 @@ describe('HotlistPanel — a list per horizon', () => {
         // The day horizons were archived (2026-10-25): a past day shows only the ones that still have names.
         // Four tabs (2026-10-28), no All — the archived Open only because this day has its names.
         // Intraday first since 2026-11-11 (the day boards — none in this test).
-        expect(tabs).toEqual(['Intraday 0', 'Open 1', 'This week 1', 'Swing 0', 'Long term 0', 'Covered companies 0', 'Echo · test'])
+        expect(tabs).toEqual(['Intraday 0', 'Open 1', 'This week 1', 'Event driven', 'Swing 0', 'Long term 0', 'Covered companies 0'])
         expect(screen.getByRole('button', { name: 'This week 1' }).title).toMatch(/1 on the list \(confirmed by the analyst\) of 3 screened/)
         expect(screen.queryByRole('button', { name: /^Mid-day/ })).toBeNull()
         fireEvent.click(screen.getByRole('button', { name: /^This week/ }))
@@ -542,7 +542,7 @@ describe('HotlistPanel — the horizon lists, reviewed', () => {
     it('a tab with no confirmed names but screened ones still opens', async () => {
         await mount()
         const group = within(screen.getByRole('group', { name: 'Horizon' }))
-        expect(group.getAllByRole('button').map(b => b.textContent)).toEqual(['Intraday 0', 'Open 0', 'This week 0', 'Swing 0', 'Long term 0', 'Covered companies 0', 'Echo · test'])
+        expect(group.getAllByRole('button').map(b => b.textContent)).toEqual(['Intraday 0', 'Open 0', 'This week 0', 'Event driven', 'Swing 0', 'Long term 0', 'Covered companies 0'])
         expect(group.getByRole('button', { name: /^This week/ }).disabled).toBe(false, 'none confirmed, but screened names: still opens')
     })
 

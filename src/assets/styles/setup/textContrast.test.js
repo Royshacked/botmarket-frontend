@@ -19,19 +19,21 @@ const css = readFileSync(fileURLToPath(new URL('./_themes.scss', import.meta.url
 // it is the quietest tier in the app and never the only carrier of information — so its floor is
 // set at the ratio it now holds rather than at AA.
 const FLOORS = { '--text-secondary': 7.0, '--text-muted': 5.2, '--text-dim': 4.0 }
-// axl-light is measured by exactly the same rules — a light theme is where an eyeballed text
+// white is measured by exactly the same rules — a light theme is where an eyeballed text
 // ladder collapses fastest (pale grey on white passes nothing), so it is the theme that most
 // needs the floor.
-const THEMES = ['ocean', 'forest', 'crimson', 'axl', 'axl-light']
+const THEMES = ['ocean', 'forest', 'crimson', 'black', 'grey', 'white']
 
 function tokensFor(theme) {
-    // Each theme is one selector block; `ocean` shares its block with the leading `:root`.
+    // A theme can be spread over several blocks — black / grey / white share a font block before
+    // each has its own — so every block whose selector ends on this theme is read and merged.
+    // `ocean` shares its block with the leading `:root`.
     const head = theme === 'ocean' ? ':root,\\s*\\[data-theme="ocean"\\]' : `\\[data-theme="${theme}"\\]`
-    const block = css.match(new RegExp(`${head}\\s*\\{([\\s\\S]*?)\\n\\}`))
-    assert.ok(block, `no block found for theme "${theme}"`)
-    return Object.fromEntries(
+    const blocks = [...css.matchAll(new RegExp(`${head}\\s*\\{([\\s\\S]*?)\\n\\}`, 'g'))]
+    assert.ok(blocks.length, `no block found for theme "${theme}"`)
+    return Object.fromEntries(blocks.flatMap(block =>
         [...block[1].matchAll(/(--[\w-]+):\s*(#[0-9a-fA-F]{6})\s*;/g)].map(m => [m[1], m[2]]),
-    )
+    ))
 }
 
 function luminance(hex) {
@@ -71,6 +73,21 @@ for (const theme of THEMES) {
         for (let i = 1; i < ladder.length; i++) {
             assert.ok(ladder[i] < ladder[i - 1],
                 `${theme}: ${names[i]} (${ladder[i].toFixed(2)}:1) is not quieter than ${names[i - 1]} (${ladder[i - 1].toFixed(2)}:1)`)
+        }
+    })
+}
+
+// Black and Grey wear a WHITE accent (Roy, 2026-11-20). Two pairs that a white accent can break:
+// accent text on a card, and the label on an accent-filled button — which is ink there (--on-accent),
+// because white on a pale grey fill disappears.
+for (const theme of ['black', 'grey']) {
+    test(`${theme}: the white accent reads on a card, and a button label reads on the accent fill`, () => {
+        const t = tokensFor(theme)
+        assert.ok(contrast(t['--accent-light'], t['--bg-surface']) >= 7, `${theme} --accent-light on --bg-surface`)
+        assert.ok(contrast(t['--accent-bright'], t['--accent-deep']) >= 7, `${theme} --accent-bright on --accent-deep`)
+        for (const fill of ['--accent', '--accent-light']) {
+            const r = contrast(t['--on-accent'], t[fill])
+            assert.ok(r >= 4.5, `${theme} --on-accent on ${fill} is ${r.toFixed(2)}:1`)
         }
     })
 }

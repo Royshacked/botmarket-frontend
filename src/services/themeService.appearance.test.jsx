@@ -1,13 +1,15 @@
-// Dark ⇄ light appearance. Lives in .test.jsx (not .test.js) because everything here writes
-// CSS custom properties onto <html> — it needs vitest's jsdom, not the Node runner.
+// The three appearances — black · grey · white. Lives in .test.jsx (not .test.js) because
+// everything here writes CSS custom properties onto <html> — it needs vitest's jsdom.
 //
 // What these lock down is the one thing a light theme gets wrong silently: a generator that
 // keeps producing dark-band values while the palette flips. Nothing throws when that happens —
 // you just get white text on white, so the assertions are on the numbers the generators emit.
 import { describe, it, expect, beforeEach } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import {
     loadAppearance, saveAppearance, isLight, applyAppearance,
-    applyBgSpectrum, applyAccentHue, clearAccentHue, initTheme,
+    applyAccentHue, clearAccentHue, initTheme, APPEARANCES,
 } from './themeService'
 
 const root = () => document.documentElement
@@ -21,71 +23,90 @@ beforeEach(() => {
     root().removeAttribute('style')
 })
 
-describe('appearance mode', () => {
-    it('defaults to dark, and treats an unknown stored value as dark', () => {
-        expect(loadAppearance()).toBe('dark')
+describe('appearance', () => {
+    it('offers exactly black, grey and white', () => {
+        expect(APPEARANCES).toEqual(['black', 'grey', 'white'])
+    })
+
+    it('defaults to black, and treats an unknown stored value as black', () => {
+        expect(loadAppearance()).toBe('black')
         localStorage.setItem('themeAppearance', 'sepia')
-        expect(loadAppearance()).toBe('dark')
+        expect(loadAppearance()).toBe('black')
         expect(isLight()).toBe(false)
     })
 
-    it('persists the choice and reports it', () => {
-        saveAppearance('light')
-        expect(loadAppearance()).toBe('light')
+    it('carries a device that saved the old switch to its side: dark → black, light → white', () => {
+        localStorage.setItem('themeAppearance', 'dark')
+        expect(loadAppearance()).toBe('black')
+        localStorage.setItem('themeAppearance', 'light')
+        expect(loadAppearance()).toBe('white')
         expect(isLight()).toBe(true)
     })
 
-    it('wears the matching [data-theme] block at boot', () => {
-        initTheme()
-        expect(root().getAttribute('data-theme')).toBe('axl')
+    it('persists the choice and reports it; only white is paper', () => {
+        for (const id of ['black', 'grey', 'white']) {
+            saveAppearance(id)
+            expect(loadAppearance()).toBe(id)
+            expect(isLight()).toBe(id === 'white')
+        }
+    })
 
-        saveAppearance('light')
+    it('wears the matching [data-theme] block at boot', () => {
+        for (const id of ['black', 'grey', 'white']) {
+            saveAppearance(id)
+            initTheme()
+            expect(root().getAttribute('data-theme')).toBe(id)
+        }
+    })
+
+    it('clears what the retired background slider left inline, so the theme block shows', () => {
+        root().style.setProperty('--bg-base', 'hsl(176, 72%, 3.5%)')
+        root().style.setProperty('--text-muted', 'hsl(197, 17%, 20%)')
         initTheme()
-        expect(root().getAttribute('data-theme')).toBe('axl-light')
+        expect(varOf('--bg-base')).toBe('')
+        expect(varOf('--text-muted')).toBe('')
     })
 
     it('applyAppearance saves and re-applies in one step', () => {
-        applyAppearance('light')
-        expect(localStorage.getItem('themeAppearance')).toBe('light')
-        expect(root().getAttribute('data-theme')).toBe('axl-light')
+        applyAppearance('white')
+        expect(localStorage.getItem('themeAppearance')).toBe('white')
+        expect(root().getAttribute('data-theme')).toBe('white')
 
-        applyAppearance('dark')
-        expect(root().getAttribute('data-theme')).toBe('axl')
+        applyAppearance('grey')
+        expect(root().getAttribute('data-theme')).toBe('grey')
+    })
+
+    it('puts a saved accent into the paper band on white and the night band on grey', () => {
+        localStorage.setItem('accentHue', '174')
+        applyAppearance('white')
+        expect(lightnessOf('--accent-bright')).toBeLessThan(lightnessOf('--accent-deep'))
+        applyAppearance('grey')
+        expect(lightnessOf('--accent-bright')).toBeGreaterThan(lightnessOf('--accent-deep'))
     })
 })
 
-describe('background spectrum follows the appearance', () => {
-    it('sits near black in dark and near white in light, at the same slider position', () => {
-        applyBgSpectrum(40, 50, false)
-        expect(lightnessOf('--bg-base')).toBeLessThan(12)
+describe('the phone browser bar', () => {
+    const bar = () => document.querySelector('meta[name="theme-color"]')?.getAttribute('content')
+    const css = readFileSync(resolve(__dirname, '../assets/styles/setup/_themes.scss'), 'utf8')
+    const bgBaseOf = id => css.match(new RegExp(`\\[data-theme="${id}"\\]\\s*\\{[^}]*?--bg-base:\\s*(#[0-9a-fA-F]{6})`))?.[1]
 
-        applyBgSpectrum(40, 50, true)
-        expect(lightnessOf('--bg-base')).toBeGreaterThan(85)
-    })
+    beforeEach(() => document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.remove()))
 
-    it('keeps the card lift meaning: a raised surface moves AWAY from the page in both', () => {
-        applyBgSpectrum(40, 50, false)
-        expect(lightnessOf('--bg-raised')).toBeGreaterThan(lightnessOf('--bg-base')) // toward white
-        applyBgSpectrum(40, 50, true)
-        expect(lightnessOf('--bg-raised')).toBeGreaterThan(lightnessOf('--bg-base')) // toward white
-        expect(lightnessOf('--bg-deep')).toBeLessThan(lightnessOf('--bg-base'))      // the page floor
-    })
-
-    it('reads the saved appearance when the caller does not pass one', () => {
-        saveAppearance('light')
-        applyBgSpectrum(40, 50)
-        expect(lightnessOf('--bg-base')).toBeGreaterThan(85)
-    })
-
-    it('never leaves the 0-100 lightness range at the ends of the depth slider', () => {
-        for (const light of [false, true]) {
-            for (const shade of [0, 50, 100]) {
-                applyBgSpectrum(100, shade, light)
-                const l = lightnessOf('--bg-raised')
-                expect(l).toBeGreaterThanOrEqual(0)
-                expect(l).toBeLessThanOrEqual(100)
-            }
+    it('takes the page colour of whichever theme is on, live', () => {
+        for (const id of ['black', 'grey', 'white']) {
+            applyAppearance(id)
+            expect(bar()?.toUpperCase()).toBe(bgBaseOf(id).toUpperCase())
         }
+    })
+
+    it('rewrites the one meta tag index.html ships rather than adding a second', () => {
+        const meta = document.createElement('meta')
+        meta.setAttribute('name', 'theme-color')
+        meta.setAttribute('content', '#050505')
+        document.head.appendChild(meta)
+        applyAppearance('white')
+        expect(document.querySelectorAll('meta[name="theme-color"]')).toHaveLength(1)
+        expect(bar()).toBe('#F4F4F5')
     })
 })
 

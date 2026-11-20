@@ -160,15 +160,15 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
                                 <tr>
                                     <th scope="col" className="hot-table__star"><span className="hot-sr">Details</span></th>
                                     {th('symbol', 'Sym')}
-                                    <th scope="col" className="hot-table__num hot-col--more" title={lastTitle(book?.asof)}>Last</th>
-                                    <th scope="col" title="The analyst's rating">Rating</th>
-                                    <th scope="col" className="hot-table__num" title="The analyst's price target">Target</th>
+                                    {th('last', 'Last', { num: true, more: true, title: lastTitle(book?.asof) })}
+                                    {th('rating', 'Rating', { title: "The analyst's rating" })}
+                                    {th('target', 'Target', { num: true, title: "The analyst's price target" })}
                                     {th('upside', 'Upside', { num: true, title: 'From the last close to the target' })}
-                                    {!covered && <th scope="col" title="The stock picker's timing read, weekly: a buy now, or wait — and for what (hover a cell)">Timing</th>}
+                                    {!covered && th('timing', 'Timing', { title: "The stock picker's timing read, weekly: a buy now, or wait — and for what (hover a cell)" })}
                                     {th('days_left', 'By', { more: true, title: 'The target date, and the horizon it was set for' })}
                                     {th('since', 'Since set', { more: true, title: 'Did it work: the move since the target was set (and against SPY over the same days); ✓ hit, ✗ broken, expired once settled' })}
                                     {th('progress', 'To target', { num: true, more: true, title: 'How far from the price the day the target was set toward the target' })}
-                                    <th scope="col" className="hot-col--more" title="Where the name came from: the weekly chain (the industry strategist's industry or theme → the stock picker → the analyst), or the desk">From</th>
+                                    {th('from', 'From', { more: true, title: "Where the name came from: the weekly chain (the industry strategist's industry or theme → the stock picker → the analyst), or the desk" })}
                                 </tr>
                             </thead>
                             <tbody>

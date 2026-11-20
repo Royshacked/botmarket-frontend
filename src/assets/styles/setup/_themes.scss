@@ -167,149 +167,206 @@
     --h1-glow-3: rgba(80,  10,  25,  0.35);
 }
 
-// ── Axl (the active theme — calm palette, soft aurora bloom) ─────────────────
-// Selector is :root[data-theme="axl"] (not just [data-theme="axl"]) so the aurora
-// stop overrides below out-specify the shared :root block lower in this file;
-// otherwise that trailing :root would re-apply the full-strength aurora stops.
-:root[data-theme="axl"] {
-    // Brand font pairing app-wide
+// ── The three appearances: Black · Grey · White (style session 2026-11-20) ───
+// The app wears exactly one of these (themeService APPEARANCES → data-theme on <html>). They replace
+// the teal-tinted night 'axl' and the tinted paper 'axl-light': the SURFACES are now neutral greys
+// with no hue in them, and the colour lives only where it means something — the accent (white on
+// black and grey, teal on white), the trade semantics (long/short, status rows, type badges) and the header wave.
+//
+//   black — true-black page, cards a step off it (OLED-friendly, the loudest contrast)
+//   grey  — a dark charcoal, softer for long reading sessions
+//   white — paper; cards are pure white on a faint grey page
+//
+// Every text tier is pinned to the contrast ladder against its own --bg-surface (note at the top of
+// this file; textContrast.test.js measures all three). The selectors are :root[data-theme=…] so they
+// out-specify the shared :root block lower in this file.
+
+// Shared by all three — the brand font pairing (light or dark is a palette, not a look).
+:root[data-theme="black"],
+:root[data-theme="grey"],
+:root[data-theme="white"] {
     --font-sans: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
     --font-mono: 'Space Mono', 'IBM Plex Mono', monospace;
-
-    // Backgrounds (night → panel)
-    --bg-base:    #0D1820;
-    --bg-deep:    #0A141C;
-    --bg-hover:   #0F1D27;
-    --bg-surface: #13232E;
-    --bg-raised:  #182934;
-    --bg-popover: #13232E;
-
-    // Accent scale (aurora greens/teals)
-    --accent-deep:   #1E3B33;
-    --accent:        #4E907C;
-    --accent-light:  #74C9AE;
-    --accent-bright: #A8E8CE;
-
-    // Text scale (birch → fog)
-    --text-primary:   #EEF3F2;
-    --text-secondary: #A0B4BC;
-    --text-muted:     #859BA4;
-    --text-dim:       #688894;
-    --text-subtle:    #B8C8CE;
-    --text-leaf:      #C4D8D0;
-
-    // Borders & effects (line + aurora glow)
-    --border:        rgba(33, 54, 63, 0.70);
-    --border-mid:    rgba(46, 72, 82, 0.80);
-    --border-strong: rgba(116, 201, 174, 0.45);
-    --border-soft:   rgba(78, 144, 124, 0.30);
-    --glow:          rgba(116, 201, 174, 0.14);
-    --glow-soft:     rgba(116, 201, 174, 0.06);
-    --glow-mid:      rgba(116, 201, 174, 0.10);
-    --overlay:       rgba(0, 0, 0, 0.68);
-
-    // User button + popover
-    --user-btn-bg:           rgba(33, 54, 63, 0.50);
-    --user-btn-border:       rgba(78, 144, 124, 0.40);
-    --user-btn-bg-hover:     rgba(78, 144, 124, 0.30);
-    --user-btn-border-hover: rgba(116, 201, 174, 0.70);
-    --user-btn-text-hover:   #EAFBF4;
-    --popover-border:        rgba(78, 144, 124, 0.50);
-    --popover-divider:       rgba(33, 54, 63, 0.60);
-    --popover-btn-hover-bg:  rgba(78, 144, 124, 0.18);
-
-    // H1 wordmark — every gradient stop is the same colour (no colour transition);
-    // the aurora glow is kept.
-    --h1-grad-top:    #EEF3F2;
-    --h1-grad-mid1:   #EEF3F2;
-    --h1-grad-mid2:   #EEF3F2;
-    --h1-grad-mid3:   #EEF3F2;
-    --h1-grad-bottom: #EEF3F2;
-    --h1-glow-1: rgba(116, 201, 174, 0.90);
-    --h1-glow-2: rgba(91, 203, 192, 0.60);
-    --h1-glow-3: rgba(95, 185, 217, 0.35);
 }
 
-// ── Axl Light (the daylight side of the active theme) ────────────────────────
-// The same palette read from the other end: paper backgrounds, ink text. Two things
-// are NOT a mirror-image of the dark block, because a straight inversion breaks them:
-//
-//   1. The accent ROLES swap. In the dark theme --accent-light / --accent-bright are
-//      the pale end of the ramp and are used as TEXT on dark surfaces; --accent-deep is
-//      the dark end and is used as a FILL (primary buttons, scrollbar thumbs). On paper
-//      that reads backwards, so here the ramp runs the other way: -deep is the pale
-//      fill, -bright the darkest ink. Every existing rule keeps working unchanged.
-//   2. The semantic status colours (below in the shared :root) are tuned for a near-black
-//      surface — #b9f6ca, #ffcc80 and friends are invisible on white — so this block
-//      re-derives them against ITS OWN surface at the same contrast ratios.
-//
-// Every text tier is pinned to a ratio against --bg-surface exactly like the dark themes
-// (see the ladder note at the top of this file); textContrast.test.js covers this block too.
-//
-// The --bg-* tokens here are the nominal scale. At runtime the background-spectrum slider
-// (themeService.applyBgSpectrum) overwrites them inline on <html> with the same lightness
-// band, so what ships and what the test measures stay in step.
-:root[data-theme="axl-light"] {
-    // Brand font pairing app-wide (identical to the dark side — light is a palette, not a look)
-    --font-sans: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
-    --font-mono: 'Space Mono', 'IBM Plex Mono', monospace;
+// ── Black ────────────────────────────────────────────────────────────────────
+:root[data-theme="black"] {
+    // Backgrounds (black → card). Cards LIFT toward grey.
+    --bg-base:    #050505;
+    --bg-deep:    #000000;
+    --bg-hover:   #0C0C0C;
+    --bg-surface: #0F0F0F;
+    --bg-raised:  #171717;
+    --bg-popover: #141414;
 
-    // Backgrounds (paper → card). Cards LIFT toward white, the way they sink toward black in dark.
-    --bg-base:    #ECF4F3;
-    --bg-deep:    #E2EEED;
-    --bg-hover:   #F2F7F7;
-    --bg-surface: #F7FAFA;
-    --bg-raised:  #FDFEFE;
-    --bg-popover: #FDFEFE;
+    // Accent scale — WHITE on both dark appearances (Roy, 2026-11-20: "in dark mode all colors to
+    // white, including grey"). -deep is the grey FILL behind accent text (primary buttons, the active
+    // tab); -light / -bright are the text itself. Teal stays on White, in the trade semantics and in
+    // the header wave.
+    --accent-deep:   #2A2A2A;
+    --accent:        #8C8C8C;
+    --accent-light:  #E8E8E8;
+    --accent-bright: #FFFFFF;
+    --on-accent:     #0A0A0A;   // text on an --accent / --accent-light fill: ink, the fill is pale
 
-    // Accent scale (aurora teal, ramp reversed — see note 1 above)
+    // Text scale (neutral), pinned to the contrast ladder
+    --text-primary:   #EDEDED;
+    --text-secondary: #A1A1A1;
+    --text-muted:     #8A8A8A;
+    --text-dim:       #767676;
+    --text-subtle:    #C4C4C4;
+    --text-leaf:      #D4D4D4;
+
+    // Borders & effects — every line and glow is white at low alpha
+    --border:        rgba(255, 255, 255, 0.08);
+    --border-mid:    rgba(255, 255, 255, 0.13);
+    --border-strong: rgba(255, 255, 255, 0.40);
+    --border-soft:   rgba(255, 255, 255, 0.18);
+    --glow:          rgba(255, 255, 255, 0.10);
+    --glow-soft:     rgba(255, 255, 255, 0.04);
+    --glow-mid:      rgba(255, 255, 255, 0.07);
+    --overlay:       rgba(0, 0, 0, 0.72);
+    --glass-anchor:  #050505;
+
+    // User button + popover
+    --user-btn-bg:           rgba(255, 255, 255, 0.06);
+    --user-btn-border:       rgba(255, 255, 255, 0.22);
+    --user-btn-bg-hover:     rgba(255, 255, 255, 0.12);
+    --user-btn-border-hover: rgba(255, 255, 255, 0.55);
+    --user-btn-text-hover:   #F5F5F5;
+    --popover-border:        rgba(255, 255, 255, 0.18);
+    --popover-divider:       rgba(255, 255, 255, 0.08);
+    --popover-btn-hover-bg:  rgba(255, 255, 255, 0.08);
+
+    // H1 wordmark — one colour, a faint white glow
+    --h1-grad-top:    #EDEDED;
+    --h1-grad-mid1:   #EDEDED;
+    --h1-grad-mid2:   #EDEDED;
+    --h1-grad-mid3:   #EDEDED;
+    --h1-grad-bottom: #EDEDED;
+    --h1-glow-1: rgba(255, 255, 255, 0.35);
+    --h1-glow-2: rgba(255, 255, 255, 0.18);
+    --h1-glow-3: rgba(255, 255, 255, 0.08);
+}
+
+// ── Grey (dark charcoal) ─────────────────────────────────────────────────────
+:root[data-theme="grey"] {
+    --bg-base:    #1C1D1F;
+    --bg-deep:    #17181A;
+    --bg-hover:   #232427;
+    --bg-surface: #26272A;
+    --bg-raised:  #2F3034;
+    --bg-popover: #2B2C30;
+
+    --accent-deep:   #414246;
+    --accent:        #A3A3A3;
+    --accent-light:  #EEEEEE;
+    --accent-bright: #FFFFFF;
+    --on-accent:     #0A0A0A;   // text on an --accent / --accent-light fill: ink, the fill is pale
+
+    --text-primary:   #EEEEEE;
+    --text-secondary: #B7B7B7;
+    --text-muted:     #9D9D9D;
+    --text-dim:       #888888;
+    --text-subtle:    #CDCDCD;
+    --text-leaf:      #DADADA;
+
+    --border:        rgba(255, 255, 255, 0.09);
+    --border-mid:    rgba(255, 255, 255, 0.15);
+    --border-strong: rgba(255, 255, 255, 0.45);
+    --border-soft:   rgba(255, 255, 255, 0.20);
+    --glow:          rgba(255, 255, 255, 0.10);
+    --glow-soft:     rgba(255, 255, 255, 0.04);
+    --glow-mid:      rgba(255, 255, 255, 0.07);
+    --overlay:       rgba(0, 0, 0, 0.60);
+    --glass-anchor:  #1C1D1F;
+
+    --user-btn-bg:           rgba(255, 255, 255, 0.07);
+    --user-btn-border:       rgba(255, 255, 255, 0.22);
+    --user-btn-bg-hover:     rgba(255, 255, 255, 0.12);
+    --user-btn-border-hover: rgba(255, 255, 255, 0.55);
+    --user-btn-text-hover:   #F5F5F5;
+    --popover-border:        rgba(255, 255, 255, 0.18);
+    --popover-divider:       rgba(255, 255, 255, 0.09);
+    --popover-btn-hover-bg:  rgba(255, 255, 255, 0.08);
+
+    --h1-grad-top:    #EEEEEE;
+    --h1-grad-mid1:   #EEEEEE;
+    --h1-grad-mid2:   #EEEEEE;
+    --h1-grad-mid3:   #EEEEEE;
+    --h1-grad-bottom: #EEEEEE;
+    --h1-glow-1: rgba(255, 255, 255, 0.35);
+    --h1-glow-2: rgba(255, 255, 255, 0.18);
+    --h1-glow-3: rgba(255, 255, 255, 0.08);
+}
+
+// ── White (paper) ────────────────────────────────────────────────────────────
+// Read from the other end: paper backgrounds, ink text. Two things are NOT a mirror image of the
+// dark blocks, because a straight inversion breaks them:
+//
+//   1. The accent ROLES swap. On dark, --accent-light / --accent-bright are the pale end of the
+//      ramp and are used as TEXT; --accent-deep is the dark end and is used as a FILL (primary
+//      buttons, scrollbar thumbs). On paper that reads backwards, so here the ramp runs the other
+//      way: -deep is the pale fill, -bright the darkest ink. Every existing rule keeps working.
+//   2. The semantic status colours (in the shared :root below) are tuned for a near-black surface
+//      — #b9f6ca, #ffcc80 and friends are invisible on white — so this block re-derives them
+//      against ITS OWN surface at the same contrast ratios.
+:root[data-theme="white"] {
+    // Backgrounds (page → card). Cards are pure white on a faint grey page.
+    --bg-base:    #F4F4F5;
+    --bg-deep:    #EBEBEC;
+    --bg-hover:   #F1F1F2;
+    --bg-surface: #FFFFFF;
+    --bg-raised:  #FFFFFF;
+    --bg-popover: #FFFFFF;
+
+    // Accent scale (brand teal, ramp reversed — see note 1 above)
     --accent-deep:   #BFDFDA;   // pale fill
     --accent:        #3E9085;   // mid — borders, hover fills
     --accent-light:  #266861;   // accent text
     --accent-bright: #174A47;   // the loudest accent text
 
-    // Text scale (ink → fog), pinned to the contrast ladder
-    --text-primary:   #19282E;
-    --text-secondary: #3E545E;
-    --text-muted:     #506770;
-    --text-dim:       #617983;
-    --text-subtle:    #31454D;
-    --text-leaf:      #243E3C;
+    // Text scale (neutral ink), pinned to the contrast ladder
+    --text-primary:   #171717;
+    --text-secondary: #555555;
+    --text-muted:     #686868;
+    --text-dim:       #7B7B7B;
+    --text-subtle:    #333333;
+    --text-leaf:      #262626;
 
     // Borders & effects — ink at low alpha, not white
-    --border:        rgba(23, 74, 71, 0.18);
-    --border-mid:    rgba(23, 74, 71, 0.28);
+    --border:        rgba(0, 0, 0, 0.10);
+    --border-mid:    rgba(0, 0, 0, 0.16);
     --border-strong: rgba(38, 104, 97, 0.45);
     --border-soft:   rgba(62, 144, 133, 0.25);
     --glow:          rgba(38, 104, 97, 0.10);
     --glow-soft:     rgba(38, 104, 97, 0.05);
     --glow-mid:      rgba(38, 104, 97, 0.08);
-    --overlay:       rgba(18, 38, 42, 0.45);
-    --tint-soft:     rgba(15, 42, 46, 0.05);
-    --ring:          rgba(20, 45, 50, 0.45);
-    --glass-anchor:  #F3F7F7;
+    --overlay:       rgba(0, 0, 0, 0.40);
+    --tint-soft:     rgba(0, 0, 0, 0.04);
+    --ring:          rgba(0, 0, 0, 0.45);
+    --glass-anchor:  #F7F7F7;
 
     // User button + popover
-    --user-btn-bg:           rgba(62, 144, 133, 0.14);
+    --user-btn-bg:           rgba(0, 0, 0, 0.04);
     --user-btn-border:       rgba(62, 144, 133, 0.40);
-    --user-btn-bg-hover:     rgba(62, 144, 133, 0.24);
+    --user-btn-bg-hover:     rgba(62, 144, 133, 0.14);
     --user-btn-border-hover: rgba(23, 74, 71, 0.70);
     --user-btn-text-hover:   #0F332F;
-    --popover-border:        rgba(38, 104, 97, 0.45);
-    --popover-divider:       rgba(23, 74, 71, 0.18);
-    --popover-btn-hover-bg:  rgba(62, 144, 133, 0.14);
+    --popover-border:        rgba(0, 0, 0, 0.14);
+    --popover-divider:       rgba(0, 0, 0, 0.08);
+    --popover-btn-hover-bg:  rgba(62, 144, 133, 0.12);
 
-    // H1 wordmark — one colour like the dark side, ink instead of birch. The aurora glow
-    // survives but at a fraction of its alpha: a bright halo behind DARK text on paper
-    // reads as a printing error, not a bloom.
-    --h1-grad-top:    #19312E;
-    --h1-grad-mid1:   #19312E;
-    --h1-grad-mid2:   #19312E;
-    --h1-grad-mid3:   #19312E;
-    --h1-grad-bottom: #19312E;
-    --h1-glow-1: rgba(62, 144, 133, 0.30);
-    --h1-glow-2: rgba(58, 150, 148, 0.20);
-    --h1-glow-3: rgba(60, 140, 170, 0.12);
+    // H1 wordmark — ink; the accent glow survives at a fraction of its alpha (a bright halo behind
+    // DARK text on paper reads as a printing error, not a bloom).
+    --h1-grad-top:    #171717;
+    --h1-grad-mid1:   #171717;
+    --h1-grad-mid2:   #171717;
+    --h1-grad-mid3:   #171717;
+    --h1-grad-bottom: #171717;
+    --h1-glow-1: rgba(62, 144, 133, 0.25);
+    --h1-glow-2: rgba(58, 150, 148, 0.16);
+    --h1-glow-3: rgba(60, 140, 170, 0.10);
 
     // ── Semantics re-derived for paper ───────────────────────────────────────
     // Header wave — the dark theme's stops sit at 58-75% lightness, which is a pastel
@@ -381,7 +438,7 @@
 
 // ── Semantic status colors — same across all themes ──────────────────────────
 :root {
-    // UI fonts — defaults; the axl theme overrides them with the brand pairing.
+    // UI fonts — defaults; the three appearances override them with the brand pairing.
     --font-sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
     --font-mono: 'IBM Plex Mono', monospace;
     // A third voice, for text this app did not write in its own machine register — today the
@@ -410,6 +467,10 @@
     // invisible on paper — it has to become INK at low alpha there, not white.
     // --ring: the outline around a colour swatch in the theme/accent pickers, same story.
     // Dark values below are exactly what those rules already used; the light block overrides both.
+    // --on-accent: the text on an --accent / --accent-light FILL (primary buttons, the send button).
+    // White here and on White (a mid teal fill); Black and Grey override it to ink, because their
+    // accent is a pale grey and white text on it disappears.
+    --on-accent: #FFFFFF;
     --tint-soft: rgba(255, 255, 255, 0.06);
     --ring:      rgba(255, 255, 255, 0.70);
 

@@ -281,9 +281,9 @@ export function HotlistPanel({ onBuild, onAskTechnicals = null, onAskEcho = null
         <>
             {days.length > 1 && at >= 0 && (
                 <div className="cal-nav" role="group" aria-label="Day">
-                    <button type="button" className="cal-nav__btn" disabled={at >= days.length - 1} onClick={() => stepDay(days[at + 1])}
+                    <button type="button" className="cal-nav__btn cal-nav__btn--arrow" disabled={at >= days.length - 1} onClick={() => stepDay(days[at + 1])}
                         aria-label="The day before" title={at < days.length - 1 ? _day(days[at + 1]) : undefined}>‹</button>
-                    <button type="button" className="cal-nav__btn" disabled={latestDay} onClick={() => stepDay(days[at - 1])}
+                    <button type="button" className="cal-nav__btn cal-nav__btn--arrow" disabled={latestDay} onClick={() => stepDay(days[at - 1])}
                         aria-label="The day after" title={!latestDay ? _day(days[at - 1]) : undefined}>›</button>
                 </div>
             )}
@@ -515,7 +515,7 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
     const filtered = all
     // A horizon's list is in Argus's order until a header is clicked: no header claims it meanwhile.
     const argusOrder = Boolean(horizon) && sort.key === 'status' && !sort.dir
-    const rows = argusOrder ? filtered : sortList(filtered, sort.key, sort.dir, horizon)
+    const rows = argusOrder ? filtered : sortList(filtered, sort.key, sort.dir, horizon, horizon === 'week' ? reads : null)   // the reads ride only This week's list (showReads, below)
     // On THIS WEEK, Prometheus's catalyst target beside each name (§3).
     const showReads = horizon === 'week'
     const latest = today.latest
@@ -594,6 +594,12 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
                         className={`toggle-chip hot-horizons__btn${horizon === c ? ' hot-horizons__btn--on' : ''}`}
                         onClick={() => chooseHorizon(c)}>{COLUMN_LABEL[c]} {tabCount(c)}</button>
                 ))}
+                {/* Echo's forward test, between This week and Swing, in the others' style (Roy, 2026-11-20: "Event driven"; it was
+                    last, apart, dashed and labelled "Echo · test" — 2026-11-19). Still a forward test, not picks: the tooltip says so. */}
+                <button type="button" aria-pressed={echoView}
+                    title="Event driven — companies a big earnings move reaches through the supply chain. A forward test, still running: not picks"
+                    className={`toggle-chip hot-horizons__btn hot-horizons__btn--echo${echoView ? ' hot-horizons__btn--on' : ''}`}
+                    onClick={() => chooseHorizon(ECHO)}>Event driven</button>
                 {BOOK_ORDER.map((b, i) => {
                     // The count is what the button OPENS (Roy, 2026-10-24: "Swing's count is 11 but I see fewer") — the weekly
                     // chain's survivors, the list's default; the chain's picks and the whole book are on hover, a click away.
@@ -612,11 +618,6 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
                     title="Every company the analyst covers — swing and long term, the desk’s too — and the scorecard"
                     className={`toggle-chip hot-horizons__btn${horizon === COVERED ? ' hot-horizons__btn--on' : ''}`}
                     onClick={() => chooseHorizon(COVERED)}>{COVERED_LABEL} {coveredRows(book).length}</button>
-                {/* Echo, last and apart (Roy, 2026-11-19: in the Hotlist, labelled) — a forward test, not a list of picks. */}
-                <button type="button" aria-pressed={echoView}
-                    title="Echo — companies a big earnings move reaches through the supply chain. A forward test, still running: not picks"
-                    className={`toggle-chip hot-horizons__btn hot-horizons__btn--echo${echoView ? ' hot-horizons__btn--on' : ''}`}
-                    onClick={() => chooseHorizon(ECHO)}>Echo · test</button>
             </div>}
             {intradayView ? (
                 <HotlistDayBoards data={dayBoards} day={day} boardId={dayBoardId} onBoard={onDayBoard}
@@ -675,10 +676,10 @@ function DayList({ today, sort, setSort, horizon = null, setHorizon = () => {}, 
                                     {th('atr', 'ATR%', { num: true, more: true, title: 'Average daily range, % of price' })}
                                     {/* No grades on the Hotlist (2026-10-24: the day trades, then This week); on All, the horizon each name is best on. */}
                                     {!horizon && !ruleWeek && th('grade', 'Horizon', { more: true, title: 'The horizon the name is best on' })}
-                                    {!ruleWeek && <th scope="col" className="hot-col--more" title="Free range: the room to the next level overhead — not a target">Room</th>}
+                                    {!ruleWeek && th('room', 'Room', { more: true, title: 'Free range: the room to the next level overhead — not a target' })}
                                     {th('earnings', 'Earn', { more: true, title: 'Next earnings; amber = a run-up trade, out before the report' })}
-                                    <th scope="col" title="Did it work? Once the horizon's window closes: ✓ reached the level its room was measured to, ✗ did not (its best move); ↑ / ↓ open sky, by how it ended. Open while the window runs.">Result</th>
-                                    {showReads && <th scope="col" title="The analyst's short-swing target — and what is still open">Target</th>}
+                                    {th('result', 'Result', { title: "Did it work? Once the horizon's window closes: ✓ reached the level its room was measured to, ✗ did not (its best move); ↑ / ↓ open sky, by how it ended. Open while the window runs." })}
+                                    {showReads && th('target', 'Target', { title: "The analyst's short-swing target — and what is still open" })}
                                 </tr>
                             </thead>
                             <tbody>

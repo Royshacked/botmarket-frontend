@@ -102,7 +102,7 @@
         &--activate {
             background: var(--accent);
             border: 1px solid var(--accent);
-            color: #fff;
+            color: var(--on-accent);
             &:hover { background: var(--accent-light); border-color: var(--accent-light); }
         }
     }

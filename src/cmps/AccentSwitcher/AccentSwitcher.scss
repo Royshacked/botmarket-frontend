@@ -61,13 +61,6 @@
         border-radius: 50%;
         border: 2px solid var(--ring);
         flex-shrink: 0;
-
-        // No override active — show a hollow/dashed dot meaning "theme default".
-        &--off {
-            background: transparent;
-            border-style: dashed;
-            border-color: var(--border-strong);
-        }
     }
 
     &__shade-label {
@@ -79,18 +72,46 @@
         flex-shrink: 0;
     }
 
-    &__reset {
+    // The theme's own accent (white on Black/Grey, teal on White) — the first choice, lit when no
+    // colour override is saved. Fixed width, so both slider rows start on the same line.
+    &__theme {
+        width: 76px;
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
         background: none;
-        border: none;
-        padding: 0;
+        border: 1px solid var(--border-mid);
+        border-radius: 4px;
         font-family: var(--font-mono);
         font-size: 11px;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--text-muted);
         cursor: pointer;
-        transition: color 0.15s;
+        transition: color 0.15s, border-color 0.15s, background 0.15s;
 
-        &:hover { color: var(--text-primary); }
+        &:hover { color: var(--text-primary); background: var(--tint-soft); }
+
+        &--on {
+            color: var(--text-primary);
+            border-color: var(--border-strong);
+            background: var(--tint-soft);
+        }
     }
+    &__theme-gap { width: 76px; flex: none; }
+
+    &__dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        border: 1px solid var(--ring);
+        flex: none;
+    }
+
+    // While the theme's accent is on, the colour knobs sit back — still live, one drag picks a colour.
+    &__slider--idle { opacity: 0.45; transition: opacity 0.15s; }
+    &__slider--idle:hover { opacity: 1; }
+
 }

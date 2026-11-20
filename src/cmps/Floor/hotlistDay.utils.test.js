@@ -71,3 +71,19 @@ test('the note: no board says when they run; a past day\'s boards say so', () =>
     assert.deepEqual(dayBoardsNote({ day: '2026-11-04', boards: [{}] }, now, { day: '2026-11-04' }), { empty: null, stale: null })
     assert.equal(dayBoardsNote({ boards: [] }, now, { day: '2026-11-04' }).empty, 'No day boards on 2026-11-04.')
 })
+
+test('the day board sorts by any column (Roy, 2026-11-20): first click the useful way, missing values last', async () => {
+    const { sortDayRows } = await import('./hotlistDay.utils.js')
+    const rows = [
+        { symbol: 'A', price: 10, gap_pct: 2, rvol: 1.5, atr_pct: 3, catalyst: { news: [{ at: '2026-11-20 08:15:00' }] } },
+        { symbol: 'B', price: 50, gap_pct: 9, rvol: null, pm_vol_pct: 40, atr_pct: 1, catalyst: { news: [{ at: '2026-11-20 09:05:00' }] } },
+        { symbol: 'C', price: null, gap_pct: 5, atr_pct: null, catalyst: null },
+    ]
+    const order = (k, d = null) => sortDayRows(rows, k, d).map(r => r.symbol)
+    assert.deepEqual(order(null), ['A', 'B', 'C'], 'no key — the board order')
+    assert.deepEqual(order('price'), ['B', 'A', 'C'])
+    assert.deepEqual(order('chg'), ['B', 'C', 'A'])
+    assert.deepEqual(order('atr', 'asc'), ['B', 'A', 'C'], 'missing last either way')
+    assert.deepEqual(order('news'), ['B', 'A', 'C'], 'newest headline first')
+    assert.deepEqual(order('symbol', 'desc'), ['C', 'B', 'A'])
+})

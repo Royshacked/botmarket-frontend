@@ -115,7 +115,7 @@
             cursor: pointer;
             transition: background 0.15s;
 
-            &:hover:not(:disabled) { background: var(--accent); }
+            &:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); }
             &:disabled { opacity: 0.4; cursor: not-allowed; }
         }
     }

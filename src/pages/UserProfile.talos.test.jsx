@@ -41,7 +41,6 @@ vi.mock('../services/paper/paper.service.remote.js',   () => ({ paperService:  {
 vi.mock('../services/manual/manual.service.remote.js', () => ({ manualService: { listAccounts: vi.fn().mockResolvedValue([]) } }))
 const queuePrefSync = vi.fn()
 vi.mock('../services/preferences.service.js', () => ({ queuePrefSync: (...a) => queuePrefSync(...a) }))
-vi.mock('../cmps/ThemeSwitcher/ThemeSwitcher',         () => ({ ThemeSwitcher:     () => null }))
 vi.mock('../cmps/AccentSwitcher/AccentSwitcher',       () => ({ AccentSwitcher:    () => null }))
 vi.mock('../cmps/CandleColorPicker/CandleColorPicker', () => ({ CandleColorPicker: () => null }))
 vi.mock('../cmps/ModeSwitcher/ModeSwitcher',           () => ({ ModeSwitcher:      () => null }))

@@ -25,9 +25,11 @@ test('every manifest icon is a file under public/, and the set covers install + 
 test('the install colours are the app background, in the manifest and in index.html alike', () => {
     // --bg-base is what the app paints behind everything; the splash and the title bar of an
     // installed window must match it or the app opens with a flash of the wrong colour.
-    const designs = readFileSync(resolve(ROOT, 'src/assets/styles/setup/_designs.scss'), 'utf8')
-    const bgBase  = designs.match(/--bg-base:\s*(#[0-9a-fA-F]{6})/)?.[1]
-    assert.ok(bgBase, '--bg-base not found in _designs.scss')
+    // These static values are the DEFAULT theme's (Black); themeService.initTheme rewrites the
+    // index.html meta for whichever theme is saved, before first paint.
+    const themes = readFileSync(resolve(ROOT, 'src/assets/styles/setup/_themes.scss'), 'utf8')
+    const bgBase = themes.match(/\[data-theme="black"\]\s*\{[^}]*?--bg-base:\s*(#[0-9a-fA-F]{6})/)?.[1]
+    assert.ok(bgBase, '--bg-base not found in the black theme block of _themes.scss')
     assert.equal(PWA.manifest.theme_color,      bgBase)
     assert.equal(PWA.manifest.background_color, bgBase)
 

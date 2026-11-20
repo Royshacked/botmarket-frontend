@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
-import { AccountSelector } from '../AccountSelector/AccountSelector.jsx'
 import { LaterButton, LATER_BTN_CLASS } from '../LaterButton.jsx'
 import { SetupSummary } from '../MentorPanel/SetupSummary.jsx'
 import { useSurfacePress } from '../../customHooks/useSurfacePress.js'
@@ -122,9 +121,8 @@ function useDraftEditor(serverDraft, serverRev, push) {
 }
 
 export function MentorSurface({ session, deskProps = {} }) {
-    const { availableAccounts = [], selectedAccounts = [], setSelectedAccounts, setMainAccountId } = deskProps
     // The press mechanics every surface shares: the marked accounts, the note, one press at a time, the stale refusal.
-    const { accounts, mainAccountId, rev, pressing, note, setNote, press: commitPress } = useSurfacePress(session, 'mentor', deskProps, { brand: 'The trader' })
+    const { accounts, rev, pressing, note, setNote, press: commitPress } = useSurfacePress(session, 'mentor', deskProps, { brand: 'The trader' })
     const state = session?.agentState?.mentor ?? null
 
     const serverDraft = state?.draft ?? null
@@ -182,19 +180,9 @@ export function MentorSurface({ session, deskProps = {} }) {
         : !live.ready ? (missing.length ? `Still needs: ${missing.map(b => b.text).join(', ')}` : 'Not ready yet — ask the trader what’s outstanding.')
         : null
 
-    // Which account the setup trades in. On the empty table too (Roy, 2026-10-19 — "the account icon is gone"): the start
-    // of a trade is when it is chosen, and Mentor sizes against it from the first turn.
-    const accountsPick = setSelectedAccounts && (
-        <div className="mentor-surface__accounts">
-            <AccountSelector
-                accounts={availableAccounts}
-                selectedIds={selectedAccounts}
-                onChange={setSelectedAccounts}
-                mainAccountId={mainAccountId}
-                onMainChange={setMainAccountId}
-            />
-        </div>
-    )
+    // No account picker here (style session 2026-11-20, Roy: "we have it in the questions"): the account is chosen on the
+    // builder's question card, which marks it for the whole workspace (ChatTimeline answerCard → onPickAccounts); Generate
+    // and Update read the marked accounts from deskProps as before.
 
     // ── Nothing on the table ──
     // No setup to show yet (a turn that only read, or offered ideas in words): the empty table, never a blank pane with
@@ -202,7 +190,6 @@ export function MentorSurface({ session, deskProps = {} }) {
     if (!state || (!draft?.asset && !generated && !editingId)) {
         return (
             <div className="desk-surface mentor-surface">
-                {accountsPick}
                 {note?.kind === 'done' && <SurfaceNote note={note} />}
                 {/* No chips (Roy, 2026-11-12 — argus-rework.md §2.3 point 4): the pane is the setup being built; the asking is
                     in the chat. */}
@@ -219,8 +206,6 @@ export function MentorSurface({ session, deskProps = {} }) {
 
     return (
         <div className="portfolio-panel mentor-panel desk-surface mentor-surface">
-            {accountsPick}
-
             {/* THE SETUP BEING BUILT, and nothing else (Roy, 2026-11-12 — argus-rework.md §2.3 points 1 and 4): no chips, no
                 gate cards, no span / entry tables, no A/B chips — Mentor asks in the chat, in words; the pane only shows the
                 setup as it fills in, and the commit actions under it. */}

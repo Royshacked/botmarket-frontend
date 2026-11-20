@@ -8,7 +8,7 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: clip;       // not hidden: a focused field must not be able to scroll the column (RootCmp.scss .main-page)
     background: var(--bg-wash);
     border-bottom: 1px solid var(--border);
     animation: chat-timeline-enter 0.34s ease both;
@@ -20,6 +20,7 @@
 }
 
 .chat-timeline__header {
+    flex-shrink: 0;      // never squeezed by what is under it (a builder's questions pushed its buttons, 2026-11-20)
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -38,7 +39,8 @@
     white-space: nowrap;
 }
 
-.chat-timeline__actions { display: inline-flex; gap: 8px; flex-shrink: 0; }
+// Centred on the header's line explicitly: the buttons carry no outline any more, so nothing but this places them.
+.chat-timeline__actions { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; }
 
 // An admin's desks the chat does not route to (Pythia) — a thin row under the header (phase 8e).
 .chat-timeline__desks {
@@ -50,17 +52,25 @@
 
 .chat-timeline__desk { padding: 2px 10px; font-size: 11px; }
 
+// The chat header's buttons — no outlines (style session 2026-11-20, as the pane tabs): plain words, and the one that
+// is CHOSEN (the pane it shows is open, its drawer is up) is the only one marked, by the same ink tint the tabs use.
 .chat-timeline__action {
+    margin: 0;          // the global `button { margin: 5px }` (_forms.scss) pushed it off the header's centre
+    display: inline-flex;
+    align-items: center;
+    line-height: 1.3;
     padding: 4px 10px;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    background: var(--bg-wash-surface);
+    border: none;
+    border-radius: 6px;
+    background: transparent;
     color: var(--text-secondary);
     font-size: 12px;
     font-family: var(--font-mono);
     cursor: pointer;
+    transition: background 0.15s, color 0.15s;
 
-    &:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-bright); }
+    &:hover:not(:disabled) { background: color-mix(in srgb, var(--text-primary) 5%, transparent); color: var(--text-primary); }
+    &.is-open { background: color-mix(in srgb, var(--text-primary) 11%, transparent); color: var(--text-primary); }
     &:disabled { opacity: 0.5; cursor: default; }
 }
 
@@ -492,17 +502,28 @@
     .chat-timeline__info-btn { display: inline-flex; }
 }
 
-// ── the mode picker, inside the prompt box on its left (modes-and-builders.md M4) ──
+@keyframes mode-picker-unroll {
+    from { clip-path: inset(0 0 100% 0); opacity: 0.4; transform: translateY(-3px); }
+    to   { clip-path: inset(0 0 -20px 0); opacity: 1;   transform: none; }
+}
+
+// ── the mode picker, inside the prompt box at its TOP left (modes-and-builders.md M4; moved up from the
+// bottom in the style session, 2026-11-20 — Roy: "put it on top") ──
 .mode-picker {
     position: relative;
     flex-shrink: 0;
-    align-self: flex-end;
-    margin: 0 4px 2px 0;
+    align-self: flex-start;
+    margin: 2px 4px 0 0;
 
+    // A FIXED width — the longest short name ("Portfolio") plus the caret — so the open menu can be exactly
+    // as wide and the two read as one shape, whichever mode is showing.
     &__toggle {
+        box-sizing: border-box;
+        width: 96px;
         margin: 0;
         display: inline-flex;
         align-items: center;
+        justify-content: space-between;
         gap: 4px;
         height: 28px;
         padding: 0 10px;
@@ -513,110 +534,146 @@
         font-size: 12px;
         white-space: nowrap;
         cursor: pointer;
-        transition: color 0.15s, border-color 0.15s;
+        transition: color 0.15s, border-color 0.15s, background 0.16s, border-radius 0.16s;   // the chip squares its bottom in step with the unroll
 
-        &:hover:not(:disabled), &[aria-expanded='true'] { border-color: var(--accent); color: var(--accent-bright); }
+        &:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-bright); }
+
+        // OPEN, the chip is the selector's top row (style session 2026-11-20): it takes the list's surface and
+        // border, drops its bottom edge and bottom corners, and sits over the list by a pixel so it paints over
+        // the list's top border where the two meet — one shape, the current mode on top.
+        &[aria-expanded='true'] {
+            position: relative;
+            z-index: 21;
+            background: var(--bg-popover);
+            border-color: var(--border-mid);
+            border-bottom-color: transparent;
+            border-radius: 14px 14px 0 0;
+            color: var(--text-primary);
+        }
         &:disabled { opacity: 0.4; cursor: not-allowed; }
         &.is-pending { opacity: 0.7; }
     }
 
-    &__caret { font-size: 10px; opacity: 0.8; }
+    &__caret { font-size: 10px; opacity: 0.8; transition: transform 0.15s; }
+    &__toggle[aria-expanded='true'] &__caret { transform: rotate(180deg); }
 
-    // Opens UPWARD — the picker sits at the bottom of the chat.
+    // Opens UPWARD — the prompt box sits at the bottom of the chat, so there is room above it.
+    // A plain list, not a deck of cards (style session 2026-11-20): one line per mode, square rows that
+    // only tint on hover. Each mode's full name and explanation is its tooltip.
+    // Drops DOWN from the chip, flush and at exactly its width: square top into the chip, rounded bottom.
     &__menu {
         position: absolute;
-        bottom: calc(100% + 8px);
-        left: -4px;
+        top: calc(100% - 1px);
+        left: 0;
         z-index: 20;
-        min-width: 250px;
+        box-sizing: border-box;
+        width: 100%;
         margin: 0;
-        padding: 4px;
+        padding: 0 0 4px;   // no top gap: the list runs straight on from the chip
         list-style: none;
-        background: var(--bg-raised);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+        background: var(--bg-popover);
+        border: 1px solid var(--border-mid);
+        border-radius: 0 0 14px 14px;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.20);
+        // It UNROLLS down out of the chip on open (style session 2026-11-20): revealed top-first by a clip,
+        // so it reads as the chip growing rather than a box fading in somewhere near it. Opening only — closing
+        // is instant, the way a dismissed menu should be.
+        transform-origin: top;
+        animation: mode-picker-unroll 0.16s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+        @media (prefers-reduced-motion: reduce) { animation: none; }
     }
 
     &__option {
         margin: 0;
         display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 2px;
+        align-items: center;
+        gap: 8px;
         width: 100%;
-        padding: 8px 10px;
+        padding: 6px 10px;   // the chip's own side padding, so the names line up with the chip's
         border: none;
-        border-radius: 8px;
+        border-radius: 0;
         background: none;
-        color: var(--text-primary);
+        color: var(--text-secondary);
+        font-size: 12px;
         text-align: left;
+        white-space: nowrap;
         cursor: pointer;
 
-        &:hover { background: var(--bg-hover); }
-        &.is-current { box-shadow: inset 2px 0 0 var(--accent); }
+        &:hover { background: var(--tint-soft); color: var(--text-primary); }
     }
-
-    &__option-label { font-size: 13px; font-weight: 600; }
-    &__option-hint  { font-size: 12px; color: var(--text-secondary); }
 }
 
-// ── a builder's question card, above the prompt box (modes-and-builders.md step 4) ──
-// The prompt box's own width (ChatInputRow.scss), so the two read as one place to answer.
+// ── a builder's questions, above the prompt box (modes-and-builders.md step 4) ──
+// NOT a card (style session 2026-11-20): no box, no border — it takes the chat area while it is open (the thread steps
+// aside: .chat-timeline__body--asking) and scrolls inside it, at the prompt box's own width (ChatInputRow.scss) so the
+// questions and the box read as one place to answer. The questions are numbered.
+.chat-timeline__body--asking { display: none; }
+
 .question-card {
     box-sizing: border-box;
-    width: min(75%, 640px);
-    min-width: 260px;
-    max-width: calc(100% - 20px);
-    margin: 8px auto 0;
+    width: 100%;                 // full width of the chat column (Roy, 2026-11-20)
+    margin: 0;
+    padding: 0 24px;             // the thread's own side padding
+    flex: 1 1 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    max-height: 55vh;
-    background: var(--bg-raised);
-    border: 1px solid var(--accent);
-    border-radius: 14px;
-    overflow: hidden;
+    overflow: hidden;            // the body below is the scroller; nothing spills out of the chat area
+    background: none;
+    border: none;
 
     &__head {
         display: flex;
         align-items: baseline;
         justify-content: space-between;
         gap: 8px;
-        padding: 10px 14px 6px;
+        flex-shrink: 0;
+        padding: 20px 0 10px;    // clear of the chat header
     }
-    &__title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    &__title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
     &__role  { font-size: 12px; color: var(--text-secondary); }
 
     &__body {
+        flex: 1 1 auto;
+        min-height: 0;
         overflow-y: auto;
-        padding: 0 14px 6px;
+        padding: 0 0 6px;
     }
 
+    // Each question: its number, the question, a quiet label of what it is; the options indented under the question.
     &__q {
         margin: 0;
-        padding: 8px 0 10px;
+        padding: 12px 0 14px 26px;
         border: none;
-        border-top: 1px solid var(--border);
-        &:first-child { border-top: none; }
+        position: relative;
     }
     &__legend {
         display: flex;
         align-items: baseline;
         gap: 8px;
         padding: 0;
-        margin-bottom: 6px;
-        font-size: 13px;
+        margin-bottom: 8px;
+        font-size: 14px;
         color: var(--text-primary);
     }
-    &__chip {
-        flex-shrink: 0;
-        padding: 1px 8px;
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        font-size: 11px;
+    &__num {
+        position: absolute;
+        left: 0;
+        width: 20px;
+        font-family: var(--font-mono);
+        font-size: 13px;
+        font-weight: 600;
         color: var(--text-secondary);
     }
-    &__q.is-done &__chip { border-color: var(--accent); color: var(--accent-bright); }
+    &__q.is-done &__num { color: var(--accent-light); }
+    &__chip {
+        flex-shrink: 0;
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+    }
 
     &__options { display: flex; flex-wrap: wrap; gap: 6px; }
     &__option {
@@ -657,7 +714,8 @@
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 8px 14px 10px;
+        flex-shrink: 0;
+        padding: 10px 0;
         border-top: 1px solid var(--border);
     }
     &__hint  { flex: 1; font-size: 12px; color: var(--text-secondary); }
@@ -676,7 +734,7 @@
 }
 
 @media (max-width: 767px) {
-    .question-card { width: auto; min-width: 0; max-width: none; margin: 6px 8px 0; max-height: 60vh; }
+    .question-card { padding: 0 16px; }
     // 16px in a phone's field — iOS zooms the page on a smaller one (ChatInputRow.scss).
     .question-card__other { font-size: 16px; }
 }

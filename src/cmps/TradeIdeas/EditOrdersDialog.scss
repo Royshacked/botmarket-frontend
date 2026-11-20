@@ -207,7 +207,7 @@
             background: var(--accent-deep);
             border: 1px solid var(--accent);
             color: var(--text-primary);
-            &:hover:not(:disabled) { background: var(--accent); }
+            &:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); }
         }
 
         &--cancel {

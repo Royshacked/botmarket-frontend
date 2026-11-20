@@ -33,7 +33,7 @@ describe('SidePane', () => {
         const { rerender } = render(<SidePane session={{ floor: 'scanner' }} surfaces={withPicker} />)
         expect(screen.getByRole('tab', { name: 'Finding a name' })).toBeTruthy()
         rerender(<SidePane session={{ floor: 'mentor' }} surfaces={withPicker} />)
-        expect(screen.getAllByRole('tab').map(t => t.textContent)).toEqual(['Trade work'])
+        expect(screen.getAllByRole('tab').map(t => t.textContent)).toEqual(['Trader'])
     })
 
     it('…but a question to Axl mid-search leaves his tab open, and a PINNED picker tab is never closed (CR 2026-11-18)', () => {
@@ -55,15 +55,16 @@ describe('SidePane', () => {
         expect(screen.getByText(/mentor surface/)).toBeTruthy()
         rerender(<SidePane session={{ floor: 'portfolio' }} surfaces={surfaces} />)
         expect(screen.getByText('atlas surface')).toBeTruthy()
-        expect(screen.getAllByRole('tab').map(t => t.textContent)).toEqual(['Trade work', 'Portfolio work'])
-        fireEvent.click(screen.getByRole('tab', { name: 'Trade work' }))
+        expect(screen.getAllByRole('tab').map(t => t.textContent)).toEqual(['Trader', 'Portfolio'])
+        fireEvent.click(screen.getByRole('tab', { name: 'Trader' }))
         expect(screen.getByText(/mentor surface/)).toBeTruthy()
     })
 
-    it('a tab names the item on it once there is one — "NVDA · long swing trade", not who builds it (one-axl.md §5)', () => {
+    it('a tab is named for the builder — "Trader", no "work" — and the item on it is the tooltip (style session 2026-11-20)', () => {
         render(<SidePane session={{ floor: 'mentor', agentState: { mentor: { draft: { asset: 'NVDA', direction: 'LONG', type: 'swing' } } } }} surfaces={surfaces} />)
-        expect(screen.getAllByRole('tab').map(t => t.textContent)).toEqual(['NVDA · long swing trade'])
-        expect(screen.getByRole('button', { name: 'Close NVDA · long swing trade' })).toBeTruthy()
+        const tab = screen.getByRole('tab', { name: 'Trader' })
+        expect(tab.getAttribute('title')).toBe('NVDA · long swing trade')
+        expect(screen.getByRole('button', { name: 'Close Trader' })).toBeTruthy()
     })
 
     it('says what it is: the showing surface’s hint under the tabs; none for a surface without one (Roy, 2026-10-19)', () => {
@@ -84,11 +85,10 @@ describe('SidePane', () => {
         for (const h of hints) expect(typeof h === 'string' && h.length > 20).toBe(true)
     })
 
-    it('a pinned desk is not taken over by the floor', () => {
+    it('has no Pin button (style session 2026-11-20): the pane follows the floor, the earlier desk kept as a tab', () => {
         const { rerender } = render(<SidePane session={{ floor: 'mentor' }} surfaces={surfaces} />)
-        fireEvent.click(screen.getByRole('button', { name: 'Pin' }))
+        expect(screen.queryByRole('button', { name: /^Pin/ })).toBeNull()
         rerender(<SidePane session={{ floor: 'portfolio' }} surfaces={surfaces} />)
-        expect(screen.getByText(/mentor surface/)).toBeTruthy()
         expect(screen.getAllByRole('tab')).toHaveLength(2)
     })
 
@@ -109,7 +109,7 @@ describe('SidePane', () => {
         expect(screen.queryByRole('dialog')).toBeNull()
         act(() => openSurface('mentor'))
         expect(screen.getByText(/mentor surface/)).toBeTruthy()
-        fireEvent.click(screen.getByRole('button', { name: 'Close Trade work' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Close Trader' }))
         expect(sidePaneState().tabs).toEqual(['scanner'])
         expect(screen.queryByRole('dialog')).toBeNull()
     })

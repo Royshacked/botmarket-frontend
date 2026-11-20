@@ -1,7 +1,9 @@
+import { MODE_OPTIONS } from '../ChatTimeline/mode.utils.js'
+
 // What the work pane is titled — the ITEM being built, never who builds it (backend docs/design/one-axl.md §5, D2,
 // 2026-11-13): "NVDA · long swing trade", "Growth book", "NVDA · coverage". Read off the role's state on the session
-// (agentState), the same state the surface draws. Nothing open → null, and the caller falls back to the work label
-// ("Trade work"). Pure — the tab, the show/hide toggle and the tests all read it here.
+// (agentState), the same state the surface draws. Since 2026-11-20 it is the TAB TOOLTIP, not the tab name (paneName,
+// below). Nothing open → null. Pure — the tab, the show/hide toggle and the tests all read it here.
 
 const TYPE_WORDS = Object.freeze({
     intraday: 'intraday', day: 'day', short_term_swing: 'short-term swing', swing: 'swing', long_term: 'long-term',
@@ -38,4 +40,22 @@ const TITLES = {
 /** The item a role's pane holds, or null when it holds nothing nameable yet. */
 export function paneTitle(agent, state) {
     try { return TITLES[agent]?.(state ?? null) ?? null } catch { return null }
+}
+
+// The NAME on a pane tab and on the chat header's Show/Hide button (style session 2026-11-20, Roy: "trader / portfolio /
+// analyst — remove the 'work'"). A builder's tab is the builder, by the mode chip's own short name, so the chip and the
+// tab say the same word; the item it holds (paneTitle) moves to the tooltip. Any other pane keeps its own label.
+const BUILDER_NAMES = Object.freeze(Object.fromEntries(MODE_OPTIONS.filter(o => o.mode !== 'general').map(o => [o.mode, o.short])))
+
+/**
+ * What a pane tab is called: "Trader" / "Portfolio" / "Analyst" for a builder, else `fallback` — the caller's own label
+ * for any other pane (the surface's paneLabel, the desk's work). Passed in, so this file stays pure and node-testable.
+ */
+export function paneName(agent, fallback = null) {
+    return BUILDER_NAMES[agent] ?? fallback ?? 'Work'
+}
+
+/** The tab's tooltip: the item on it when there is one ("NVDA · long swing trade"), else its name. */
+export function paneTooltip(agent, state, fallback = null) {
+    return paneTitle(agent, state) ?? paneName(agent, fallback)
 }

@@ -132,21 +132,41 @@
     // BARE — a Floor list: one thin bar (its name, its controls, the ✕), the same on every list (Roy, 2026-10-31), in
     // place of the full header.
     &--bare .detail-panel__body { padding-top: 10px; }
+    // THE CHAT HEADER'S LOOK (style session 2026-11-20, Roy: "keep the same style as the chat's header"): its height
+    // (--header-h, so a list and the chat sit on one line), its side padding, its mono title in the secondary ink, no
+    // bottom rule, and a ✕ with no outline that tints on hover like the chat header's buttons (.chat-timeline__action).
     &__bar {
         flex-shrink: 0;
         display: flex;
         align-items: center;
         gap: 10px;
-        // One height on every list, controls or none (the Calendar's month buttons set it).
         box-sizing: border-box;
-        min-height: 45px;
-        padding: 6px 10px 6px 16px;
-        border-bottom: 1px solid var(--border);
-        .detail-panel__bar-title { flex: 0 1 auto; min-width: 0; font-size: 13px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .detail-panel__meta { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 11.5px; }
+        min-height: var(--header-h);
+        padding: 0 16px;
+        .detail-panel__bar-title {
+            flex: 0 1 auto;
+            min-width: 0;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            font-weight: 400;
+            letter-spacing: 0.04em;
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .detail-panel__meta { flex: 1 1 auto; min-width: 0; margin: 0; font-family: var(--font-mono); font-size: 12px; }
         .detail-panel__actions { margin-left: auto; }
         // The ✕ at the far right on every list — a list with no controls of its own too.
-        .detail-panel__close { width: 26px; height: 26px; font-size: 12px; margin: 0 0 0 auto; }
+        .detail-panel__close {
+            width: 28px;
+            height: 28px;
+            margin: 0 0 0 auto;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            &:hover { background: color-mix(in srgb, var(--text-primary) 5%, transparent); color: var(--text-primary); }
+        }
         .detail-panel__actions + .detail-panel__close { margin-left: 0; }
     }
 }

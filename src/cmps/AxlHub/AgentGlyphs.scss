@@ -1,50 +1,15 @@
 // ── agent chrome ───────────────────────────────────────────────────────────────
 // What outlived the Axl hub (unified-chat phase 7) and the desk tabs (phase 8e): an agent's introduction and per-turn
-// tag (Pythia's panel), and the composer / landing-chip treatment the chat timeline uses.
+// tag (Pythia's panel).
 
 @keyframes chat-fade-in {
     from { opacity: 0; }
     to   { opacity: 1; }
 }
 
-// ── the landing composer, and the asks under it ────────────────────────────────
-// The opening screen's composer and its three chips are ONE object: an empty box with three
-// sentences you could put in it. So the pair moves together, and the styling below is what keeps
-// them reading that way.
-//
-// The border states it with a LINE, not a glow. On this screen the composer is already the only lit
-// thing on an otherwise empty panel, so the shared landing drop-glow was decoration on top of an
-// answer nothing was asking; the accent border says the same "this is the subject" in one stroke,
-// and it holds its shape on focus instead of swapping a ring in for the lift.
-.chat-input-row--axl.chat-input-row--empty {
-    // The accent border and the absent glow moved into the shared `--empty` rule, where every desk
-    // now gets them — this screen was the only place they lived, and being the only place is what
-    // made Axl's composer look like a different app's.
-    //
-    // What is still Axl's ALONE is the margin. The shared rule lifts the box off the floor with a
-    // big bottom margin, and here that margin would fall BETWEEN the box and its chips and tear the
-    // pair apart. So it shrinks to a gap and the chips below carry the lift for both. No other desk
-    // puts anything under its composer.
-    margin-bottom: 8px;
-}
-
-// Everything else on this screen is centred — the mark, the greeting, the card grid, the composer —
-// so the shared row's left-aligned default would leave the chips hanging off the panel's edge,
-// reading as a stray control rather than as the box's own offer.
-//
-// They keep WRAPPING (the shared default): the chat column clips its overflow, so forcing one line would
-// CUT a chip off on a narrow column, and a second row is the cheaper failure — the body above
-// already scrolls. The quiet chip styling stays untouched: it is what keeps three sentences from
-// reading as cards eight through ten, and dressing them up here would undo exactly that.
-.suggestion-chips--landing {
-    justify-content: center;
-    padding-bottom: 0;
-    // Inherited from `.chat-input-row--empty`, because the pair is lifted, not the box alone — but
-    // far smaller than the shared 15vh. That lift was up to 150px of nothing held under the box
-    // while the seven cards above it were being pushed off the top of a scrolling body; the space
-    // is worth more as the seam above the composer than as floor clearance.
-    margin-bottom: clamp(10px, 2.5vh, 26px);
-}
+// ── the landing composer ──────────────────────────────────────────────────────
+// No chips sit under it any more (style session 2026-11-20), so it takes the shared `--empty` rule
+// as is — border and bottom lift both — like every other desk's composer.
 
 // ── per-turn agent attribution (minimal layout) ──
 .agent-turn-tag {

@@ -39,11 +39,12 @@ beforeEach(() => { session = base(); [send, stop, choose, startNew, openEntityPo
 afterEach(cleanup)
 
 describe('ChatTimeline', () => {
-    it('an empty session is Axl’s opening question; a tap goes to Axl as the user’s own words, with the accounts', async () => {
-        render(<ChatTimeline accounts={[{ id: 'a1' }]} mainAccountId="a1" />)
+    it('an empty session is Axl’s opening question and the input — no tap chips (style session, 2026-11-20)', () => {
+        const { container } = render(<ChatTimeline accounts={[{ id: 'a1' }]} mainAccountId="a1" />)
         expect(screen.getByText('What would you like to do?')).toBeTruthy()
-        await act(async () => { fireEvent.click(screen.getByText('Trade it')) })
-        expect(send).toHaveBeenCalledWith('Trade it', { agent: 'axl', accounts: [{ id: 'a1' }], mainAccountId: 'a1' })
+        expect(container.querySelector('.suggestion-chips')).toBeNull()
+        expect(screen.queryByText('Trade it')).toBeNull()
+        expect(screen.queryByText('What can this app do?')).toBeNull()
     })
 
     it('one speaker tag per voice change — not on every row, never on the user’s; always Axl, the role under it (one-axl.md)', () => {
@@ -216,7 +217,7 @@ describe('phase 7 CR', () => {
         expect(screen.getByPlaceholderText('Tell the portfolio manager what you want to build…')).toBeTruthy()
         expect(screen.queryByText('Ask something else')).toBeNull()
         fireEvent.click(screen.getByLabelText('Mode: Portfolio manager'))
-        expect(screen.getAllByRole('option').map(o => o.querySelector('.mode-picker__option-label').textContent)).toEqual(['General', 'Trader', 'Portfolio manager', 'Analyst'])
+        expect(screen.getAllByRole('option').map(o => o.querySelector('.mode-picker__option-label').textContent)).toEqual(['General', 'Trader', 'Analyst'])   // the current mode is the chip on top, never repeated below
         await act(async () => { fireEvent.click(screen.getByText('General')) })
         expect(setMode).toHaveBeenCalledWith('general')
         // Until the server's floor arrives, the picked mode shows; then the floor carries it.
@@ -286,11 +287,11 @@ describe('phase 7 CR (frontend)', () => {
 describe('a session a commit opened (Roy, 2026-10-18)', () => {
     const ended = (over = {}) => row(1, { kind: 'sealed', agent: 'axl', content: '✓ Mentor built NVDA setup — saved to your Setups. You\'re back with Axl.', ref: { kind: 'setup', ids: ['s9'], ended: true }, at: Date.now(), ...over })
 
-    it('is a fresh start: the saved line ABOVE Axl\'s greeting and opening taps', () => {
+    it('is a fresh start: the saved line ABOVE Axl\'s greeting', () => {
         session = base({ rows: [ended()] })
         const { container } = render(<ChatTimeline />)
         expect(container.querySelector('.chat-timeline__empty .chat-timeline__ended').textContent).toMatch(/back with Axl/)
-        expect(screen.getByText('Trade it')).toBeTruthy()
+        expect(screen.getByText('What would you like to do?')).toBeTruthy()
         expect(container.querySelector('.chat-timeline__title').textContent).toBe('Chat')
     })
 
@@ -299,7 +300,7 @@ describe('a session a commit opened (Roy, 2026-10-18)', () => {
         const { container } = render(<ChatTimeline />)
         expect(container.querySelector('.chat-timeline__ended')).toBeNull()
         expect(screen.queryByRole('button', { name: 'Open the setup to arm it' })).toBeNull()
-        expect(screen.getByText('Trade it')).toBeTruthy()
+        expect(screen.getByText('What would you like to do?')).toBeTruthy()
         expect(container.querySelector('.chat-timeline__title').textContent).toBe('Chat')
     })
 
@@ -325,7 +326,7 @@ describe('a session a commit opened (Roy, 2026-10-18)', () => {
         cleanup()
         session = base({ rows: [ended(), row(2, { role: 'user', content: 'hi' }), row(3, { content: 'Hello — what next?' })] })
         const { container } = render(<ChatTimeline />)
-        expect(screen.queryByText('Trade it')).toBeNull()
+        expect(screen.queryByText('What would you like to do?')).toBeNull()
         expect(container.querySelector('.chat-timeline__ended')).toBeNull()
         expect(screen.queryByText(/back with Axl/)).toBeNull()
         // The reply is tagged as Axl's run as ever — the hidden line is not a row it follows.

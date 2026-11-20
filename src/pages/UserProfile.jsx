@@ -4,7 +4,6 @@ import { useAuth }             from '../cmps/AuthModal/useAuth'
 import { brokerService }       from '../services/broker/broker.service.remote.js'
 import { httpService }         from '../services/http.service.js'
 import { userService }         from '../services/user/user.service.remote.js'
-import { ThemeSwitcher }       from '../cmps/ThemeSwitcher/ThemeSwitcher'
 import { AccentSwitcher }      from '../cmps/AccentSwitcher/AccentSwitcher'
 import { CandleColorPicker }   from '../cmps/CandleColorPicker/CandleColorPicker'
 import { ModeSwitcher }        from '../cmps/ModeSwitcher/ModeSwitcher'
@@ -98,6 +97,9 @@ export function UserProfile() {
     const [tokenUsage, setTokenUsage] = useState({ month: '', totalCost: 0, budgetUsd: 20, percentUsed: 0 })
 
     const [design, setDesign] = useState(loadDesign())
+    // The theme (black / grey / white). Held here so the accent picker re-keys on a switch: its first
+    // choice is the theme's own accent, white on the dark two and teal on White.
+    const [appearance, setAppearance] = useState(loadAppearance)
     function handleDesign(id) {
         setDesign(id)
         saveDesign(id)
@@ -129,11 +131,6 @@ export function UserProfile() {
             setHouseError('The house model was not saved.')
         }
     }
-
-    // Dark ⇄ light. Held here (not just inside ModeSwitcher) because the background sliders
-    // paint their own track from the active palette at render time — re-keying them on a mode
-    // change is what makes those tracks follow the switch.
-    const [appearance, setAppearance] = useState(loadAppearance)
 
     useEffect(() => {
         if (!user) { navigate('/'); return }
@@ -322,16 +319,12 @@ export function UserProfile() {
                         <section className="user-profile__section">
                             <h2 className="user-profile__section-title">Appearance</h2>
                             <div className="user-profile__row user-profile__row--inline">
-                                <span className="user-profile__label">Mode</span>
+                                <span className="user-profile__label">Theme</span>
                                 <ModeSwitcher onChange={setAppearance} />
                             </div>
                             <div className="user-profile__row user-profile__row--inline">
-                                <span className="user-profile__label">Theme</span>
-                                <ThemeSwitcher key={appearance} />
-                            </div>
-                            <div className="user-profile__row user-profile__row--inline">
                                 <span className="user-profile__label">Accent</span>
-                                <AccentSwitcher />
+                                <AccentSwitcher key={appearance} />
                             </div>
                             <div className="user-profile__row user-profile__row--inline">
                                 <span className="user-profile__label">Candles</span>

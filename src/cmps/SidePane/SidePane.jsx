@@ -4,9 +4,9 @@ import PropTypes from 'prop-types'
 import { DrawerShell } from '../DrawerShell/DrawerShell.jsx'
 import { isHandheld } from '../EntityCard/entityPopup.js'
 import { agentMeta } from '../ChatTimeline/timelineRows.js'
-import { closePane, closeSurface, collapsePane, openSurface, setPinned, showSurface, sidePaneState, useSidePane } from './sidePane.store.js'
+import { closePane, closeSurface, collapsePane, openSurface, showSurface, sidePaneState, useSidePane } from './sidePane.store.js'
 import './SidePane.scss'
-import { paneTitle } from './paneTitle.js'
+import { paneName, paneTooltip } from './paneTitle.js'
 import { buildWords, lastStep, buildKeys, buildChanges } from './buildStatus.js'
 import { toolStatusLabel } from '../../services/toolStatusLabels.js'
 import { showUserMsg } from '../../services/event-bus.service.js'
@@ -48,7 +48,7 @@ KeptSlot.propTypes = { host: PropTypes.object.isRequired }
  *             may carry `keepMounted` and `paneLabel` (above)
  */
 export function SidePane({ session, surfaces, deskProps = {} }) {
-    const { tabs, active, pinned, parked, collapsed } = useSidePane()
+    const { tabs, active, parked, collapsed } = useSidePane()
     const hosts = useRef(new Map())
     const hostFor = (t) => {
         if (!hosts.current.has(t)) {
@@ -58,8 +58,11 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
         }
         return hosts.current.get(t)
     }
-    // The tab names the ITEM on it — "NVDA · long swing trade" — and the work when nothing is open yet (one-axl.md §5).
-    const labelOf = (t) => paneTitle(t, session?.agentState?.[t]) ?? surfaces[t]?.paneLabel ?? agentMeta(t).work ?? 'Work'
+    // The tab names the BUILDER — Trader / Portfolio / Analyst (style session 2026-11-20; it named the item before,
+    // one-axl.md §5) — and the item on it is the tooltip.
+    const ownLabel = (t) => surfaces[t]?.paneLabel ?? agentMeta(t).work
+    const labelOf = (t) => paneName(t, ownLabel(t))
+    const tipOf = (t) => paneTooltip(t, session?.agentState?.[t], ownLabel(t))
     const floor = session?.floor ?? 'axl'
 
     // Follow the floor. Keyed on the floor's CHANGE, not its value, so closing the pane while a desk holds the floor
@@ -151,6 +154,7 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
                                 aria-selected={t === current}
                                 className="side-pane__tab-btn"
                                 onClick={() => showSurface(t)}
+                                title={tipOf(t)}
                             >
                                 {labelOf(t)}
                             </button>
@@ -160,15 +164,6 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
                         </span>
                     ))}
                 </div>
-                <button
-                    type="button"
-                    className={`side-pane__pin${pinned ? ' is-on' : ''}`}
-                    onClick={() => setPinned(!pinned)}
-                    aria-pressed={pinned}
-                    title={pinned ? 'Unpin — follow whoever is talking' : 'Pin — keep this desk showing'}
-                >
-                    {pinned ? 'Pinned' : 'Pin'}
-                </button>
                 <button type="button" className="side-pane__close" onClick={lower} aria-label="Close" title="Close (Esc)">✕</button>
             </header>
             {/* What this pane is — the surface says it (`paneHint`); a kept surface with its own screen has none. */}

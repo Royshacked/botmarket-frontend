@@ -50,7 +50,6 @@ vi.mock('../services/manual/manual.service.remote.js', () => ({
 vi.mock('../services/preferences.service.js', () => ({ queuePrefSync: vi.fn() }))
 
 // Appearance widgets paint from the live palette / localStorage — not what this file tests.
-vi.mock('../cmps/ThemeSwitcher/ThemeSwitcher',         () => ({ ThemeSwitcher:     () => null }))
 vi.mock('../cmps/AccentSwitcher/AccentSwitcher',       () => ({ AccentSwitcher:    () => null }))
 vi.mock('../cmps/CandleColorPicker/CandleColorPicker', () => ({ CandleColorPicker: () => null }))
 vi.mock('../cmps/ModeSwitcher/ModeSwitcher',           () => ({ ModeSwitcher:      () => null }))

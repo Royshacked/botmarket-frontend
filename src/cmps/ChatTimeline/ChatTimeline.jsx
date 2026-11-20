@@ -26,7 +26,7 @@ import { ChatActionSlot } from '../SidePane/ChatActions.jsx'
 import { MentorTradeChart } from '../MentorSurface/MentorTradeChart.jsx'
 import { tradeChartSetup, tradeChartReady } from '../MentorSurface/mentorSurface.utils.js'
 import { useReturnTo, openPanel, setReturnTo, panelMounted, nextReturnTo } from '../DetailPanel/detailPanel.store.js'
-import { OPENING_OPTIONS, LANDING_ASKS, OPENING_QUESTION } from './openingOptions.js'
+import { OPENING_QUESTION } from './openingOptions.js'
 import { ModePicker } from './ModePicker.jsx'
 import { QuestionCard } from './QuestionCard.jsx'
 import { openCard, openMidCard } from './questionCard.utils.js'
@@ -217,8 +217,8 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
                 <span className="chat-timeline__title">{empty ? 'Chat' : <><span className="chat-timeline__title-lead">Talking with </span>{floorName}</>}</span>
                 <span className="chat-timeline__actions">
                     {paneSurfaces && <PaneToggle floor={floor} surfaces={paneSurfaces} agentState={session.agentState} />}
-                    <button type="button" className="chat-timeline__action chat-timeline__info-btn" onClick={() => setInfoOpen(true)}>Info</button>
-                    <button type="button" className="chat-timeline__action" onClick={() => setHistoryOpen(true)}>History</button>
+                    <button type="button" className={`chat-timeline__action chat-timeline__info-btn${infoOpen ? ' is-open' : ''}`} aria-expanded={infoOpen} onClick={() => setInfoOpen(true)}>Info</button>
+                    <button type="button" className={`chat-timeline__action${historyOpen ? ' is-open' : ''}`} aria-expanded={historyOpen} onClick={() => setHistoryOpen(true)}>History</button>
                     <button type="button" className="chat-timeline__action" onClick={() => startNew()} disabled={busy || empty}>New session</button>
                 </span>
             </div>
@@ -245,14 +245,14 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
                 />
             )}
 
-            <div className={`chat-timeline__body${empty ? '' : ' chat-timeline__body--active'}`} ref={messagesRef} onScroll={handleScroll}>
+            {/* While a builder's questions are open they take the chat area (style session 2026-11-20): the thread steps aside, kept mounted. */}
+            <div className={`chat-timeline__body${empty ? '' : ' chat-timeline__body--active'}${card ? ' chat-timeline__body--asking' : ''}`} ref={messagesRef} onScroll={handleScroll}>
                 {loadError && <p className="chat-timeline__note chat-timeline__note--error">{loadError}</p>}
 
                 {empty ? (
                     <div className="chat-timeline__empty">
                         {endedLines.map(r => <TimelineRow key={r.seq} row={r} onChoose={choose} />)}
                         <AxlGreeting name={firstName(user?.fullname)} question={OPENING_QUESTION} />
-                        <SuggestionChips suggestions={OPENING_OPTIONS} onPick={(t) => sendText(t, { agent: 'axl' })} disabled={busy || !session.sessionId} />
                         {failed && <p className="chat-timeline__note chat-timeline__note--error">{lastTurn.message || 'That did not go through — try again.'}</p>}
                     </div>
                 ) : (
@@ -381,7 +381,6 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
                 leading={scope === 'main' ? <ModePicker mode={mode} pending={pendingMode} onPick={pickMode} disabled={!session.sessionId} /> : null}
             />
 
-            {empty && <SuggestionChips suggestions={LANDING_ASKS} variant="landing" onPick={(t) => sendText(t, { agent: 'axl' })} disabled={busy || !session.sessionId} />}
         </div>
     )
 }

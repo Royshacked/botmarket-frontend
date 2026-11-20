@@ -46,228 +46,58 @@ export function loadAuroraHue() {
     return raw === null ? DEFAULT_AURORA_HUE : Number(raw)
 }
 
-// ── Background spectrum ───────────────────────────────────────────────────────
-// The profile slider (0–100) sweeps the app background through a curated path of
-// very dark hues, now spanning the whole colour wheel — warm maroon/ember/gold
-// through green/teal/cyan/blue into indigo/violet/magenta, ending near-black.
-// Only the --bg-* tokens are regenerated — set inline on <html>, overriding the
-// axl theme — so accent / text / wordmark are left untouched.
-const BG_STOPS = [
-    { h: 0,   s: 60, l: 4 },   // dark red / maroon
-    { h: 26,  s: 62, l: 4 },   // dark ember / amber
-    { h: 48,  s: 52, l: 3.5 }, // dark gold / olive
-    { h: 140, s: 72, l: 3 },   // very dark green
-    { h: 176, s: 72, l: 3.5 }, // dark teal  (≈ original axl background — the default)
-    { h: 190, s: 68, l: 4 },   // dark cyan
-    { h: 218, s: 72, l: 4 },   // dark blue
-    { h: 248, s: 58, l: 4 },   // dark indigo
-    { h: 276, s: 52, l: 4 },   // dark violet / purple
-    { h: 312, s: 54, l: 4 },   // dark magenta
-    { h: 220, s: 10, l: 1 },   // near-black
+// ── Appearance: black · grey · white ─────────────────────────────────────────
+// Three neutral palettes (style session 2026-11-20). The id IS the [data-theme] block the app
+// wears (_themes.scss). White is the one paper appearance: the accent generator below puts its
+// ramp into the light band there, and into the dark band on black and grey.
+//
+// They replaced the dark/light switch AND the background colour + depth sliders: those tinted
+// every --bg-* token inline on <html>, which is exactly what a neutral theme must not have.
+// A device that saved the old switch keeps its side — 'dark' opens on black, 'light' on white.
+const APPEARANCES = ['black', 'grey', 'white']
+const DEFAULT_APPEARANCE = 'black'
+const LEGACY_APPEARANCE = { dark: 'black', light: 'white' }
+
+// The inline tokens the retired background slider used to write. Cleared at boot so nothing a
+// previous build left on <html> in this window can sit over the theme block.
+const RETIRED_INLINE = [
+    '--bg-base', '--bg-deep', '--bg-hover', '--bg-surface', '--bg-raised', '--bg-popover', '--glass-anchor',
+    '--text-primary', '--text-secondary', '--text-muted', '--text-dim', '--text-subtle', '--text-leaf',
 ]
 
-// Lightness offset of each background token relative to --bg-base (mirrors the
-// hand-tuned spacing of the axl scale, so panels keep their subtle layering).
-const BG_DELTAS = {
-    '--bg-base':      0,
-    '--bg-deep':     -1.5,
-    '--bg-hover':     2,
-    '--bg-surface':   4,
-    '--bg-raised':    6.5,
-    '--bg-popover':   4,
+// The phone's browser bar (and an installed app's status bar) — <meta name="theme-color">. It is
+// painted by the browser, not by CSS, so it cannot read a token: each value MUST equal that
+// theme's --bg-base in _themes.scss, or the bar shows as a band over the page.
+// (The manifest's theme_color in vite.config.js is static — it only colours the install splash.)
+const BROWSER_BAR = { black: '#050505', grey: '#1C1D1F', white: '#F4F4F5' }
+
+function applyBrowserBar(appearance) {
+    let meta = document.querySelector('meta[name="theme-color"]')
+    if (!meta) {
+        meta = document.createElement('meta')
+        meta.setAttribute('name', 'theme-color')
+        document.head.appendChild(meta)
+    }
+    meta.setAttribute('content', BROWSER_BAR[appearance])
 }
 
-const DEFAULT_BG = 40 // lands on the dark-teal stop (index 4 of 11) ≈ the original axl background
-
-// ── Appearance: dark ⇄ light ─────────────────────────────────────────────────
-// One switch, two palettes. It picks which [data-theme] block the app wears — 'axl'
-// (night) or 'axl-light' (paper) — and puts every generator below into the matching
-// band, so the background and accent sliders keep working in both instead of being
-// dark-only controls that produce unreadable results on paper.
-const APPEARANCES = ['dark', 'light']
-const DEFAULT_APPEARANCE = 'dark'
+function normalizeAppearance(raw) {
+    if (APPEARANCES.includes(raw)) return raw
+    return LEGACY_APPEARANCE[raw] ?? DEFAULT_APPEARANCE
+}
 
 export function loadAppearance() {
-    const raw = localStorage.getItem('themeAppearance')
-    return APPEARANCES.includes(raw) ? raw : DEFAULT_APPEARANCE
+    return normalizeAppearance(localStorage.getItem('themeAppearance'))
 }
 
 export function saveAppearance(mode) {
-    localStorage.setItem('themeAppearance', APPEARANCES.includes(mode) ? mode : DEFAULT_APPEARANCE)
+    localStorage.setItem('themeAppearance', normalizeAppearance(mode))
 }
 
 export function isLight() {
-    return loadAppearance() === 'light'
+    return loadAppearance() === 'white'
 }
 
-// The light background band. The dark stops sit at 3-4% lightness with 50-72% saturation;
-// at 94% lightness that saturation would be a highlighter, so it's capped. The DELTAS keep
-// the same *meaning* as the dark scale rather than its sign: a raised surface is the one
-// that moves AWAY from the page — toward black in dark, toward white here.
-const LIGHT_BASE_L = 94
-const LIGHT_SAT_CAP = 26      // the tint a near-white page can carry
-const LIGHT_SAT_CAP_DEEP = 34 // ...and what a sunk one can, where the same colour reads as paper stock
-const BG_DELTAS_LIGHT = {
-    '--bg-base':      0,
-    '--bg-deep':     -3,
-    '--bg-hover':     2,
-    '--bg-surface':   3.5,
-    '--bg-raised':    5.3,
-    '--bg-popover':   5.3,
-    // The opaque base the glass panels blend the accent into. It only rides the scale on paper:
-    // a sunk page would otherwise leave the social-chat glass sitting there as a white slab.
-    '--glass-anchor': 2,
-}
-
-// ...which makes it light-only, so it is cleared on the way back to dark rather than left inline
-// to override that theme's own (near-black) anchor.
-const LIGHT_ONLY_BG = ['--glass-anchor']
-
-// Light-mode depth knob. Asymmetric the other way round from the dark one: there's plenty
-// of room to sink a paper background toward grey, almost none to lift it past white — the
-// deep end lands the page at 70% lightness, a dim-daylight paper rather than an off-white.
-// It stops there rather than going further because the rest of the light block (accent fills,
-// semantic row tints, ink-alpha borders) is tuned against paper and starts to wash out below it.
-function lightShadeShift(shade) {
-    const k = (shade - 50) / 50
-    return +(k < 0 ? k * 24 : k * 5).toFixed(2)
-}
-
-// How much colour that paper can hold at this depth. Near-white takes only a tint before the
-// hue reads as a highlighter; the further the page sinks the more saturation it carries without
-// glare — which is what makes the colour slider legible at the deep end at all.
-function lightSatCap(shade) {
-    const deep = Math.max(0, Math.min(1, (50 - shade) / 50))
-    return LIGHT_SAT_CAP + (LIGHT_SAT_CAP_DEEP - LIGHT_SAT_CAP) * deep
-}
-
-// Light-mode ink, mirroring the --text-* hexes of [data-theme="axl-light"] in _themes.scss.
-// Those tiers are pinned to a contrast ratio against a near-white --bg-surface (see the ladder
-// note there); once the depth knob sinks that surface out from under them the ratios collapse,
-// so the ink sinks with it. INK_FOLLOW is the fraction of the page's travel that holds every
-// tier at its floor across the whole range — see themeService.lightDepth.test.jsx.
-const LIGHT_INK = {
-    '--text-primary':   { h: 197, s: 30, l: 13.9 },
-    '--text-secondary': { h: 199, s: 21, l: 30.6 },
-    '--text-muted':     { h: 197, s: 17, l: 37.6 },
-    '--text-dim':       { h: 198, s: 15, l: 44.7 },
-    '--text-subtle':    { h: 197, s: 22, l: 24.7 },
-    '--text-leaf':      { h: 175, s: 27, l: 19.2 },
-}
-const INK_FOLLOW = 0.8
-
-// Sink the ink by `shift` lightness points (a negative number), or pass 0 to drop the override
-// so the stylesheet's own ladder — dark theme or nominal paper — takes back over. Always called,
-// never conditionally skipped: a stale light-mode --text-* left inline would follow the user
-// into the dark theme as near-black text on a near-black page.
-function applyInkShift(shift) {
-    const root = document.documentElement
-    for (const [token, c] of Object.entries(LIGHT_INK)) {
-        if (!shift) { root.style.removeProperty(token); continue }
-        const li = Math.max(3, +(c.l + shift * INK_FOLLOW).toFixed(1))
-        root.style.setProperty(token, `hsl(${c.h}, ${c.s}%, ${li}%)`)
-    }
-}
-
-// Background depth knob (0–100, 50 = the curated stop as-is). Shifts every --bg-*
-// token's lightness together: below 50 sinks toward pure black, above 50 lifts the
-// whole app lighter. Asymmetric — the stops already sit near-black, so there's only
-// a little room to darken but plenty to lighten.
-const DEFAULT_BG_SHADE = 50
-
-function bgShadeShift(shade) {
-    const k = (shade - 50) / 50
-    return +(k < 0 ? k * 3 : k * 11).toFixed(2)
-}
-
-const lerp = (a, b, t) => a + (b - a) * t
-
-// Interpolate the curated stops at slider position pos (0–100) → {h,s,l} of --bg-base.
-function bgStopAt(pos) {
-    const t = Math.max(0, Math.min(100, pos)) / 100
-    const seg = t * (BG_STOPS.length - 1)
-    const i = Math.min(BG_STOPS.length - 2, Math.floor(seg))
-    const f = seg - i
-    const a = BG_STOPS[i], b = BG_STOPS[i + 1]
-    return { h: lerp(a.h, b.h, f), s: lerp(a.s, b.s, f), l: lerp(a.l, b.l, f) }
-}
-
-// A swatch of the position pulled toward the middle of the range, so the slider preview
-// dot is legible — the real backgrounds are intentionally near-black (dark) or near-white
-// (light), and neither reads as a 14px dot.
-export function bgPreview(pos, light = isLight()) {
-    const { h, s } = bgStopAt(pos)
-    if (light) return `hsl(${h.toFixed(1)}, ${Math.min(s, 40).toFixed(1)}%, 80%)`
-    return `hsl(${h.toFixed(1)}, ${s.toFixed(1)}%, 38%)`
-}
-
-// The full spectrum painted onto the slider track — one gradient stop per BG_STOP, pulled
-// to the same mid-range as the preview dot. Derived from BG_STOPS so the track can never
-// drift from the actual sweep.
-export function bgTrackGradient(light = isLight()) {
-    const stops = BG_STOPS.map((s, i) => {
-        const pct = ((i / (BG_STOPS.length - 1)) * 100).toFixed(1)
-        const isNeutral = s.s <= 12 // the terminal stop — near-black in dark, near-white in light
-        const color = light
-            ? (isNeutral ? '#F2F4F4' : `hsl(${s.h}, ${Math.min(s.s, 40)}%, 78%)`)
-            : (isNeutral ? '#000'    : `hsl(${s.h}, ${s.s}%, 33%)`)
-        return `${color} ${pct}%`
-    })
-    return `linear-gradient(to right, ${stops.join(', ')})`
-}
-
-// Apply the background spectrum live — sets every --bg-* token inline on <html>.
-// shade shifts the whole scale's lightness (depth); 50 leaves the curated stop as-is.
-// In light mode the same hue path is walked at the top of the lightness range instead of
-// the bottom, so the slider keeps tinting the app rather than turning it dark.
-export function applyBgSpectrum(pos, shade = DEFAULT_BG_SHADE, light = isLight()) {
-    const { h, s, l } = bgStopAt(pos)
-    const root = document.documentElement
-    const base   = light ? LIGHT_BASE_L : l
-    const sat    = light ? Math.min(s, lightSatCap(shade)) : s
-    const shift  = light ? lightShadeShift(shade) : bgShadeShift(shade)
-    const deltas = light ? BG_DELTAS_LIGHT : BG_DELTAS
-    for (const [token, delta] of Object.entries(deltas)) {
-        const li = Math.max(0, Math.min(100, base + delta + shift))
-        root.style.setProperty(token, `hsl(${h.toFixed(1)}, ${sat.toFixed(1)}%, ${li.toFixed(1)}%)`)
-    }
-    if (!light) for (const token of LIGHT_ONLY_BG) root.style.removeProperty(token)
-    // Only a sunk page needs the compensation; at or above the nominal stop the stylesheet's
-    // audited ladder is already correct, so the override comes back off.
-    applyInkShift(light && shift < 0 ? shift : 0)
-}
-
-// Depth track for the shade slider — this position's hue across the depth it can actually
-// travel (near-black → mid in dark, grey-tint → paper in light), so the gradient reflects
-// the colour currently picked.
-export function bgShadeTrack(pos, light = isLight()) {
-    const { h, s } = bgStopAt(pos)
-    if (light) {
-        const deepS = Math.min(s, LIGHT_SAT_CAP_DEEP).toFixed(1)
-        const paleS = Math.min(s, LIGHT_SAT_CAP).toFixed(1)
-        const deepL = (LIGHT_BASE_L + lightShadeShift(0)).toFixed(1)
-        return `linear-gradient(to right, hsl(${h.toFixed(1)}, ${deepS}%, ${deepL}%), hsl(${h.toFixed(1)}, ${paleS}%, 99%))`
-    }
-    return `linear-gradient(to right, hsl(${h.toFixed(1)}, ${s.toFixed(1)}%, 3%), hsl(${h.toFixed(1)}, ${Math.min(s, 45).toFixed(1)}%, 46%))`
-}
-
-export function saveBgSpectrum(pos) {
-    localStorage.setItem('bgSpectrum', String(pos))
-}
-
-export function loadBgSpectrum() {
-    const raw = localStorage.getItem('bgSpectrum')
-    return raw === null ? DEFAULT_BG : Number(raw)
-}
-
-export function saveBgShade(shade) {
-    localStorage.setItem('bgShade', String(shade))
-}
-
-export function loadBgShade() {
-    const raw = localStorage.getItem('bgShade')
-    return raw === null ? DEFAULT_BG_SHADE : Number(raw)
-}
 
 // Width (as a fraction of the 0–360 hue range) of the transition at each edge
 // of the hue slider, where saturation eases out to a neutral grayscale theme.
@@ -428,7 +258,7 @@ function buildAccentVars(h, shade = DEFAULT_ACCENT_SHADE, light = isLight()) {
     const L = (v, floor = 3) => Math.max(floor, Math.min(97, +(v + d).toFixed(1)))
 
     // On paper the ramp runs the other way — -deep is the pale FILL and -bright the darkest
-    // INK (see the axl-light note in _themes.scss). Generating the dark ramp here would hand
+    // INK (see the White note in _themes.scss). Generating the dark ramp here would hand
     // every accent-coloured label a near-white colour on a near-white surface. The shade knob
     // keeps its meaning: below 50 deepens, above 50 lifts.
     if (light) {
@@ -521,16 +351,17 @@ export function initTheme() {
     // header styles, so it's applied up front regardless of which theming path runs below.
     applyAuroraHue(loadAuroraHue())
 
-    // Header-style trial: while the axl header is active (headerStyle !== 'classic'),
-    // the app always uses the curated 'axl' aurora theme so its colours match the
-    // header exactly. Any generated spectrum vars are cleared, so the profile theme
-    // slider can't drift the app off the header palette. Setting headerStyle='classic'
-    // restores normal (spectrum/preset) theming below.
+    // While the axl header is active (headerStyle !== 'classic') the app wears one of the three
+    // appearances — black, grey or white — straight from its [data-theme] block. Generated spectrum
+    // vars and anything the retired background slider left inline are cleared first, so the block
+    // is what shows. Setting headerStyle='classic' restores the old spectrum/preset theming below.
     if (localStorage.getItem('headerStyle') !== 'classic') {
         clearHueTheme()
-        const light = isLight()
-        document.documentElement.setAttribute('data-theme', light ? 'axl-light' : 'axl')
-        applyBgSpectrum(loadBgSpectrum(), loadBgShade(), light)
+        const root = document.documentElement
+        for (const token of RETIRED_INLINE) root.style.removeProperty(token)
+        const appearance = loadAppearance()
+        root.setAttribute('data-theme', appearance)
+        applyBrowserBar(appearance)
         return
     }
 
@@ -544,9 +375,8 @@ export function initTheme() {
     }
 }
 
-// Switch the app between the night and paper palettes: persist the choice, then re-run the
-// boot appliers so the whole token set — theme block, background spectrum, accent override —
-// is regenerated in the new band. Order mirrors index.jsx: initTheme() wipes the inline accent
+// Switch appearance (black / grey / white): persist the choice, then re-run the boot appliers so
+// the whole token set — theme block, accent override — is regenerated in the new band. Order mirrors index.jsx: initTheme() wipes the inline accent
 // vars, so the user's accent is re-applied on top of the fresh palette.
 export function applyAppearance(mode) {
     saveAppearance(mode)
@@ -554,4 +384,4 @@ export function applyAppearance(mode) {
     initAccent()
 }
 
-export { DEFAULT_HUE, DEFAULT_TONE, DEFAULT_AURORA_HUE, DEFAULT_ACCENT_SHADE, DEFAULT_BG_SHADE, DEFAULT_APPEARANCE, APPEARANCES }
+export { DEFAULT_HUE, DEFAULT_TONE, DEFAULT_AURORA_HUE, DEFAULT_ACCENT_SHADE, DEFAULT_APPEARANCE, APPEARANCES }

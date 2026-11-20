@@ -208,7 +208,7 @@
 
         &.user .msg-text { font-style: italic; }
         &.axl  .msg-text { color: var(--axl-birch); font-style: normal; }
-        &.axl  .msg-tag  { color: var(--axl-aurora); border-color: rgba(116, 201, 174, 0.4); }
+        &.axl  .msg-tag  { color: var(--axl-aurora); border-color: color-mix(in srgb, var(--accent-light) 40%, transparent); }
     }
 
     // ── right cluster ──
@@ -260,7 +260,7 @@
         &:hover {
             border-color: color-mix(in srgb, var(--accent-light) 70%, transparent);
             color: var(--axl-aurora);
-            box-shadow: 0 0 10px rgba(116, 201, 174, 0.4);
+            box-shadow: 0 0 10px color-mix(in srgb, var(--accent-light) 40%, transparent);
         }
         &:focus-visible { outline: 2px solid var(--axl-aurora); outline-offset: 2px; }
     }
@@ -330,7 +330,7 @@
         &:hover {
             border-color: color-mix(in srgb, var(--accent-light) 70%, transparent);
             color: var(--axl-aurora);
-            box-shadow: 0 0 10px rgba(116, 201, 174, 0.4);
+            box-shadow: 0 0 10px color-mix(in srgb, var(--accent-light) 40%, transparent);
         }
         &:focus-visible { outline: 2px solid var(--axl-aurora); outline-offset: 2px; }
 
@@ -376,7 +376,7 @@
         &:hover {
             border-color: color-mix(in srgb, var(--accent-light) 70%, transparent);
             color: var(--axl-aurora);
-            box-shadow: 0 0 10px rgba(116, 201, 174, 0.4);
+            box-shadow: 0 0 10px color-mix(in srgb, var(--accent-light) 40%, transparent);
         }
         &:focus-visible { outline: 2px solid var(--axl-aurora); outline-offset: 2px; }
     }

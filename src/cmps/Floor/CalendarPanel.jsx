@@ -104,18 +104,18 @@ export function CalendarPanel({ onEarningSelect, onIpoSelect, onSymbolClick }) {
     const actions = date ? (
         <div className="cal-nav">
             <button type="button" className="cal-nav__btn" onClick={() => setDate(null)}>‹ {fmtMonth(month).split(' ')[0]}</button>
-            <button type="button" className="cal-nav__btn" onClick={() => goDay(addDays(date, -1))} aria-label="Previous day">‹</button>
-            <button type="button" className="cal-nav__btn" onClick={() => goDay(addDays(date, 1))} aria-label="Next day">›</button>
+            <button type="button" className="cal-nav__btn cal-nav__btn--arrow" onClick={() => goDay(addDays(date, -1))} aria-label="Previous day">‹</button>
+            <button type="button" className="cal-nav__btn cal-nav__btn--arrow" onClick={() => goDay(addDays(date, 1))} aria-label="Next day">›</button>
         </div>
     ) : (
         <div className="cal-nav">
-            <button type="button" className="cal-nav__btn" onClick={() => setMonth(m => shiftMonth(m, -1))} aria-label="Previous month">‹</button>
+            <button type="button" className="cal-nav__btn cal-nav__btn--arrow" onClick={() => setMonth(m => shiftMonth(m, -1))} aria-label="Previous month">‹</button>
             {/* The month's NAME between its arrows (Roy, 2026-10-14) — and still the way home:
                 clicking it returns to this month. */}
             <button type="button" className="cal-nav__btn cal-nav__btn--month" onClick={() => setMonth(monthOf())} title="Back to this month">
                 {fmtMonth(month).split(' ')[0]}
             </button>
-            <button type="button" className="cal-nav__btn" onClick={() => setMonth(m => shiftMonth(m, 1))} aria-label="Next month">›</button>
+            <button type="button" className="cal-nav__btn cal-nav__btn--arrow" onClick={() => setMonth(m => shiftMonth(m, 1))} aria-label="Next month">›</button>
         </div>
     )
 

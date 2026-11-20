@@ -71,6 +71,33 @@ export function volText(row) {
     return null
 }
 
+// ── Sorting the day board by any column (Roy, 2026-11-20) — the first click goes the useful way; missing values last. ──
+export const DAY_SORTS = Object.freeze({ symbol: 'asc', price: 'desc', chg: 'desc', vol: 'desc', atr: 'desc', news: 'desc' })
+const DAY_KEY = {
+    symbol: (r) => r.symbol ?? '',
+    price:  (r) => r.price,
+    chg:    (r) => r.gap_pct,
+    // A board quotes one or the other: the volume multiple in session, the share of a day before the open.
+    vol:    (r) => (Number.isFinite(r.rvol) ? r.rvol : Number.isFinite(r.pm_vol_pct) ? r.pm_vol_pct : null),
+    atr:    (r) => r.atr_pct,
+    // The freshest headline's ET wall-clock — newest first.
+    news:   (r) => (Array.isArray(r.catalyst?.news) && r.catalyst.news[0]?.at) || null,
+}
+
+/** A board's rows sorted by one column; a null key keeps the board's own order. Pure — a new array. */
+export function sortDayRows(rows, key, dir) {
+    if (!key || !DAY_KEY[key]) return [...(rows ?? [])]
+    const get = DAY_KEY[key]
+    const sign = (dir ?? DAY_SORTS[key]) === 'desc' ? -1 : 1
+    const known = (v) => v != null && v !== '' && !(typeof v === 'number' && !Number.isFinite(v))
+    return [...(rows ?? [])].sort((a, b) => {
+        const va = get(a), vb = get(b)
+        if (known(va) !== known(vb)) return known(va) ? -1 : 1
+        if (known(va) && va !== vb) return (va < vb ? -1 : 1) * sign
+        return String(a.symbol).localeCompare(String(b.symbol))
+    })
+}
+
 /** The move since the last close, signed: "+6.2%". Pure. */
 export function gapText(row) {
     const g = row?.gap_pct

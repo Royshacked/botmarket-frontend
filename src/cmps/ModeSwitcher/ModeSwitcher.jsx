@@ -3,18 +3,16 @@ import { loadAppearance, applyAppearance } from '../../services/themeService'
 import { queuePrefSync } from '../../services/preferences.service'
 import './ModeSwitcher.scss'
 
-// Dark ⇄ light switch. Swaps which [data-theme] block the app wears and puts the background
-// and accent generators into the matching band (themeService.applyAppearance), so the two
-// sliders below this row keep meaning the same thing on paper as they do at night.
+// The theme picker: Black · Grey · White. Swaps which [data-theme] block the app wears and puts
+// the accent generator into the matching band (themeService.applyAppearance).
 // Applies live, persists to localStorage, and syncs to the account like every other preference.
+// Each button carries a swatch of its own page colour, so the choice reads before it is made.
 const MODES = [
-    { id: 'dark',  label: 'Dark',  glyph: '◑' },
-    { id: 'light', label: 'Light', glyph: '☀' },
+    { id: 'black', label: 'Black' },
+    { id: 'grey',  label: 'Grey'  },
+    { id: 'white', label: 'White' },
 ]
 
-// onChange lets the page re-key the sliders that paint their own track from the palette
-// (ThemeSwitcher) — their gradients are computed at render, so they'd keep showing the
-// previous band until something else re-rendered them.
 export function ModeSwitcher({ onChange }) {
     const [mode, setMode] = useState(loadAppearance)
 
@@ -27,7 +25,7 @@ export function ModeSwitcher({ onChange }) {
     }
 
     return (
-        <div className="mode-switcher" role="group" aria-label="Appearance mode">
+        <div className="mode-switcher" role="group" aria-label="Theme">
             {MODES.map(m => (
                 <button
                     key={m.id}
@@ -35,9 +33,9 @@ export function ModeSwitcher({ onChange }) {
                     className={`mode-switcher__btn${mode === m.id ? ' mode-switcher__btn--active' : ''}`}
                     onClick={() => pick(m.id)}
                     aria-pressed={mode === m.id}
-                    title={`${m.label} appearance`}
+                    title={`${m.label} theme`}
                 >
-                    <span className="mode-switcher__glyph" aria-hidden="true">{m.glyph}</span>
+                    <span className={`mode-switcher__swatch mode-switcher__swatch--${m.id}`} aria-hidden="true" />
                     {m.label}
                 </button>
             ))}

@@ -444,3 +444,32 @@ test("a DAY BOARD row hands Mentor its why and its freshest headline, as an hd_ 
     assert.equal(handoffRead({ symbol: 'X' }, 'eod'), null)
     assert.deepEqual(hotlistHandoff(day, 'eod', { id: 'hd_2026-11-11_eod' }).hotlist, { board: 'hd_2026-11-11_eod', column: 'eod' })
 })
+
+test('every book column sorts (Roy, 2026-11-20): last, target, rating best first, timing Now first, from A→Z — missing last', () => {
+    const rows = [
+        { symbol: 'A', price: 10, target: 30, rating: 'hold',       timing: { verdict: 'wait' }, origin: { source: 'pythia', subject: 'Semis' } },
+        { symbol: 'B', price: 50, target: 60, rating: 'strong_buy', timing: { verdict: 'now' },  origin: null },
+        { symbol: 'C', price: null, target: null, rating: null,     timing: null,                origin: { source: 'pythia', subject: 'Banks' } },
+    ]
+    const order = (key, dir = null) => sortBook(rows, key, dir).map(r => r.symbol)
+    assert.deepEqual(order('last'), ['B', 'A', 'C'])
+    assert.deepEqual(order('last', 'asc'), ['A', 'B', 'C'], 'missing stays last either way')
+    assert.deepEqual(order('target'), ['B', 'A', 'C'])
+    assert.deepEqual(order('rating'), ['B', 'A', 'C'])
+    assert.deepEqual(order('timing'), ['B', 'A', 'C'])
+    assert.deepEqual(order('from'), ['C', 'B', 'A'], 'Banks · desk · Semis')
+})
+
+test('This week sorts by room, result and target too (Roy, 2026-11-20)', () => {
+    const cell = (range) => ({ week: { grade: 'B', range } })
+    const rows = [
+        { symbol: 'A', cells: cell({ atr_mult: 0.8 }), results: { week: { state: 'missed', mfe_pct: 2 } } },
+        { symbol: 'B', cells: cell({ open_sky: true }), results: { week: { state: 'reached', ret_pct: 4 } } },
+        { symbol: 'C', cells: cell({ atr_mult: 1.6 }), results: { week: { state: 'open' } } },
+    ]
+    const reads = new Map([['A', { target: { open_pct: 6 } }], ['C', { target: { open_pct: 2 } }]])
+    const order = (k) => sortList(rows, k, null, 'week', reads).map(r => r.symbol)
+    assert.deepEqual(order('room'), ['B', 'C', 'A'], 'open sky first, then the most room')
+    assert.deepEqual(order('result'), ['B', 'A', 'C'], 'reached before missed; an open window last')
+    assert.deepEqual(order('target'), ['A', 'C', 'B'], 'the most still open first; no read last')
+})

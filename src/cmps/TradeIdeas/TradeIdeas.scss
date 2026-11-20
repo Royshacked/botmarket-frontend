@@ -1550,7 +1550,7 @@ $card-status-colors: (
         }
         &--save {
             background: var(--accent);
-            color: var(--text-primary);
+            color: var(--on-accent);
         }
         &--place {
             background: #1d6f44;

@@ -41,18 +41,19 @@
 // ── A pick-one chip ──────────────────────────────────────────────────────────
 //
 // The in-panel choosers — the Hotlist's horizons, the forecast map's verdict filter — are the same
-// control, so they wear one look: a pill, the chosen one outlined in the accent. They used to be
+// control, so they wear one look. Since the style session (2026-11-20) it is the header style: no outline, a faint ink
+// tint on hover, a firmer tint and full-strength text on the chosen one. (Before: a pill, the chosen one outlined.) They used to be
 // three (square boxes, pills, header squares), which read as three different kinds of control
 // (drive:all, 2026-11-17). The chosen state is `aria-pressed`, which every one of them already
 // announces, so the look cannot disagree with what a screen reader is told.
 //
-// The panel-HEADER buttons (‹ ›, 1m · 3m, Board — .cal-nav__btn) stay squares on purpose: they sit
-// beside the ✕ and match its height.
+// The panel-HEADER buttons (‹ ›, 1m · 3m, Board — .cal-nav__btn) are their own style on purpose: they sit
+// beside the ✕ in the header style (no outline, a tint on hover and when chosen — Floor.scss, 2026-11-20).
 .toggle-chip {
     margin: 0;
     padding: 3px 10px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
+    border: none;
+    border-radius: 6px;
     background: none;
     font: inherit;
     font-size: 11.5px;
@@ -60,10 +61,11 @@
     color: var(--text-secondary);
     cursor: pointer;
     white-space: nowrap;
+    transition: background 0.15s, color 0.15s;
 
-    &:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+    &:hover:not(:disabled) { background: color-mix(in srgb, var(--text-primary) 5%, transparent); color: var(--text-primary); }
     &:disabled { opacity: .45; cursor: default; }
-    &[aria-pressed="true"] { border-color: var(--accent-light); color: var(--text-primary); background: var(--bg-raised); }
+    &[aria-pressed="true"] { color: var(--text-primary); background: color-mix(in srgb, var(--text-primary) 11%, transparent); }
 
     // A thumb, not a pointer: 28px tall on a phone (WCAG 2.5.8 asks 24).
     @include for-mobile-layout { min-height: 28px; padding: 4px 12px; }

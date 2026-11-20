@@ -18,8 +18,8 @@ import { CANDLE_PREF_KEYS, initCandleColors } from './candleColors.service'
 // Explicit allowlist — only these keys sync. Keeps unrelated localStorage
 // (loggedinUser, popup-idea-*, …) out of the account preferences blob.
 const PREF_KEYS = [
-    // dark ⇄ light appearance, background spectrum + depth + aurora wash
-    'themeAppearance', 'bgSpectrum', 'bgShade', 'auroraHue',
+    // appearance (black / grey / white) + aurora hue
+    'themeAppearance', 'auroraHue',
     // classic-header spectrum/preset theming
     'themeMode', 'theme', 'themeHue', 'themeTone', 'headerStyle',
     // accent picker

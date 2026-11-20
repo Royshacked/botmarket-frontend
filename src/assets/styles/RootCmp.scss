@@ -15,7 +15,10 @@
 .main-container .main-page {
     flex: 1;
     min-height: 0;
-    overflow: hidden;
+    // CLIP, not hidden (2026-11-20): `hidden` still lets the BROWSER scroll the box — focusing a field inside a column
+    // taller than the window (a builder's question card + the prompt box) slid the whole workspace up under the app
+    // header, cutting the column headers in half. `clip` cannot be scrolled by anything.
+    overflow: clip;
     display: flex;
     flex-direction: column;
 }
@@ -140,7 +143,7 @@
     [data-design="floor"] .workspace__right { display: none; }
 
     // The chat owns the height and scrolls inside itself — the page never scrolls.
-    .main-container .main-page { overflow: hidden; }
+    .main-container .main-page { overflow: clip; }   // clip: see the note on .main-page above
 
     // 100vh on a phone measures past the browser's own chrome, which would put the composer
     // under the URL bar. dvh tracks the visible viewport instead. (Mobile only: desktop keeps

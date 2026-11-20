@@ -368,15 +368,17 @@ $desk-h: rem(36px);
     align-items: center;
     gap: 4px;
 
+    // The list headers' buttons (‹ ›, months, 1m · 3m, Board, Back) in the header style settled 2026-11-20 — the chat
+    // header's (.chat-timeline__action): no outline, a faint ink tint on hover, a firmer one when chosen (--on).
     &__btn {
         margin: 0;   // the global button margin
-        height: 32px;   // the ✕'s height (.detail-panel__close)
+        height: 28px;   // the ✕'s height in a list bar (DetailPanel.scss)
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-width: 32px;
+        min-width: 28px;
         padding: 0 9px;
-        border: 1px solid var(--border);
+        border: none;
         border-radius: 6px;
         background: none;
         font: inherit;
@@ -384,9 +386,14 @@ $desk-h: rem(36px);
         color: var(--text-secondary);
         cursor: pointer;
         white-space: nowrap;
+        transition: background 0.15s, color 0.15s;
 
-        &:hover { background: var(--bg-hover); color: var(--text-primary); }
+        &:hover:not(:disabled) { background: color-mix(in srgb, var(--text-primary) 5%, transparent); color: var(--text-primary); }
         &:disabled { opacity: .4; cursor: default; background: none; }
+
+        // ‹ › — a bigger glyph than the words beside them (Roy, 2026-11-20), nudged up a pixel: the angle quote sits low
+        // in its line box.
+        &--arrow { min-width: 32px; padding: 0 6px 2px; font-size: 22px; line-height: 1; }
 
         // Fixed width, so the arrows do not shift as the name changes from May to September.
         &--month { min-width: 92px; color: var(--text-primary); }
@@ -665,8 +672,8 @@ $desk-h: rem(36px);
         gap: 3px;
         padding: 3px 8px;
         margin: 0;   // the global button margin would double the strip's gap
-        border: 1px solid var(--border);
-        border-radius: 999px;
+        border: none;          // the header style (2026-11-20): no outline, a tint on hover, a firmer one on the open desk
+        border-radius: 6px;
         background: none;
         font: inherit;
         font-size: 11.5px;
@@ -676,18 +683,16 @@ $desk-h: rem(36px);
         cursor: pointer;
         white-space: nowrap;
 
-        &:hover { background: var(--bg-hover); }
+        &:hover { background: color-mix(in srgb, var(--text-primary) 5%, transparent); }
 
-        &--active {
-            color: var(--accent-light);
-            border-color: var(--accent-light);
-        }
+        &--active { background: color-mix(in srgb, var(--text-primary) 11%, transparent); }
         &--empty:not(.floor-strip__chip--active) { color: var(--text-dim); font-weight: 500; }
 
         // The Calendar chip opens a panel, so it carries aria-expanded — and the shared "row the panel
         // came from" mark (DetailPanel.scss: a hover fill + a 2px inset bar) would be clipped to a
-        // sliver on a pill. The chip's own --active border already says it (CR 2026-10-14).
-        &[aria-expanded="true"] { background: none; box-shadow: none; }
+        // sliver on a chip. The chip's own --active tint already says it (CR 2026-10-14).
+        &[aria-expanded="true"]:not(.floor-strip__chip--active) { background: none; box-shadow: none; }
+        &[aria-expanded="true"] { box-shadow: none; }
     }
 
     &__count {
@@ -1365,8 +1370,8 @@ $desk-h: rem(36px);
     &__select { padding: 1px 4px; }
     // In the list window's header (2026-10-31): the Calendar's buttons; the label stays a quiet word beside them.
     &--header { font-size: 11.5px; color: var(--text-dim); }
-    &--header &__select.cal-nav__btn { padding: 0 6px; height: 32px; }
-    &--header &__dir.cal-nav__btn { width: 32px; height: 32px; padding: 0; }
+    &--header &__select.cal-nav__btn { padding: 0 6px; height: 28px; }
+    &--header &__dir.cal-nav__btn { width: 28px; height: 28px; padding: 0; }
     &__dir {
         width: 22px;
         padding: 1px 0;
@@ -1383,7 +1388,7 @@ $desk-h: rem(36px);
     align-self: flex-start;
     margin: 4px 0 8px 12px;
     padding: 3px 10px;
-    border: 1px solid var(--border);
+    border: none;   // the header style (2026-11-20)
     border-radius: 6px;
     background: none;
     font: inherit;
@@ -1391,10 +1396,10 @@ $desk-h: rem(36px);
     color: var(--text-secondary);
     cursor: pointer;
 
-    &:hover { background: var(--bg-hover); color: var(--text-primary); }
+    &:hover { background: color-mix(in srgb, var(--text-primary) 5%, transparent); color: var(--text-primary); }
 }
 
-.cal-nav__btn--on { background: var(--bg-raised); border-color: var(--accent-light); color: var(--text-primary); }
+.cal-nav__btn--on { background: color-mix(in srgb, var(--text-primary) 11%, transparent); color: var(--text-primary); }   // chosen: the header style's firmer tint
 
 .fm-note {
     font-size: 12px;

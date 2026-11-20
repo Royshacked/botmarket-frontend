@@ -2,22 +2,27 @@ import { useState } from 'react'
 import {
     applyAccentHue, clearAccentHue, saveAccentHue, saveAccentShade, clearSavedAccentHue,
     loadAccentHue, loadAccentShade, accentPreview, DEFAULT_AURORA_HUE, DEFAULT_ACCENT_SHADE,
-    applyAuroraHue, saveAuroraHue,
+    applyAuroraHue, saveAuroraHue, isLight,
 } from '../../services/themeService'
 import { queuePrefSync } from '../../services/preferences.service'
 import './AccentSwitcher.scss'
 
-// Accent picker on two knobs: hue (the colour, full wheel) and shade (depth —
-// drag left to deepen toward dark/rich, right to lighten). Recolors the whole
-// accent spectrum (accent family + glows + headings/wordmark) live as inline vars
-// on <html>, overriding the active theme/design accent. The hue also drives the global aurora
-// anchor (--aurora-hue), so the header's calm-water wave tracks the accent.
-// Until the user moves it, no override is applied — "reset" returns to the default.
+// Accent picker. The first choice is the THEME's own accent — white on Black and Grey, teal on
+// White (Roy, 2026-11-20) — selected whenever no colour override is saved; clicking it clears one.
+// After it, two knobs for a colour of your own: hue (the full wheel) and shade (drag left to
+// deepen, right to lighten). A colour recolors the whole accent spectrum (accent family + glows +
+// headings/wordmark) live as inline vars on <html>, over the theme's accent. The hue also drives
+// the global aurora anchor (--aurora-hue), so the header's calm-water wave tracks it.
+//
+// The page re-keys this on a theme switch (UserProfile), so the first choice's name and swatch
+// follow the theme without a reload.
 export function AccentSwitcher() {
     const savedHue = loadAccentHue()
     const [hue, setHue]       = useState(savedHue ?? DEFAULT_AURORA_HUE)
     const [shade, setShade]   = useState(savedHue === null ? DEFAULT_ACCENT_SHADE : loadAccentShade())
     const [active, setActive] = useState(savedHue !== null)
+    const light = isLight()
+    const themeAccent = light ? { label: 'Teal', swatch: '#266861' } : { label: 'White', swatch: '#FFFFFF' }
 
     function apply(nextHue, nextShade) {
         setHue(nextHue)
@@ -32,7 +37,8 @@ export function AccentSwitcher() {
         queuePrefSync()
     }
 
-    function reset() {
+    function pickThemeAccent() {
+        if (!active) return
         setActive(false)
         setHue(DEFAULT_AURORA_HUE)   // return the hue slider to the default position too
         setShade(DEFAULT_ACCENT_SHADE)
@@ -51,39 +57,40 @@ export function AccentSwitcher() {
     return (
         <div className="accent-switcher">
             <div className="accent-switcher__row">
+                <button
+                    type="button"
+                    className={`accent-switcher__theme${active ? '' : ' accent-switcher__theme--on'}`}
+                    onClick={pickThemeAccent}
+                    aria-pressed={!active}
+                    title={`The theme's own accent (${themeAccent.label.toLowerCase()})`}
+                >
+                    <span className="accent-switcher__dot" style={{ background: themeAccent.swatch }} aria-hidden="true" />
+                    {themeAccent.label}
+                </button>
                 <input
                     type="range"
                     min="0"
                     max="360"
                     value={hue}
                     onChange={e => apply(Number(e.target.value), shade)}
-                    className="accent-switcher__slider accent-switcher__slider--hue"
-                    title="Accent colour"
+                    className={`accent-switcher__slider accent-switcher__slider--hue${active ? '' : ' accent-switcher__slider--idle'}`}
+                    title="Pick a colour instead"
                     aria-label="Accent colour"
                 />
                 <span
-                    className={`accent-switcher__preview${active ? '' : ' accent-switcher__preview--off'}`}
-                    style={active ? { background: accentPreview(hue, shade) } : undefined}
+                    className="accent-switcher__preview"
+                    style={{ background: active ? accentPreview(hue, shade) : themeAccent.swatch }}
                 />
-                {active && (
-                    <button
-                        type="button"
-                        className="accent-switcher__reset"
-                        onClick={reset}
-                        title="Reset accent to the theme/design default"
-                    >
-                        reset
-                    </button>
-                )}
             </div>
             <div className="accent-switcher__row">
+                <span className="accent-switcher__theme-gap" aria-hidden="true" />
                 <input
                     type="range"
                     min="0"
                     max="100"
                     value={shade}
                     onChange={e => apply(hue, Number(e.target.value))}
-                    className="accent-switcher__slider accent-switcher__slider--shade"
+                    className={`accent-switcher__slider accent-switcher__slider--shade${active ? '' : ' accent-switcher__slider--idle'}`}
                     style={{ background: shadeTrack }}
                     title="Accent depth (dark ↔ light)"
                     aria-label="Accent depth"

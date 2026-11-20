@@ -143,11 +143,13 @@
 .hot-status-filter {
     display: inline-flex; gap: 4px; flex-wrap: wrap;
     &__btn {
-        font-size: 11.5px; padding: 2px 8px; border-radius: 10px; cursor: pointer;
-        background: transparent; color: var(--text-secondary); border: 1px solid var(--border);
-        &:hover:not(:disabled) { background: var(--bg-hover); }
+        // The header style (2026-11-20): no outline; a tint on hover, a firmer one on the chosen filter.
+        font-size: 11.5px; padding: 2px 8px; border-radius: 6px; cursor: pointer;
+        background: transparent; color: var(--text-secondary); border: none;
+        transition: background 0.15s, color 0.15s;
+        &:hover:not(:disabled) { background: color-mix(in srgb, var(--text-primary) 5%, transparent); color: var(--text-primary); }
         &:disabled { opacity: .45; cursor: default; }
-        &--on { color: var(--text-primary); border-color: var(--accent-light); }
+        &--on { color: var(--text-primary); background: color-mix(in srgb, var(--text-primary) 11%, transparent); }
     }
 }
 
@@ -321,7 +323,11 @@
 // small chip after the headline.
 .hot-table--day td { white-space: normal; vertical-align: middle; }
 .hot-table--day .hot-row--open { cursor: pointer; }
-.hot-day-why { min-width: 16rem; }
+// The news column stands clear of the numbers: ATR% ends right-aligned, and the headline's time started on its edge
+// ("too close", Roy 2026-11-20). Its header carries the same class, so the two stay over each other.
+.hot-day-why { min-width: 16rem; padding-left: 24px !important; }
+// A headline's time and the headline: a clear gap, not a single space (Roy, 2026-11-20). In the row and on its page.
+.hot-news-time { display: inline-block; margin-right: 10px; font-variant-numeric: tabular-nums; }
 .hot-day-news { margin: 4px 0 8px; padding-left: 18px; }
 .hot-day-news li { margin: 2px 0; }
 .hot-day-flag {
@@ -360,10 +366,8 @@
     &__note { margin: 6px 0 0; font-size: 11px; color: var(--text-dim); }
 }
 
-// ── Echo (backend docs/design/echo-pipeline.md): the tab — set apart, and labelled before anything else ──
-// Scoped under .hot-horizons like the book's, or the global .toggle-chip (later in the built CSS) takes the margin and
-// the border back (CR 2026-11-19).
-.hot-horizons .hot-horizons__btn--echo { margin-left: auto; border-style: dashed; }
+// ── Echo (backend docs/design/echo-pipeline.md): its list, labelled before anything else ──
+// The Event driven (Echo) tab sits with the others in their style since 2026-11-20 — no rule of its own.
 .echo-label {
     margin: 0 0 8px; padding: 8px 10px; font-size: 12px; line-height: 1.45; color: var(--text-dim);
     border: 1px dashed var(--border); border-radius: 6px;

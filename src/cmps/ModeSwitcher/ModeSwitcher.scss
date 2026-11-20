@@ -1,4 +1,4 @@
-// Segmented dark/light control. Every colour is a token, so the switch itself
+// Segmented Black / Grey / White control. Every colour is a token, so the switch itself
 // restyles the instant it flips the palette.
 .mode-switcher {
     display: inline-flex;
@@ -33,8 +33,17 @@
         }
     }
 
-    &__glyph {
-        font-size: 0.85rem;
-        line-height: 1;
+    // A dot of each theme's own page colour. Fixed hexes on purpose: the swatch shows the theme
+    // you would switch TO, so it must not follow the one you are in.
+    &__swatch {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        border: 1px solid var(--ring);
+        flex: none;
+
+        &--black { background: #000000; }
+        &--grey  { background: #2B2C30; }
+        &--white { background: #FFFFFF; }
     }
 }
