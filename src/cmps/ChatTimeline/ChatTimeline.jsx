@@ -30,6 +30,8 @@ import { OPENING_OPTIONS, LANDING_ASKS, OPENING_QUESTION } from './openingOption
 import { ModePicker } from './ModePicker.jsx'
 import { QuestionCard } from './QuestionCard.jsx'
 import { openCard } from './questionCard.utils.js'
+import { BuildBar, BuildSummary } from './BuildSummary.jsx'
+import { barBuild } from './buildSummary.utils.js'
 import { modeOf, modeOption } from './mode.utils.js'
 import { showErrorMsg } from '../../services/event-bus.service.js'
 import './ChatTimeline.scss'
@@ -105,7 +107,9 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
 
     // Mentor's plan on a chart, at the end of the thread, once it has a stop and a target — drawn from his state on the session,
     // so it stays in the conversation whether or not his pane is showing.
-    const tradeSetup = tradeChartSetup(session.agentState?.mentor ?? null, accounts.length, busy)
+    // A trade built in the background is shown in its summary, not at the end of the thread (step 6).
+    const mentorBuild = session.agentState?.mentor?.build?.status
+    const tradeSetup = mentorBuild === 'building' || mentorBuild === 'ready' ? null : tradeChartSetup(session.agentState?.mentor ?? null, accounts.length, busy)
     const tradeReady = tradeChartReady(session.agentState?.mentor ?? null, accounts.length)
 
     // Allowed while another turn runs — it waits behind it, and a running chain pauses for it (G4). One
@@ -116,6 +120,15 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
         setDraft('')
         return send(t, { ...extras, ...more })
     }, [send, extras, queuedTurn])
+
+    // A build that is ready (or failed): its bar above the prompt box, and its summary when asked (step 6).
+    const bar = scope === 'main' ? barBuild(session.agentState) : null
+    const [summaryOpen, setSummaryOpen] = useState(false)
+    useEffect(() => { if (!bar || bar.build.status !== 'ready') setSummaryOpen(false) }, [bar?.build?.id, bar?.build?.status]) // eslint-disable-line react-hooks/exhaustive-deps
+    const retryBuild = useCallback(async () => {
+        const r = await session.reworkBuild(bar.agent, 'retry')
+        if (!r.ok) showErrorMsg(r.message ?? 'The retry did not start')
+    }, [session, bar])
 
     // A builder's open question card (step 4) — shown while that builder is the mode.
     const card = scope === 'main' ? openCard(rows, floor) : null
@@ -316,6 +329,20 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
                     </button>
                 </div>
             )}
+
+            {bar && summaryOpen && bar.build.status === 'ready' && (
+                <BuildSummary
+                    key={bar.build.id}
+                    agent={bar.agent}
+                    build={bar.build}
+                    session={session}
+                    accounts={accounts}
+                    mainAccountId={mainAccountId}
+                    onClose={() => setSummaryOpen(false)}
+                    onError={(m) => showErrorMsg(m)}
+                />
+            )}
+            {bar && <BuildBar agent={bar.agent} build={bar.build} open={summaryOpen} onOpen={() => setSummaryOpen(v => !v)} onRetry={retryBuild} busy={busy} />}
 
             {card && (
                 <QuestionCard

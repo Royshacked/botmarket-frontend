@@ -117,6 +117,11 @@ export const sessionService = {
      * A builder's question card answered (modes-and-builders.md step 4): the answers by question id, and the account
      * objects picked on it. Accepted at once; the builder's turn streams on the socket. @returns {Promise<{ turnId, agent }>}
      */
+    /** A build sent back to work: `change` (with `text`), `retry`, `recheck` (modes-and-builders.md step 6). */
+    async reworkBuild(sessionId, { agent, action, text = null }) {
+        return httpService.post(`${BASE}/${encodeURIComponent(sessionId)}/build`, { agent, action, text })
+    },
+
     async answer(sessionId, { seq, answers, accounts = [], mainAccountId = null }) {
         return httpService.post(`${BASE}/${encodeURIComponent(sessionId)}/answers`, {
             seq, answers, accounts, mainAccountId,

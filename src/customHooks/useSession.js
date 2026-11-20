@@ -226,5 +226,15 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
         }
     }, [api, _outcome, ready])
 
-    return { ...state, send, stop, cancelQueued, choose, startNew, resume, commit, edit, reopen, setMode, answer }
+    /** Send a build back to work — the summary's Change, a failed build's Retry, a Recheck. @returns {Promise<object>} an outcome */
+    const reworkBuild = useCallback(async (agent, action, text = null) => {
+        if (!(await ready())) return { ok: false, reason: 'not_found', message: 'The chat is not open yet', extra: {} }
+        try {
+            return { ok: true, result: await api.reworkBuild(ref.current.sessionId, { agent, action, text }) }
+        } catch (err) {
+            return _outcome(agent, err, 'That did not go through')
+        }
+    }, [api, _outcome, ready])
+
+    return { ...state, send, stop, cancelQueued, choose, startNew, resume, commit, edit, reopen, setMode, answer, reworkBuild }
 }
