@@ -22,7 +22,10 @@ const READY_MS = 10000
  *
  * @param {'main'|'strategy'} [scope]
  * @param {{ ws?: object, api?: object }} [deps]  test seams
- */
+ */
+// The builders — a chart frame from one working behind the user is never docked in the chat (step 10).
+const BUILDERS = new Set(['mentor', 'portfolio', 'analyst'])
+
 export function useSession(scope = 'main', { ws = chatWsService, api = sessionService } = {}) {
     const [state, dispatch] = useReducer(sessionReducer, { ...emptySession, scope })
     const ref = useRef(state)
@@ -79,8 +82,11 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
 
     useEffect(() => {
         const handlers = SESSION_EVENTS.map(event => [event, (data) => {
-            // A chart the user asked for docks above the input — the shared chart surface, not a row.
-            if (event === 'session_delta' && data?.type === 'chart' && data.data?.live && data.sessionId === ref.current.sessionId) openChart(data.data)
+            // A chart the user asked for docks above the input — the shared chart surface, not a row. Never one a builder
+            // draws while it works in the background (modes-and-builders.md step 10 — it covered the summary): its chart is
+            // the summary's.
+            const behindTheUser = BUILDERS.has(data?.agent) && (ref.current.floor ?? 'axl') !== data.agent
+            if (event === 'session_delta' && data?.type === 'chart' && data.data?.live && data.sessionId === ref.current.sessionId && !behindTheUser) openChart(data.data)
             dispatch({ type: event, data })
         }])
         handlers.forEach(([e, h]) => ws.on(e, h))

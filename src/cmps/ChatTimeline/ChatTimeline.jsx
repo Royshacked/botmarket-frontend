@@ -314,7 +314,8 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
                 )}
             </div>
 
-            <ChatChartDock />
+            {/* The summary carries its own chart — the dock steps aside while it is open (step 10). */}
+            {!(bar && summaryOpen) && <ChatChartDock />}
 
             {taps.length > 0 && <SuggestionChips suggestions={taps} onPick={(t) => sendText(t)} disabled={busy} />}
 

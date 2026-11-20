@@ -795,3 +795,8 @@
 }
 .build-bar { flex-wrap: wrap; }
 @media (max-width: 767px) { .build-bar__change input { font-size: 16px; } }
+
+// The summary keeps its height in the chat column — the column shrinks the thread, never the summary (step 10: it was
+// squashed to a line under a docked chart).
+.build-summary { flex-shrink: 0; min-height: min(320px, 50vh); }
+.build-bar, .question-card { flex-shrink: 0; }
