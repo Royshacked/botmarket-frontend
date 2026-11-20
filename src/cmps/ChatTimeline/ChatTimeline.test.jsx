@@ -145,7 +145,7 @@ describe('ChatTimeline', () => {
         session = base({ rows: [row(1, { role: 'user', content: 'x' })], lastTurn: { status: 'error', message: 'That message did not go through' }, floor: 'mentor' })
         render(<ChatTimeline />)
         expect(screen.getByText('That message did not go through')).toBeTruthy()
-        expect(screen.getByPlaceholderText('Message Axl…')).toBeTruthy()
+        expect(screen.getByPlaceholderText('Tell the trader what you want to build…')).toBeTruthy()
     })
 
     it('the brief request asks Axl for today’s brief, once', () => {
@@ -197,7 +197,7 @@ describe('phase 7 CR', () => {
     it('the user can speak while a turn runs — the message waits, and says so', async () => {
         session = base({ rows: [row(1, { role: 'user', content: 'go' })], live: { turnId: 'chn_1', agent: 'mentor', text: 'Working', status: 'running' }, chain: { status: 'running' }, floor: 'mentor' })
         const { rerender } = render(<ChatTimeline />)
-        const box = screen.getByPlaceholderText('Message Axl…')
+        const box = screen.getByPlaceholderText('Tell the trader what you want to build…')
         fireEvent.change(box, { target: { value: 'use AMD instead' } })
         expect(screen.queryByLabelText('Stop response')).toBeNull()
         await act(async () => { fireEvent.click(screen.getByTitle('Send')) })
@@ -208,15 +208,33 @@ describe('phase 7 CR', () => {
         expect(screen.getByText(/Sends when Axl finishes — the chain will pause for it/)).toBeTruthy()
     })
 
-    it('while a role holds the floor, "Ask something else" sends the next message to Axl at reception', async () => {
-        session = base({ rows: [row(1, { agent: 'portfolio', content: 'Objective?' })], floor: 'portfolio' })
+    it('the mode picker in the prompt box shows the builder at work and switches back to General (modes-and-builders.md M4)', async () => {
+        const setMode = vi.fn(async () => ({ ok: true, result: { mode: 'general', floor: 'axl' } }))
+        session = base({ rows: [row(1, { agent: 'portfolio', content: 'Objective?' })], floor: 'portfolio', setMode })
+        const { rerender } = render(<ChatTimeline />)
+        expect(screen.getByLabelText('Mode: Portfolio manager')).toBeTruthy()
+        expect(screen.getByPlaceholderText('Tell the portfolio manager what you want to build…')).toBeTruthy()
+        expect(screen.queryByText('Ask something else')).toBeNull()
+        fireEvent.click(screen.getByLabelText('Mode: Portfolio manager'))
+        expect(screen.getAllByRole('option').map(o => o.querySelector('.mode-picker__option-label').textContent)).toEqual(['General', 'Trader', 'Portfolio manager', 'Analyst'])
+        await act(async () => { fireEvent.click(screen.getByText('General')) })
+        expect(setMode).toHaveBeenCalledWith('general')
+        // Until the server's floor arrives, the picked mode shows; then the floor carries it.
+        expect(screen.getByLabelText('Mode: General')).toBeTruthy()
+        session = { ...session, floor: 'axl' }
+        rerender(<ChatTimeline />)
+        expect(screen.getByLabelText('Mode: General')).toBeTruthy()
+        expect(screen.getByPlaceholderText('Ask Axl anything, or say what you’d like to do…')).toBeTruthy()
+    })
+
+    it('a mode switch that fails goes back to the floor’s mode', async () => {
+        const setMode = vi.fn(async () => ({ ok: false, message: 'nope' }))
+        session = base({ floor: 'axl', setMode })
         render(<ChatTimeline />)
-        fireEvent.click(screen.getByText('Ask something else'))
-        const box = screen.getByPlaceholderText('Ask Axl anything, or say what you’d like to do…')
-        fireEvent.change(box, { target: { value: 'what is a stop?' } })
-        await act(async () => { fireEvent.click(screen.getByTitle('Send')) })
-        expect(send).toHaveBeenCalledWith('what is a stop?', { accounts: [], mainAccountId: null, agent: 'axl' })
-        expect(screen.getByPlaceholderText('Message Axl…')).toBeTruthy()
+        fireEvent.click(screen.getByLabelText('Mode: General'))
+        await act(async () => { fireEvent.click(screen.getByText('Trader')) })
+        expect(setMode).toHaveBeenCalledWith('mentor')
+        expect(screen.getByLabelText('Mode: General')).toBeTruthy()
     })
 })
 

@@ -206,5 +206,15 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
         }
     }, [api, _outcome, ready])
 
-    return { ...state, send, stop, cancelQueued, choose, startNew, resume, commit, edit, reopen }
+    /** The mode picker: switch to General or a builder. The floor comes back on the socket. @returns {Promise<object>} an outcome */
+    const setMode = useCallback(async (mode) => {
+        if (!(await ready())) return { ok: false, reason: 'not_found', message: 'The chat is not open yet', extra: {} }
+        try {
+            return { ok: true, result: await api.setMode(ref.current.sessionId, mode) }
+        } catch (err) {
+            return _outcome(null, err, 'Could not switch the mode')
+        }
+    }, [api, _outcome, ready])
+
+    return { ...state, send, stop, cancelQueued, choose, startNew, resume, commit, edit, reopen, setMode }
 }

@@ -27,6 +27,9 @@ import { MentorTradeChart } from '../MentorSurface/MentorTradeChart.jsx'
 import { tradeChartSetup, tradeChartReady } from '../MentorSurface/mentorSurface.utils.js'
 import { useReturnTo, openPanel, setReturnTo, panelMounted, nextReturnTo } from '../DetailPanel/detailPanel.store.js'
 import { OPENING_OPTIONS, LANDING_ASKS, OPENING_QUESTION } from './openingOptions.js'
+import { ModePicker } from './ModePicker.jsx'
+import { modeOf, modeOption } from './mode.utils.js'
+import { showErrorMsg } from '../../services/event-bus.service.js'
 import './ChatTimeline.scss'
 
 const firstName = (fullname = '') => String(fullname).trim().split(/\s+/)[0] || ''
@@ -66,9 +69,12 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
     // Info over the chat — a phone's (ChatInfo; the desktop Floor has its Info column). Stable: the sheet's Esc binds on it.
     const [infoOpen, setInfoOpen] = useState(false)
     const closeInfo = useCallback(() => setInfoOpen(false), [])
-    // "Ask Axl" — the next message goes to Axl even though a desk holds the floor (the server's own rule is
-    // that an unaddressed message goes to the floor-holder).
-    const [toAxl, setToAxl]             = useState(false)
+    // THE MODE (modes-and-builders.md M4): derived from the floor; the one just picked shows until the server's floor
+    // arrives (a switch waits behind a running turn). It replaced "Ask something else" (2026-11-20): picking General is
+    // how the user gets back to Axl.
+    const mode = modeOf(floor ?? 'axl')
+    const [pendingMode, setPendingMode] = useState(null)
+    useEffect(() => { if (pendingMode && pendingMode === mode) setPendingMode(null) }, [pendingMode, mode])
     const inputRef = useRef(null)
 
     const busy  = !!live
@@ -98,10 +104,14 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
         const t = String(text ?? '').trim()
         if (!t || queuedTurn) return false
         setDraft('')
-        const to = toAxl && !more.agent ? { agent: 'axl' } : {}
-        setToAxl(false)
-        return send(t, { ...extras, ...to, ...more })
-    }, [send, extras, queuedTurn, toAxl])
+        return send(t, { ...extras, ...more })
+    }, [send, extras, queuedTurn])
+
+    const pickMode = useCallback(async (m) => {
+        setPendingMode(m)
+        const r = await session.setMode(m)
+        if (!r.ok) { setPendingMode(null); showErrorMsg(r.message ?? 'Could not switch the mode') }
+    }, [session])
 
     // What the user TYPED is theirs: a send that did not go through puts it back in the box.
     const sendDraft = useCallback(async () => {
@@ -152,7 +162,6 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
     // ONE AXL (one-axl.md, 2026-11-13): the user is always talking with Axl; the role at work rides beside the name.
     const floorRole = speakerOf(floor ?? 'axl').role
     const floorName = floorRole ? `Axl · ${floorRole}` : 'Axl'
-    const atDesk = (floor ?? 'axl') !== 'axl'
     const returnTo = useReturnTo()
     // The way back lives where the hand-off LANDED (code review 2026-10-24: it stayed on every chat until a reload) —
     // detailPanel.store nextReturnTo.
@@ -164,7 +173,8 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
     // Only while something renders the list (the Floor's lists): a Back with nothing to open would do nothing, and leave
     // the panel to spring open later, unasked.
     const showBack = Boolean(returnTo) && panelMounted(returnTo.panel)
-    const placeholder = !atDesk || toAxl ? 'Ask Axl anything, or say what you’d like to do…' : 'Message Axl…'
+    const placeholder = mode === 'general' ? 'Ask Axl anything, or say what you’d like to do…'
+        : `Tell the ${modeOption(mode).label.toLowerCase()} what you want to build…`
 
     function handleKeyDown(e) {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendDraft() }
@@ -275,19 +285,12 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
             {/* A desk's buttons (Generate, Update, Arm…) land here on a phone while its sheet is down (ChatActions). */}
             <ChatActionSlot />
 
-            {((atDesk && !empty) || showBack) && (
+            {showBack && (
                 <div className="chat-timeline__address">
                     {/* The way back to the list a hand-off came from (Roy, 2026-10-24) — the Hotlist, on the horizon it was on. */}
-                    {showBack && (
-                        <button type="button" className="chat-timeline__address-btn chat-timeline__back" onClick={() => openPanel(returnTo.panel, returnTo.resume ?? null)}>
-                            ‹ Back to {returnTo.label}
-                        </button>
-                    )}
-                    {atDesk && !empty && (
-                        <button type="button" className={`chat-timeline__address-btn${toAxl ? ' is-on' : ''}`} onClick={() => setToAxl(v => !v)} aria-pressed={toAxl}>
-                            {toAxl ? `Back to ${floorRole?.toLowerCase() ?? 'the work'}` : 'Ask something else'}
-                        </button>
-                    )}
+                    <button type="button" className="chat-timeline__address-btn chat-timeline__back" onClick={() => openPanel(returnTo.panel, returnTo.resume ?? null)}>
+                        ‹ Back to {returnTo.label}
+                    </button>
                 </div>
             )}
 
@@ -310,6 +313,7 @@ function TimelineView({ scope = 'main', accounts = [], mainAccountId = null, bri
                 isTranscribing={isTranscribing}
                 micDisabled={busy || isTranscribing}
                 textareaDisabled={isRecording}
+                leading={scope === 'main' ? <ModePicker mode={mode} pending={pendingMode} onPick={pickMode} disabled={!session.sessionId} /> : null}
             />
 
             {empty && <SuggestionChips suggestions={LANDING_ASKS} variant="landing" onPick={(t) => sendText(t, { agent: 'axl' })} disabled={busy || !session.sessionId} />}

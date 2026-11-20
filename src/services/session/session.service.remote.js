@@ -104,4 +104,12 @@ export const sessionService = {
     async continue(sessionId, choice) {
         return httpService.post(`${BASE}/${encodeURIComponent(sessionId)}/continue`, { choice })
     },
+
+    /**
+     * The mode picker (modes-and-builders.md M4): `general` | `mentor` | `portfolio` | `analyst`. Accepted at once; it lands
+     * after any running turn and arrives on the socket as the floor. @returns {Promise<{ mode, floor }>}
+     */
+    async setMode(sessionId, mode) {
+        return httpService.post(`${BASE}/${encodeURIComponent(sessionId)}/mode`, { mode })
+    },
 }
