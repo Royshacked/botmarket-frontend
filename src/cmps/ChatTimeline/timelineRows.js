@@ -20,6 +20,8 @@ export function agentMeta(key) {
 // one stays in the thread as what was answered (modes-and-builders.md step 4).
 export const isOffScreen = (row) => row?.kind === 'handoff' || (row?.role === 'user' && row?.ref?.opening === true)
     || (row?.kind === 'questions' && row?.ref?.state !== 'answered')
+    // A build's own replies are the work pane's (step 5b) — the chat stays with Axl while it builds.
+    || (row?.role === 'assistant' && !!row?.ref?.build)
 
 // Rows that name their own speaker: a hand-off names both sides.
 const SELF_NAMED = new Set(['handoff'])

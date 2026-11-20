@@ -236,3 +236,29 @@
     background: var(--accent);
     vertical-align: middle;
 }
+
+// A build in the background on this desk (modes-and-builders.md step 5b): its status, what it is doing, its latest step.
+.side-pane__build {
+    margin: 0 16px 10px;
+    padding: 8px 12px;
+    border-left: 2px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+    font-size: 12.5px;
+
+    p { margin: 0; }
+    &-status { color: var(--text-primary); font-weight: 600; }
+    &-doing  { margin-top: 2px !important; color: var(--accent-light); }
+    &-step   {
+        margin-top: 6px !important;
+        color: var(--text-secondary);
+        line-height: 1.45;
+        display: -webkit-box;
+        -webkit-line-clamp: 6;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        white-space: pre-line;
+    }
+    &--ready  { border-left-color: var(--accent-bright); }
+    &--failed { border-left-color: var(--loss, #e5484d); }
+}

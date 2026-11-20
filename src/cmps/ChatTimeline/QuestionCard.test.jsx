@@ -38,6 +38,9 @@ describe('question card helpers', () => {
         expect(isOffScreen(card())).toBe(true)
         expect(isOffScreen(card('set_aside'))).toBe(true)
         expect(isOffScreen(card('answered'))).toBe(false)
+        // A build's replies are the pane's (step 5b) — until one needs the user.
+        expect(isOffScreen({ role: 'assistant', agent: 'mentor', content: 'x', ref: { build: 'b1' } })).toBe(true)
+        expect(isOffScreen({ role: 'assistant', agent: 'mentor', content: 'x', ref: { fromBuild: 'b1' } })).toBe(false)
         expect(answeredLines(card('answered', { answers: { name: { choice: 'NVDA' }, account: { accountLabel: 'Paper main' }, size: { other: '1% risk' }, scenarios: { choice: 'A only' } } })).map(l => `${l.header}: ${l.value}`))
             .toEqual(['Name: NVDA', 'Account: Paper main', 'Size: 1% risk', 'Scenarios: A only'])
     })

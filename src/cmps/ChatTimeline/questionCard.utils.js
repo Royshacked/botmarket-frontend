@@ -28,7 +28,7 @@ export function openCard(rows, agent) {
 }
 
 /**
- * The answers a card starts with: the recommended option where there is one, the last size where it is offered, the
+ * The answers a card starts with: the recommended option where there is one, last time's number where it is offered, the
  * account(s) already marked. `marked`: the ids the venue picker has marked; `main` its main one.
  */
 export function initialAnswers(questions, { marked = [], main = null, accounts = [] } = {}) {
@@ -43,7 +43,7 @@ export function initialAnswers(questions, { marked = [], main = null, accounts =
             if (only.length) out[q.id] = { accountIds: only }
             continue
         }
-        const rec = q.options.find(o => /\(recommended\)$/i.test(o.label)) ?? (q.id === 'size' ? q.options[0] : null)
+        const rec = q.options.find(o => /\(recommended\)$/i.test(o.label)) ?? q.options.find(o => /^As last time/.test(o.label)) ?? null
         if (rec) out[q.id] = { choice: q.multiSelect ? [rec.label] : rec.label }
     }
     return out

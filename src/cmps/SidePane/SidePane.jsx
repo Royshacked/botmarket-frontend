@@ -7,6 +7,9 @@ import { agentMeta } from '../ChatTimeline/timelineRows.js'
 import { closePane, closeSurface, collapsePane, openSurface, setPinned, showSurface, sidePaneState, useSidePane } from './sidePane.store.js'
 import './SidePane.scss'
 import { paneTitle } from './paneTitle.js'
+import { buildWords, lastStep, buildKeys, buildChanges } from './buildStatus.js'
+import { toolStatusLabel } from '../../services/toolStatusLabels.js'
+import { showUserMsg } from '../../services/event-bus.service.js'
 
 // ── The side pane: each desk's working surface, beside the chat (unified-chat plan phase 8b, K5) ──
 //
@@ -77,6 +80,23 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
         if (left && surfaces[left]?.leavesWithFloor === floor && !pinnedHere) closeSurface(left)
         if (surfaces[floor]) openSurface(floor, { follow: true, collapse: isHandheld() })
     }, [floor, surfaces])
+
+    // A BUILD IN THE BACKGROUND (step 5b): its desk opens when it starts — the chat stays with Axl, so following the floor
+    // alone would never show it — and a ready one is announced once (M13). Not on the first load: a reload is no news.
+    const lastBuilds = useRef(null)
+    const builds = buildKeys(session?.agentState)
+    const buildsKey = JSON.stringify(builds)
+    useEffect(() => {
+        const prev = lastBuilds.current
+        lastBuilds.current = builds
+        if (!prev) return
+        const { started, ready } = buildChanges(prev, builds, session?.agentState)
+        for (const a of started) if (surfaces[a]) openSurface(a, { follow: true, collapse: isHandheld() })
+        for (const a of ready) {
+            if (surfaces[a]) openSurface(a, { follow: true, collapse: isHandheld() })
+            showUserMsg({ txt: `${session.agentState[a].build.title} is ready — review it in the pane, then Generate.`, type: 'success' })
+        }
+    }, [buildsKey, surfaces]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // A NEW SESSION (a commit ended the last one — Roy, 2026-10-18 — or New session) starts back with Axl: the desks'
     // tabs held the old session's work, so they close. A kept surface (Pythia, the ticket) is not session work
@@ -153,6 +173,7 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
             </header>
             {/* What this pane is — the surface says it (`paneHint`); a kept surface with its own screen has none. */}
             {Surface?.paneHint && <p className="side-pane__hint">{Surface.paneHint}</p>}
+            {current && <BuildStrip agent={current} session={session} />}
             <div className="side-pane__body" role="tabpanel">
                 {/* Keyed on the session: a surface's half-typed edit belongs to the session it was typed in. */}
                 {Surface && (Surface.keepMounted
@@ -165,6 +186,24 @@ export function SidePane({ session, surfaces, deskProps = {} }) {
         </>
     )
 }
+
+/** The build on this desk, if any: its status, what it is doing now, its latest step (step 5b). */
+function BuildStrip({ agent, session }) {
+    const build = session?.agentState?.[agent]?.build
+    const words = buildWords(agent, build)
+    if (!words) return null
+    const bg = session?.background?.agent === agent ? session.background : null
+    const doing = build.status === 'building' && bg?.tool ? toolStatusLabel(bg.tool, bg.targets) : null
+    const step = build.status === 'building' || build.status === 'ready' ? lastStep(session?.rows, agent, build) : null
+    return (
+        <div className={`side-pane__build side-pane__build--${build.status}`} role="status">
+            <p className="side-pane__build-status">{words}</p>
+            {doing && <p className="side-pane__build-doing">{doing}</p>}
+            {step && <p className="side-pane__build-step">{step}</p>}
+        </div>
+    )
+}
+BuildStrip.propTypes = { agent: PropTypes.string.isRequired, session: PropTypes.object }
 
 SidePane.propTypes = {
     session:   PropTypes.object,

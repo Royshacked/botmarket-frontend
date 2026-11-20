@@ -67,8 +67,12 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
     // The analyst's reads in line for this chat — said until they land (readWaiting.js, Roy 2026-11-14).
     const readLines = readWaitingLines(session.waiting)
     // A builder at work while the user is with Axl (step 5a) — said on one line, never in the chat's live bubble.
-    const behind = session.background
-        ? `The ${(speakerOf(session.background.agent).role ?? 'desk').toLowerCase()} is working in the background${session.background.tool ? ` — ${toolStatusLabel(session.background.tool, session.background.targets)}` : ''}.`
+    // A BUILD in the background says what it builds (step 5b), between its turns too; otherwise any builder at work behind.
+    const buildingAgent = ['mentor', 'portfolio', 'analyst'].find(a => session.agentState?.[a]?.build?.status === 'building')
+    const behindAgent = buildingAgent ?? session.background?.agent ?? null
+    const behindTool = session.background?.agent === behindAgent && session.background?.tool ? toolStatusLabel(session.background.tool, session.background.targets) : null
+    const behind = behindAgent
+        ? `The ${(speakerOf(behindAgent).role ?? 'desk').toLowerCase()} is ${buildingAgent ? `building ${session.agentState[buildingAgent].build.title} in the background` : 'working in the background'}${behindTool ? ` — ${behindTool}` : ''}.`
         : null
     const [draft, setDraft]             = useState('')
     const [historyOpen, setHistoryOpen] = useState(false)

@@ -5,6 +5,8 @@ import { accountOptions, initialAnswers, isAnswered, allAnswered } from './quest
 // A BUILDER'S QUESTION CARD above the prompt box (docs/design/modes-and-builders.md M5/M6, step 4 — Roy, 2026-11-20:
 // "like in Claude cli"): every question the build needs, at once — the options, "Other" where it is allowed, the account
 // from this workspace's accounts — and one submit. Typing in the chat instead sets it aside (the server's rule).
+const PLACEHOLDER = { name: 'Or type a ticker', size: 'e.g. $10,000', risk: 'e.g. $100, or 0.75% of the account', rr: 'e.g. 2.5' }
+
 export function QuestionCard({ card, role, accounts, marked = [], main = null, onSubmit, busy = false }) {
     const questions = card.ref.questions
     const [answers, setAnswers] = useState(() => initialAnswers(questions, { marked, main, accounts }))
@@ -93,7 +95,7 @@ export function QuestionCard({ card, role, accounts, marked = [], main = null, o
                                     type="text"
                                     value={a.other ?? ''}
                                     onChange={e => set(q.id, q.multiSelect || !e.target.value.trim() ? { other: e.target.value } : { other: e.target.value, choice: null })}
-                                    placeholder={q.id === 'size' ? 'e.g. $10,000 position · 1% risk · R:R 1.5' : q.id === 'name' ? 'Or type a ticker' : 'Other — type it'}
+                                    placeholder={PLACEHOLDER[q.id] ?? 'Other — type it'}
                                     aria-label={`${q.header}: other`}
                                     maxLength={400}
                                 />
