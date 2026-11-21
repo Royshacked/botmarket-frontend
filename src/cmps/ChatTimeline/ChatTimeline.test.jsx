@@ -460,3 +460,34 @@ describe('ChatTimeline — Mentor’s trade chart (2026-10-31)', () => {
         expect(screen.queryByTestId('price-chart')).toBeNull()
     })
 })
+
+describe('builds and the saved line (Roy, 2026-11-20)', () => {
+    const building = { mentor: { build: { id: 'b1', status: 'building', title: 'RDW trade' } } }
+
+    it('a build at work is said under the prompt box, not at the end of the thread', () => {
+        session = base({ rows: [row(1, { role: 'user', content: 'hi' })], agentState: building })
+        const { container } = render(<ChatTimeline />)
+        expect(container.querySelector('.chat-timeline__thread').textContent).not.toMatch(/building RDW/)
+        expect(container.querySelector('.chat-timeline__behind').textContent).toBe('Trader · building RDW trade')
+    })
+
+    it("a desk's message waiting behind a build's step says what it waits for, not just sending…", () => {
+        session = base({ rows: [row(1, { role: 'user', content: 'cover NVDA' })], agentState: building, floor: 'analyst',
+            live: { turnId: 't', agent: 'analyst', text: '', status: 'queued' } })
+        render(<ChatTimeline />)
+        expect(screen.getByText(/waiting for the trader's build step — sends right after/)).toBeTruthy()
+    })
+
+    it('New session is on while the saved line shows — it is how the line is cleared', () => {
+        session = base({ rows: [row(1, { kind: 'sealed', content: '✓ Built NVDA setup — saved to your Setups.', ref: { kind: 'setup', ids: ['s9'], ended: true }, at: Date.now() })] })
+        render(<ChatTimeline />)
+        const btn = screen.getByRole('button', { name: 'New session' })
+        expect(btn.disabled).toBe(false)
+        fireEvent.click(btn)
+        expect(startNew).toHaveBeenCalled()
+        cleanup()
+        session = base()
+        render(<ChatTimeline />)
+        expect(screen.getByRole('button', { name: 'New session' }).disabled).toBe(true)
+    })
+})

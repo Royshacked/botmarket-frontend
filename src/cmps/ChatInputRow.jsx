@@ -3,7 +3,8 @@ import PropTypes from 'prop-types'
 import './ChatInputRow.scss'
 
 /**
- * Shared chat input row: mic toggle, textarea, send/stop, and clear.
+ * Shared chat input row: the textarea full width on top, and under it one row of buttons — the panel's own and the
+ * mic on the left, send/stop and clear on the right.
  *
  * ONE shared style for every agent (idea / portfolio / scanner / axl) via the
  * fixed `.chat-input-row` classes + ChatInputRow.scss — no per-panel duplication.
@@ -92,36 +93,6 @@ export function ChatInputRow({
 
     return (
         <div className={`chat-input-row${prefix ? ` chat-input-row--${prefix}` : ''}${empty ? ' chat-input-row--empty' : ''}`}>
-            {leading}
-            <button
-                className={`chat-input-row__mic ${isRecording ? 'recording' : ''} ${isTranscribing ? 'transcribing' : ''}`}
-                onClick={onToggleMic}
-                disabled={micDisabled}
-                title={isRecording ? 'Stop & transcribe' : 'Start recording'}
-            >
-                {isTranscribing ? (
-                    <span className="chat-input-row__mic-spinner" />
-                ) : (
-                    <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                        <rect x="7" y="1" width="6" height="10" rx="3" stroke="currentColor" strokeWidth="1.5"/>
-                        <path d="M4 10a6 6 0 0 0 12 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                        <line x1="10" y1="16" x2="10" y2="19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                        <line x1="7"  y1="19" x2="13" y2="19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
-                )}
-            </button>
-            {isRecording && (
-                <button
-                    className="chat-input-row__mic-cancel"
-                    onClick={onCancelMic}
-                    title="Discard recording"
-                >
-                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                        <line x1="5" y1="5" x2="15" y2="15"/>
-                        <line x1="15" y1="5" x2="5" y2="15"/>
-                    </svg>
-                </button>
-            )}
             <textarea
                 ref={setTextarea}
                 className="chat-input-row__textarea"
@@ -133,59 +104,97 @@ export function ChatInputRow({
                 rows={2}
                 disabled={textareaDisabled}
             />
-            {/* One primary button, three states:
-                • streaming        → Stop
-                • stopped + empty  → Play (resume the stopped reply in place)
-                • otherwise        → Send (the moment there's text, Send wins) */}
-            {isStreaming && onStop ? (
-                <button
-                    className="chat-input-row__send chat-input-row__stop"
-                    onClick={onStop}
-                    title="Stop response"
-                    aria-label="Stop response"
-                >
-                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                        <rect x="6" y="6" width="12" height="12" rx="2"/>
-                    </svg>
-                </button>
-            ) : canResume && onResume && !value.trim() ? (
-                <button
-                    className="chat-input-row__send chat-input-row__resume"
-                    onClick={onResume}
-                    title="Resume response"
-                    aria-label="Resume response"
-                >
-                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                        {/* bounding box centered on 12,12 so the triangle sits dead-center in the hover bg */}
-                        <path d="M7 5v14l10-7z"/>
-                    </svg>
-                </button>
-            ) : (
-                <button
-                    className="chat-input-row__send"
-                    onClick={onSend}
-                    disabled={sendDisabled}
-                    title="Send"
-                >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <line x1="22" y1="2" x2="11" y2="13"/>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                    </svg>
-                </button>
-            )}
-            {onClear && (
-                <button
-                    className="chat-input-row__clear"
-                    onClick={onClear}
-                    disabled={clearDisabled}
-                    title={clearTitle}
-                >
-                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                        <line x1="5" y1="5" x2="15" y2="15"/>
-                        <line x1="15" y1="5" x2="5" y2="15"/>
-                    </svg>
-                </button>
-            )}
+            {/* The buttons sit in one row UNDER the field (Roy, 2026-11-21: "where the user writes — full width on top, all buttons below"):
+                the panel's own (`leading` — the mode picker, an attach) and the mic on the left, send / stop / clear on the right. */}
+            <div className="chat-input-row__bar">
+                <div className="chat-input-row__tools">
+                    {leading}
+                    <button
+                        className={`chat-input-row__mic ${isRecording ? 'recording' : ''} ${isTranscribing ? 'transcribing' : ''}`}
+                        onClick={onToggleMic}
+                        disabled={micDisabled}
+                        title={isRecording ? 'Stop & transcribe' : 'Start recording'}
+                    >
+                        {isTranscribing ? (
+                            <span className="chat-input-row__mic-spinner" />
+                        ) : (
+                            <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <rect x="7" y="1" width="6" height="10" rx="3" stroke="currentColor" strokeWidth="1.5"/>
+                                <path d="M4 10a6 6 0 0 0 12 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                <line x1="10" y1="16" x2="10" y2="19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                <line x1="7"  y1="19" x2="13" y2="19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                            </svg>
+                        )}
+                    </button>
+                    {isRecording && (
+                        <button
+                            className="chat-input-row__mic-cancel"
+                            onClick={onCancelMic}
+                            title="Discard recording"
+                        >
+                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                                <line x1="5" y1="5" x2="15" y2="15"/>
+                                <line x1="15" y1="5" x2="5" y2="15"/>
+                            </svg>
+                        </button>
+                    )}
+                </div>
+                <div className="chat-input-row__actions">
+                    {/* One primary button, three states:
+                        • streaming        → Stop
+                        • stopped + empty  → Play (resume the stopped reply in place)
+                        • otherwise        → Send (the moment there's text, Send wins) */}
+                    {isStreaming && onStop ? (
+                        <button
+                            className="chat-input-row__send chat-input-row__stop"
+                            onClick={onStop}
+                            title="Stop response"
+                            aria-label="Stop response"
+                        >
+                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <rect x="6" y="6" width="12" height="12" rx="2"/>
+                            </svg>
+                        </button>
+                    ) : canResume && onResume && !value.trim() ? (
+                        <button
+                            className="chat-input-row__send chat-input-row__resume"
+                            onClick={onResume}
+                            title="Resume response"
+                            aria-label="Resume response"
+                        >
+                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                {/* bounding box centered on 12,12 so the triangle sits dead-center in the hover bg */}
+                                <path d="M7 5v14l10-7z"/>
+                            </svg>
+                        </button>
+                    ) : (
+                        <button
+                            className="chat-input-row__send"
+                            onClick={onSend}
+                            disabled={sendDisabled}
+                            title="Send"
+                        >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <line x1="22" y1="2" x2="11" y2="13"/>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                            </svg>
+                        </button>
+                    )}
+                    {onClear && (
+                        <button
+                            className="chat-input-row__clear"
+                            onClick={onClear}
+                            disabled={clearDisabled}
+                            title={clearTitle}
+                        >
+                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                                <line x1="5" y1="5" x2="15" y2="15"/>
+                                <line x1="15" y1="5" x2="5" y2="15"/>
+                            </svg>
+                        </button>
+                    )}
+                </div>
+            </div>
         </div>
     )
 }

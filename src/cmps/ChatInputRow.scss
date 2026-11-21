@@ -40,14 +40,16 @@
     width: min(75%, 640px);
     min-width: 260px;
     max-width: calc(100% - 20px);
+    // The field full width on top, the buttons in one row under it (Roy, 2026-11-21).
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
     gap: 2px;
     // The SAME box before and after the first message (Roy, 2026-10-23) — the landing one's size, padding and
     // corners — lifted well off the bottom edge (it sat 10px from it; 28px was still too close): ~6% of the screen's
     // height, 40–72px.
     margin: 8px auto clamp(40px, 6vh, 72px);
-    padding: 8px 8px 8px 12px;
+    padding: 6px 8px;
     background: var(--bg-raised);
     border: 1px solid var(--border);
     border-radius: 22px;
@@ -67,9 +69,9 @@
 
     // The field itself — transparent, borderless, blends into the pill.
     &__textarea {
-        flex: 1;
+        width: 100%;
+        box-sizing: border-box;
         min-width: 0;
-        align-self: center;
         background: transparent;
         border: none;
         color: var(--text-primary);
@@ -77,13 +79,30 @@
         // The landing box's size (Roy, 2026-10-23): it was 13px on one 30px line.
         font-size: 17px;
         line-height: 1.5;
-        min-height: 76px;
-        padding: 12px 8px;
+        // Two lines of text; the buttons' row under it is the rest of the box.
+        min-height: 64px;
+        padding: 8px 8px 2px;
         resize: none;
 
         &::placeholder { color: var(--text-muted); }
         &:focus    { outline: none; }
         &:disabled { opacity: 0.5; cursor: not-allowed; }
+    }
+
+    // The buttons' row: the panel's own + the mic on the left, send / stop / clear on the right.
+    &__bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        min-width: 0;
+    }
+    &__tools,
+    &__actions {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        min-width: 0;
     }
 
     &__mic {

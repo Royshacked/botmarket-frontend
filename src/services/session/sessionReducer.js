@@ -206,6 +206,12 @@ export function sessionReducer(state, action) {
             if (state.background?.turnId === d.turnId && ENDED.has(d.status)) return { ...state, background: null }
             if (isBehind(state, d)) return d.status === 'started' ? behind(state, d, {}) : state
             if (d.status === 'started') return withLive(state, { ...liveFor(state, d.turnId, d.agent), status: 'running' })
+            // Waiting behind another turn on its lane — a build's step (backend startTurn, Roy 2026-11-20): said as waiting,
+            // not "thinking…". A turn already streaming is never put back to waiting.
+            if (d.status === 'queued') {
+                return state.live?.turnId === d.turnId && state.live.status === 'running' ? state
+                    : withLive(state, { ...liveFor(state, d.turnId, d.agent), status: 'queued' })
+            }
             if (!ENDED.has(d.status)) return state
             const lastTurn = { turnId: d.turnId, agent: d.agent, status: d.status, payload: d.payload ?? null, reason: d.reason ?? null, message: d.message ?? null }
             return {

@@ -250,3 +250,12 @@ test("lanes (step 5a): a builder's turn while the user is with Axl runs in the b
     s = fold(s, t('axl', 'ta', 'done'), { type: 'session_state', data: { sessionId: S, floor: 'mentor' } }, t('mentor', 'tm2', 'started'))
     assert.equal(s.live.turnId, 'tm2')
 })
+
+test("a desk's turn behind a build's step is QUEUED until it starts; a turn already streaming is never put back (Roy, 2026-11-20)", () => {
+    const atAnalyst = sessionReducer(loaded, { type: 'session_state', data: { sessionId: S, floor: 'analyst' } })
+    let s = sessionReducer(atAnalyst, { type: 'session_turn', data: { sessionId: S, turnId: 't9', agent: 'analyst', status: 'queued' } })
+    assert.deepEqual([s.live.turnId, s.live.agent, s.live.status], ['t9', 'analyst', 'queued'])
+    s = sessionReducer(s, { type: 'session_turn', data: { sessionId: S, turnId: 't9', agent: 'analyst', status: 'started' } })
+    assert.equal(s.live.status, 'running')
+    assert.equal(sessionReducer(s, { type: 'session_turn', data: { sessionId: S, turnId: 't9', agent: 'analyst', status: 'queued' } }), s)
+})

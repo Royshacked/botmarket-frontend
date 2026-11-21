@@ -39,6 +39,20 @@ describe('ChatInputRow landing state', () => {
     })
 })
 
+// The field full width on top, every button in one row under it (Roy, 2026-11-21): the panel's own + the mic on the left,
+// send / clear on the right.
+describe('ChatInputRow layout', () => {
+    it('puts the field first, then the row of buttons — leading and mic left, send and clear right', () => {
+        const { container } = render(<ChatInputRow {...base} onClear={noop} leading={<button className="own">x</button>} />)
+        const kids = [...row(container).children].map(el => el.className)
+        expect(kids).toEqual(['chat-input-row__textarea', 'chat-input-row__bar'])
+        const left = container.querySelector('.chat-input-row__tools')
+        const right = container.querySelector('.chat-input-row__actions')
+        expect([...left.children].map(el => el.className.split(' ')[0])).toEqual(['own', 'chat-input-row__mic'])
+        expect([...right.children].map(el => el.className)).toEqual(['chat-input-row__send', 'chat-input-row__clear'])
+    })
+})
+
 // When an agent stops talking the cursor returns to the composer, so the next turn is just typing.
 // It's pinned on the shared row: the six AgentChatInput panels and Axl all pass
 // `isStreaming` already, so none of them wires anything for this.

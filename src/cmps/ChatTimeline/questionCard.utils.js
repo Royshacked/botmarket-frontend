@@ -53,7 +53,7 @@ export function initialAnswers(questions, { marked = [], main = null, accounts =
             continue
         }
         // The card's own default first (a hand-off's name — Build trade off the Hotlist, Roy 2026-11-20).
-        const rec = q.options.find(o => q.default != null && o.label === q.default) ?? q.options.find(o => /\(recommended\)$/i.test(o.label)) ??q.options.find(o => /^As last time/.test(o.label)) ?? null
+        const rec = q.options.find(o => q.default != null && o.label === q.default) ?? q.options.find(o => /\(recommended\)$/i.test(o.label)) ?? q.options.find(o => /^As last time/.test(o.label)) ?? null
         if (rec) out[q.id] = { choice: q.multiSelect ? [rec.label] : rec.label }
     }
     return out

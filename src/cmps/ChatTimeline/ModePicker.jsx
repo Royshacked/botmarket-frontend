@@ -41,7 +41,7 @@ export function ModePicker({ mode, onPick, disabled = false, pending = null }) {
                 aria-label={`Mode: ${current.label}`}
             >
                 <span className="mode-picker__value">{current.short}</span>
-                <span className="mode-picker__caret" aria-hidden="true">▾</span>
+                <span className="mode-picker__caret" aria-hidden="true">▴</span>
             </button>
             {open && (
                 <ul className="mode-picker__menu" role="listbox" aria-label="Mode">

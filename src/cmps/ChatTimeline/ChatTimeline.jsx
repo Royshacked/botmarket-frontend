@@ -73,8 +73,9 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
     const buildingAgent = ['mentor', 'portfolio', 'analyst'].find(a => session.agentState?.[a]?.build?.status === 'building')
     const behindAgent = buildingAgent ?? session.background?.agent ?? null
     const behindTool = session.background?.agent === behindAgent && session.background?.tool ? toolStatusLabel(session.background.tool, session.background.targets) : null
+    // Said UNDER the prompt box, on its right (Roy, 2026-11-20: pulsing at the bottom of the thread it was in the way).
     const behind = behindAgent
-        ? `The ${(speakerOf(behindAgent).role ?? 'desk').toLowerCase()} is ${buildingAgent ? `building ${session.agentState[buildingAgent].build.title} in the background` : 'working in the background'}${behindTool ? ` — ${behindTool}` : ''}.`
+        ? `${speakerOf(behindAgent).role ?? 'Desk'} · ${buildingAgent ? `building ${session.agentState[buildingAgent].build.title}` : 'working'}${behindTool ? ` — ${behindTool}` : ''}`
         : null
     const [draft, setDraft]             = useState('')
     const [historyOpen, setHistoryOpen] = useState(false)
@@ -96,6 +97,8 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
     // only on the visit it was saved in (isFreshEndedLine, 2026-11-02): the session stays a fresh start either way.
     const empty = rows.every(isEndedLine) && !live
     const endedLines = rows.filter(r => isFreshEndedLine(r))
+    // New session stays on while that line shows: it is how the user clears it (Roy, 2026-11-20 — armed in its window,
+    // the "arm it" line stayed, and New session was off on a session holding only the line).
     const thread = useMemo(() => rows.filter(r => !isEndedLine(r) && !isOffScreen(r)), [rows])
 
     // The scroll follows rows AND the streaming text (the live bubble is not a row).
@@ -189,7 +192,12 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
     const waiting = !busy ? ''
         : live.tool ? toolStatusLabel(live.tool, live.targets)
         : live.text ? ''
-        : live.status === 'queued' ? 'sending…' : 'thinking…'
+        // A desk turn waits behind a build's step on the session's lane (Roy, 2026-11-20: "all you see is pulsing
+        // sending…") — say what it waits for.
+        : live.status === 'queued' ? (buildingAgent && live.agent !== 'axl' && live.agent !== buildingAgent
+            ? `waiting for the ${(speakerOf(buildingAgent).role ?? 'desk').toLowerCase()}'s build step — sends right after`
+            : 'sending…')
+        : 'thinking…'
     // ONE AXL (one-axl.md, 2026-11-13): the user is always talking with Axl; the role at work rides beside the name.
     const floorRole = speakerOf(floor ?? 'axl').role
     const floorName = floorRole ? `Axl · ${floorRole}` : 'Axl'
@@ -219,7 +227,7 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
                     {paneSurfaces && <PaneToggle floor={floor} surfaces={paneSurfaces} agentState={session.agentState} />}
                     <button type="button" className={`chat-timeline__action chat-timeline__info-btn${infoOpen ? ' is-open' : ''}`} aria-expanded={infoOpen} onClick={() => setInfoOpen(true)}>Info</button>
                     <button type="button" className={`chat-timeline__action${historyOpen ? ' is-open' : ''}`} aria-expanded={historyOpen} onClick={() => setHistoryOpen(true)}>History</button>
-                    <button type="button" className="chat-timeline__action" onClick={() => startNew()} disabled={busy || empty}>New session</button>
+                    <button type="button" className="chat-timeline__action" onClick={() => startNew()} disabled={busy || (empty && !endedLines.length)}>New session</button>
                 </span>
             </div>
             {/* Desks the chat does not route to yet — Pythia's, for an admin — opened beside it in the side pane
@@ -273,11 +281,6 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
                         {/* The finished plan stays in the thread; the levels so far only while Mentor has the floor. */}
                         {tradeSetup && (tradeReady || floor === 'mentor') && <MentorTradeChart setup={tradeSetup} ready={tradeReady} />}
 
-                        {behind && (
-                            <div className="chat-timeline__row chat-timeline__row--assistant chat-timeline__row--waiting-read chat-timeline__row--behind">
-                                <ToolStatusChip label={behind} />
-                            </div>
-                        )}
                         {readLines.map(l => (
                             <div key={l.key} className="chat-timeline__row chat-timeline__row--assistant chat-timeline__row--waiting-read">
                                 <ToolStatusChip label={l.text} />
@@ -380,6 +383,12 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
                 textareaDisabled={isRecording}
                 leading={scope === 'main' ? <ModePicker mode={mode} pending={pendingMode} onPick={pickMode} disabled={!session.sessionId} /> : null}
             />
+            {behind && (
+                <div className="chat-timeline__behind" role="status">
+                    <span className="chat-timeline__behind-dot" aria-hidden="true" />
+                    <span className="chat-timeline__behind-text" title={behind}>{behind}</span>
+                </div>
+            )}
 
         </div>
     )

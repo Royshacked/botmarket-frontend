@@ -503,17 +503,16 @@
 }
 
 @keyframes mode-picker-unroll {
-    from { clip-path: inset(0 0 100% 0); opacity: 0.4; transform: translateY(-3px); }
-    to   { clip-path: inset(0 0 -20px 0); opacity: 1;   transform: none; }
+    from { clip-path: inset(100% 0 0 0); opacity: 0.4; transform: translateY(3px); }
+    to   { clip-path: inset(-20px 0 0 0); opacity: 1;   transform: none; }
 }
 
-// ── the mode picker, inside the prompt box at its TOP left (modes-and-builders.md M4; moved up from the
-// bottom in the style session, 2026-11-20 — Roy: "put it on top") ──
+// ── the mode picker, first in the prompt box's buttons' row, under the field (modes-and-builders.md M4; Roy
+// 2026-11-21: "full width on top, all buttons below") ──
 .mode-picker {
     position: relative;
     flex-shrink: 0;
-    align-self: flex-start;
-    margin: 2px 4px 0 0;
+    margin: 0 4px 0 0;
 
     // A FIXED width — the longest short name ("Portfolio") plus the caret — so the open menu can be exactly
     // as wide and the two read as one shape, whichever mode is showing.
@@ -538,16 +537,16 @@
 
         &:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-bright); }
 
-        // OPEN, the chip is the selector's top row (style session 2026-11-20): it takes the list's surface and
-        // border, drops its bottom edge and bottom corners, and sits over the list by a pixel so it paints over
-        // the list's top border where the two meet — one shape, the current mode on top.
+        // OPEN, the chip is the selector's BOTTOM row (it sits under the field now, so the list opens up — Roy
+        // 2026-11-21: down, on a phone, ran off the screen): it takes the list's surface and border, drops its top
+        // edge and top corners, and sits over the list by a pixel — one shape, the current mode where it was.
         &[aria-expanded='true'] {
             position: relative;
             z-index: 21;
             background: var(--bg-popover);
             border-color: var(--border-mid);
-            border-bottom-color: transparent;
-            border-radius: 14px 14px 0 0;
+            border-top-color: transparent;
+            border-radius: 0 0 14px 14px;
             color: var(--text-primary);
         }
         &:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -560,25 +559,25 @@
     // Opens UPWARD — the prompt box sits at the bottom of the chat, so there is room above it.
     // A plain list, not a deck of cards (style session 2026-11-20): one line per mode, square rows that
     // only tint on hover. Each mode's full name and explanation is its tooltip.
-    // Drops DOWN from the chip, flush and at exactly its width: square top into the chip, rounded bottom.
+    // Rises UP from the chip, flush and at exactly its width: square bottom into the chip, rounded top.
     &__menu {
         position: absolute;
-        top: calc(100% - 1px);
+        bottom: calc(100% - 1px);
         left: 0;
         z-index: 20;
         box-sizing: border-box;
         width: 100%;
         margin: 0;
-        padding: 0 0 4px;   // no top gap: the list runs straight on from the chip
+        padding: 4px 0 0;   // no bottom gap: the list runs straight on into the chip
         list-style: none;
         background: var(--bg-popover);
         border: 1px solid var(--border-mid);
-        border-radius: 0 0 14px 14px;
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.20);
-        // It UNROLLS down out of the chip on open (style session 2026-11-20): revealed top-first by a clip,
+        border-radius: 14px 14px 0 0;
+        box-shadow: 0 -6px 12px rgba(0, 0, 0, 0.20);
+        // It UNROLLS up out of the chip on open (style session 2026-11-20): revealed bottom-first by a clip,
         // so it reads as the chip growing rather than a box fading in somewhere near it. Opening only — closing
         // is instant, the way a dismissed menu should be.
-        transform-origin: top;
+        transform-origin: bottom;
         animation: mode-picker-unroll 0.16s cubic-bezier(0.2, 0.8, 0.2, 1);
 
         @media (prefers-reduced-motion: reduce) { animation: none; }
@@ -858,3 +857,45 @@
 // squashed to a line under a docked chart).
 .build-summary { flex-shrink: 0; min-height: min(320px, 50vh); }
 .build-bar, .question-card { flex-shrink: 0; }
+
+// A BUILD AT WORK, said under the prompt box on its right (Roy, 2026-11-20: pulsing at the end of the thread it was in the
+// way). It sits in the box's bottom gap — pulled up into it, the same total height — so nothing moves when it comes and goes.
+$box-gap: clamp(40px, 6vh, 72px);
+.chat-timeline__behind {
+    flex-shrink: 0;
+    box-sizing: border-box;
+    width: min(75%, 640px);
+    min-width: 260px;
+    max-width: calc(100% - 20px);
+    height: calc(#{$box-gap} - 6px);
+    margin: calc(6px - #{$box-gap}) auto 0;
+    padding: 0 14px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-start;
+    gap: 7px;
+    color: var(--text-tertiary);
+    font-size: 11.5px;
+    line-height: 16px;
+    pointer-events: none;
+
+    &-dot {
+        flex-shrink: 0;
+        width: 6px; height: 6px; margin-top: 5px;
+        border-radius: 50%;
+        background: var(--accent-light);
+        animation: chat-timeline-behind 1.6s ease-in-out infinite;
+    }
+    &-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+@keyframes chat-timeline-behind {
+    0%, 100% { opacity: 0.25; }
+    50%      { opacity: 0.9; }
+}
+@media (prefers-reduced-motion: reduce) { .chat-timeline__behind-dot { animation: none; opacity: 0.6; } }
+@media (max-width: 767px) {
+    .chat-timeline__behind { width: auto; min-width: 0; max-width: none; height: auto; margin: -6px 8px 6px; padding: 0 12px; }
+}
+@media (min-width: 768px) {
+    .chat-input-row--empty + .chat-timeline__behind { height: calc(clamp(24px, 15vh, 150px) - 6px); margin-top: calc(6px - clamp(24px, 15vh, 150px)); }
+}
