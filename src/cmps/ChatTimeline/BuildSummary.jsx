@@ -28,10 +28,10 @@ export function BuildBar({ agent, build, open, onOpen, onRetry, onDrop, onChange
     if (build.status === 'declined') {
         return (
             <div className="build-bar build-bar--declined" role="status">
-                <span className="build-bar__text">No trade on {build.title.replace(/ trade$/, '')} — {build.reason}</span>
+                <span className="build-bar__text">{agent === 'analyst' ? `${build.title}: the analyst passed — ${build.reason}` : `No trade on ${build.title.replace(/ trade$/, '')} — ${build.reason}`}</span>
                 {changing ? (
                     <span className="build-bar__change">
-                        <input value={text} onChange={e => setText(e.target.value)} placeholder="e.g. build the long on the pullback anyway" aria-label="The change" maxLength={1000} />
+                        <input value={text} onChange={e => setText(e.target.value)} placeholder={agent === 'analyst' ? "e.g. use the Street's FY2027 EPS" : 'e.g. build the long on the pullback anyway'} aria-label="The change" maxLength={1000} />
                         <button type="button" className="build-bar__btn" onClick={() => { onChange?.(text.trim()); setChanging(false); setText('') }} disabled={!text.trim() || busy}>Rebuild</button>
                     </span>
                 ) : (

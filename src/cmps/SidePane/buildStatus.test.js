@@ -12,6 +12,10 @@ test('each status in words', () => {
     assert.match(buildWords('portfolio', b('awaiting')), /^The portfolio manager has a question on NVDA trade — answer it on the card/)
     assert.match(buildWords('mentor', b('queued')), /queued/)
     assert.equal(buildWords('mentor', null), null)
+    // The TSLA prod build (2026-11-21): the analyst's PASS read "found no trade on coverage".
+    const pass = { id: 'b2', status: 'declined', title: 'TSLA coverage', reason: "I can't defend a price target", since: 1 }
+    assert.equal(buildWords('analyst', pass), "The analyst passed on TSLA coverage: I can't defend a price target")
+    assert.match(buildWords('mentor', { ...b('declined'), reason: 'x' }), /^The trader found no trade on NVDA: x$/)
 })
 
 test("the latest step is the build's last reply", () => {

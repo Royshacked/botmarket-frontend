@@ -39,6 +39,13 @@ describe('the bar', () => {
         expect(barBuild({ mentor: { build: build({ status: 'declined' }) } }).agent).toBe('mentor')
     })
 
+    // The TSLA prod build (2026-11-21): the analyst's PASS read "no trade on coverage".
+    it("the analyst's declined build is a PASS — said as one, never as no trade", () => {
+        render(<BuildBar agent="analyst" build={build({ status: 'declined', title: 'TSLA coverage', reason: "I can't defend a price target" })} onChange={vi.fn()} onDrop={vi.fn()} />)
+        expect(screen.getByText("TSLA coverage: the analyst passed — I can't defend a price target")).toBeTruthy()
+        expect(screen.queryByText(/no trade/i)).toBe(null)
+    })
+
     it('a failed build offers Retry', () => {
         const onRetry = vi.fn()
         render(<BuildBar agent="mentor" build={build({ status: 'failed' })} onRetry={onRetry} />)

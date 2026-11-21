@@ -16,7 +16,11 @@ export function buildWords(agent, build) {
         case 'awaiting': return `${who} has a question on ${build.title} — answer it on the card above the chat.`
         case 'ready':    return `${build.title} is ready. Review it here, then Generate.`
         case 'failed':   return `${build.title} did not finish — Retry it from the bar above the chat.`
-        case 'declined': return `${who} found no trade on ${build.title.replace(/ trade$/, '')}: ${build.reason}`
+        // The analyst's "nothing to build" is a PASS — no price target it can defend (the TSLA prod build, 2026-11-21: it
+        // read "found no trade on coverage").
+        case 'declined': return agent === 'analyst'
+            ? `${who} passed on ${build.title}: ${build.reason}`
+            : `${who} found no trade on ${build.title.replace(/ trade$/, '')}: ${build.reason}`
         default:         return null
     }
 }
