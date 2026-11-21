@@ -435,7 +435,8 @@ describe('HotlistPanel — a list per horizon', () => {
         fireEvent.click(wk1.querySelector('td:nth-child(4)'))
         expect(screen.getByText(/first week pick/)).toBeTruthy()
         expect(screen.getByText('A real contract, two thirds still open.')).toBeTruthy()
-        expect(screen.getByText(/Inside the window: Q3 report 2026-10-29/)).toBeTruthy()
+        // Bottom lines (Roy, 2026-11-21): the window's events are the chat's (Chat about it), not the page's.
+        expect(screen.queryByText(/Inside the window/)).toBeNull()
         // Off the week tab, no Target column.
         fireEvent.click(screen.getByRole('button', { name: '‹ Back to the list' }))
         fireEvent.click(screen.getByRole('button', { name: 'Open 1' }))
@@ -457,9 +458,10 @@ describe('HotlistPanel — a list per horizon', () => {
         expect(order()).toEqual(['WK1'], 'his confirmed name; the broken company and the unpicked name are not')
         fireEvent.click(screen.getByText('WK1').closest('tr').querySelector('td:nth-child(4)'))
         const read = document.querySelector('.hot-read').textContent
-        expect(read).toMatch(/\+5\.0% open — his own number, off the catalyst's worth \(\+3\.0% open\)/)
-        expect(read).toMatch(/The target: the yardstick is \+3%; estimates rising/)
-        expect(read).toMatch(/The company: weak — a loss-maker, net cash/)
+        // Bottom lines (2026-11-21): the number, why in one line, the company in one.
+        expect(read).toMatch(/\+5\.0% open/)
+        expect(read).toMatch(/Why: the yardstick is \+3%; estimates rising/)
+        expect(read).toMatch(/Company: weak — a loss-maker, net cash/)
         fireEvent.click(screen.getByRole('button', { name: '‹ Back to the list' }))
         fireEvent.click(screen.getByRole('button', { name: 'Picks 2' }))
         expect(order()).toEqual(['WK1', 'WK2'])
@@ -752,8 +754,8 @@ describe('HotlistPanel — Swing and Long term', () => {
         const hold = [...screen.getByText('HLD').closest('tr').querySelectorAll('td')].find(td => td.title === 'Only Buys are timed')
         expect(hold?.textContent).toBe('—')
         fireEvent.click(screen.getByText('CHN').closest('tr').querySelector('td:nth-child(3)'))
-        expect(screen.getByText(/^Timing \(week of 2026-11-02\):/).closest('p').textContent)
-            .toMatch(/Wait — for a pullback to the 20-day near 96\.00\. stretched after a vertical run Wrong if: it closes over 104/)
+        // The page's bottom line (2026-11-21): the timing in one line.
+        expect(screen.getByText(/^Timing:/).closest('p').textContent).toMatch(/^Timing: Wait — for a pullback to the 20-day near 96\.00\./)
         fireEvent.click(screen.getByRole('button', { name: /Back/ }))
         fireEvent.click(screen.getByRole('button', { name: /^Covered companies/ }))
         expect(screen.queryByRole('columnheader', { name: 'Timing' })).toBeNull()
@@ -831,13 +833,14 @@ describe('HotlistPanel — Swing and Long term', () => {
         expect(screen.getByText(/The analyst has 1 of the 1 swing picks still to research/)).toBeTruthy()
     })
 
-    it('the opened row: the chain\'s reason, the thesis itself, and the hand-offs with the book\'s horizon', async () => {
+    it('the opened row in bottom lines: why (the thesis), and the hand-offs with the book\'s horizon', async () => {
         const onBuild = vi.fn()
         await mount({ coverage: COVERAGE, onBuild })
         fireEvent.click(screen.getByRole('button', { name: 'Swing 2' }))
         fireEvent.click(screen.getByText('CHN').closest('tr').querySelector('td:nth-child(3)'))
-        expect(screen.getByText(/From the weekly chain:/).closest('p').textContent).toMatch(/swing call on Railroads — Stock picker: the leader/)
-        expect(screen.getByText('Volumes recover into the cycle.')).toBeTruthy()
+        // Roy, 2026-11-21: bottom lines — the thesis's first sentence as Why; the chain's story is the chat's.
+        expect(screen.getByText(/^Why:/).closest('p').textContent).toBe('Why: Volumes recover into the cycle.')
+        expect(screen.queryByText(/From the weekly chain:/)).toBeNull()
         // Its page covers the window (Roy, 2026-10-31): the tiles, the chart, no tabs; Back returns to Swing.
         expect(screen.getByRole('dialog').getAttribute('aria-label')).toBe('CHN')
         expect(screen.queryByRole('group', { name: 'Horizon' })).toBeNull()

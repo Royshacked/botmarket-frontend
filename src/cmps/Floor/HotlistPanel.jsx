@@ -11,12 +11,13 @@ import {
     COLUMN_LABEL, COLUMN_TITLE, CHECKPOINT_LABEL, COLUMN_ORDER, STATUS_LABEL, LIST_SORTS,
     fmtRange, rangeTitle, bestColumn, catalystChip, earningsChip, sparkGeometry, rowStatus, rowReason, sortList,
     pickFor, horizonCounts, horizonRows, readsBySymbol, readCell, hasBand, PASS_WHY, resultCell, columnRecord,
-    BOOK_ORDER, BOOK_LABEL, BOOK_TITLE, readTime, argusRecordLine, backtestLine, DAY_COLUMNS,
-    isConfirmedRead, holdsThrough, emptyNamesText, COMPANY_LABEL, chainSurvivors, COVERED, COVERED_LABEL, coveredRows,
+    BOOK_ORDER, BOOK_LABEL, BOOK_TITLE, argusRecordLine, backtestLine, DAY_COLUMNS,
+    isConfirmedRead, holdsThrough, emptyNamesText, chainSurvivors, COVERED, COVERED_LABEL, coveredRows,
 } from './hotlist.utils.js'
 import { ChartSurface } from '../PriceChart/ChartSurface.jsx'
 import { HotlistBook } from './HotlistBook.jsx'
 import { HotlistRowPage } from './HotlistRowPage.jsx'
+import { bottomLine } from './bottomLine.utils.js'
 import { HotlistDayBoards } from './HotlistDayBoards.jsx'
 import { INTRADAY, INTRADAY_LABEL, latestBoardId } from './hotlistDay.utils.js'
 import { HotlistEcho } from './HotlistEcho.jsx'
@@ -64,7 +65,7 @@ const _day = (iso) => {
 // the view switches (Argus's names, the scorecard) and the screener's status line are the admin's — they explain how the
 // lists are made, and say why one is thin.
 
-export function HotlistPanel({ onBuild, onAskTechnicals = null, onAskEcho = null, onBuildEcho = null, onSymbolClick, coverage = [], isAdmin = false }) {
+export function HotlistPanel({ onBuild, onChat = null, onAskEcho = null, onBuildEcho = null, onSymbolClick, coverage = [], isAdmin = false }) {
     const { isOpen, close } = useDetailPanel(HOTLIST_PANEL_ID)
     const [today, setToday] = useState({ status: 'idle', day: null, checkpoints: [], dayList: [], latest: null, working: null, stats: null })
     const [boardId, setBoardId] = useState(null)
@@ -313,7 +314,7 @@ export function HotlistPanel({ onBuild, onAskTechnicals = null, onAskEcho = null
     return (
         <DetailPanel id={HOTLIST_PANEL_ID} kicker="Hotlist" title={title} actions={actions} className="hot-panel" container bare>
             {/* An opened row shows how its name trades (proteus.md §8.1); "Ask the technical analyst" hands off like Build. */}
-            <TechnicalsProvider onAsk={onAskTechnicals ? handOff(onAskTechnicals) : null}>
+            <TechnicalsProvider onChat={onChat ? handOff(onChat) : null}>
             {chartSym
                 ? (
                     <div className="hot-chart">
@@ -350,7 +351,8 @@ const _today = (d) => ({ status: 'ok', day: d.day, checkpoints: d.checkpoints, d
 HotlistPanel.propTypes = {
     coverage:      PropTypes.array,
     onBuild:       PropTypes.func,
-    onAskTechnicals: PropTypes.func,
+    /** "Chat about it" on a row's page: (symbol, name) → Axl, on the name (Roy, 2026-11-21). */
+    onChat: PropTypes.func,
     onAskEcho:       PropTypes.func,
     onBuildEcho:     PropTypes.func,
     onSymbolClick: PropTypes.func,
@@ -909,44 +911,30 @@ ListRow.propTypes = {
     hideGrade: PropTypes.bool, tape: PropTypes.bool,
 }
 
-/** Prometheus's catalyst read under a week row (horizon-chains.md §3): the verdict, the number, what can break it. */
+/**
+ * Prometheus's catalyst read under a week row (horizon-chains.md §3) — in BOTTOM LINES since 2026-11-21 (Roy: "very long
+ * stories — I want bottom lines and a chat button"): the verdict and the number in one line, why in one, the risk in one.
+ * The whole read is Axl's, in the chat.
+ */
 function ReadDetail({ read }) {
     const t = read.target
     const graded = read.outcome
+    const why = bottomLine(t?.why ?? read.read)
+    const risk = bottomLine(read.kill?.[0], 160)
     return (
         <div className="hot-read">
             <p className="hot-detail__line">
                 <b>Analyst:</b> {read.verdict.replace('_', ' ')}
                 {!t && PASS_WHY[read.pass_reason] && <span className="hot-dim"> · no target: {PASS_WHY[read.pass_reason]}</span>}
                 {t && <> · target <b>{t.value.toFixed(2)}</b>{hasBand(t) && ` (${t.low.toFixed(2)}–${t.high.toFixed(2)})`}</>}
-                {/* The price the target was set from, and when — the row's Last is an earlier checkpoint's quote. */}
-                {t && Number.isFinite(t.spot ?? read.price_at_read) && <span className="hot-dim"> · set from {(t.spot ?? read.price_at_read).toFixed(2)} at the read, {readTime(read.set_at)}</span>}
-                {/* A run-up's target is the stock's own record into its reports; an event's is what it is worth less what moved. */}
-                {/* HIS OWN number (2026-10-24): what is open, and the yardstick the tools gave him beside it. */}
-                {t && t.basis === 'prometheus' && <> · <b>{_pct(t.open_pct)}</b> open — his own number{Number.isFinite(t.yardstick?.open_pct) && <span className="hot-dim">, off the {t.yardstick.basis === 'run_up' ? `run-up record (median ${_pct(t.yardstick.open_pct)}${read.runup?.n ? ` over ${read.runup.n} reports` : ''})` : `catalyst's worth (${_pct(t.yardstick.open_pct)} open)`}</span>}</>}
-                {t && t.basis === 'run_up' && <> · its run-up into the last {read.runup?.n ?? '?'} reports: median {t.open_pct > 0 ? '+' : ''}{t.open_pct}%{Number.isFinite(read.runup?.up_share) && `, up ${Math.round(read.runup.up_share * 100)}% of the time`}</>}
-                {/* This cycle's head start (2026-10-24): the stock has already moved part of its usual full run-up. */}
-                {t && t.basis === 'run_up' && t.moved_pct > 0 && <span className="hot-dim"> · this cycle already {t.moved_pct > 0 ? '+' : ''}{t.moved_pct}% of a usual +{t.worth_pct}%{t.cycle_cut_pct > 0 ? `, so ${t.cycle_cut_pct}% less is left` : ''}</span>}
-                {t && !['run_up', 'prometheus'].includes(t.basis) && <> · worth {t.worth_pct > 0 ? '+' : ''}{t.worth_pct}%, moved {t.moved_pct > 0 ? '+' : ''}{t.moved_pct}%, open {t.open_pct > 0 ? '+' : ''}{t.open_pct}%</>}
+                {t && Number.isFinite(t.open_pct) && <> · <b>{_pct(t.open_pct)}</b> open</>}
                 {read.exit_before && <span className="hot-earn--exit"> · out before the {read.exit_before} report</span>}
                 {holdsThrough(read) && <span> · <b>holds through</b> the {read.through_report.report} report</span>}
                 <span className="hot-dim"> · valid until {String(read.valid_until).slice(0, 10)}</span>
-                {read.news_driven === false && <span className="hot-row__caution"> · no news under the move</span>}
             </p>
-            {/* The run-up rule's two questions (backend runup-reads.md §2): worth the run-up, and hold or exit the report. */}
-            {read.run_up && <p className="hot-detail__line"><span className="hot-dim">Worth the run-up:</span> <b>{read.run_up.worth ? 'yes' : 'no'}</b>{read.run_up.why && ` — ${read.run_up.why}`}</p>}
-            {/* Only on a confirmed read: a pass carries no instruction (code review 2026-10-31). */}
-            {read.through_report && isConfirmedRead(read) && (
-                <p className="hot-detail__line"><span className="hot-dim">The report:</span> <b>{read.through_report.call === 'hold' ? 'hold through it' : 'out before it'}</b>
-                    {read.through_report.dropped && <span className="hot-dim"> (he leaned to holding, but set no target to hold to)</span>}
-                    {read.through_report.why && ` — ${read.through_report.why}`}</p>
-            )}
-            {t?.why && <p className="hot-detail__line"><span className="hot-dim">The target:</span> {t.why}</p>}
-            {t?.stretch && <p className="hot-detail__line hot-row__caution">A stretch: {t.stretch.times}× the larger of the options’ implied move and the yardstick ({_pct(t.stretch.ref_pct)}).</p>}
-            {read.company?.verdict && <p className="hot-detail__line"><span className="hot-dim">The company:</span> <span className={read.company.verdict === 'sound' ? '' : 'hot-row__caution'}>{COMPANY_LABEL[read.company.verdict]}</span>{read.company.why && ` — ${read.company.why}`}</p>}
-            {read.read && <p className="hot-detail__line">{read.read}</p>}
-            {read.event_risk?.length > 0 && <p className="hot-detail__line hot-earn--exit">Inside the window: {read.event_risk.join('; ')}</p>}
-            {read.kill?.length > 0 && <p className="hot-detail__line"><span className="hot-dim">Wrong if:</span> {read.kill.join('; ')}</p>}
+            {why && <p className="hot-detail__line"><b>Why:</b> {why}</p>}
+            {read.company?.verdict && <p className="hot-detail__line"><b>Company:</b> <span className={read.company.verdict === 'sound' ? '' : 'hot-row__caution'}>{read.company.verdict}</span>{read.company.why && ` — ${bottomLine(read.company.why, 120)}`}</p>}
+            {risk && <p className="hot-detail__line"><b>Risk:</b> {risk}</p>}
             {graded && <p className="hot-detail__line"><b>{read.status === 'hit' ? 'Hit' : read.status === 'closed' ? 'Closed' : 'Expired'}</b>{Number.isFinite(graded.return_pct) && ` · ${graded.return_pct > 0 ? '+' : ''}${graded.return_pct}%`}{Number.isFinite(graded.vs_spy) && ` (${graded.vs_spy > 0 ? '+' : ''}${graded.vs_spy} vs SPY)`}</p>}
         </div>
     )
@@ -973,11 +961,13 @@ function RowDetail({ row, col, pick = row.pick, read = null, status, earn, onBui
             {reason && <p className="hot-detail__line">{reason}</p>}
             {cat && <p className="hot-detail__line">
                 <span className={`hot-cat${row.catalyst?.material ? ` hot-cat--${row.catalyst.surprise}` : ''}`}>{cat}</span>
-                {row.catalyst?.headline ? <span> {row.catalyst.headline}</span> : null}
+                {row.catalyst?.headline ? <span> {bottomLine(row.catalyst.headline, 140)}</span> : null}
             </p>}
             {(earn?.exit || earn?.hold) && <p className={`hot-detail__line${earn.exit ? ' hot-earn--exit' : ''}`}>{earn.title}.</p>}
-            {pick && <p className="hot-detail__line"><b>Stock picker:</b> {pick.why}{pick.caution ? <span className="hot-row__caution"> Caution: {pick.caution}</span> : null}</p>}
-            {row.avoid && <p className="hot-detail__line"><b>Avoid:</b> {row.avoid}</p>}
+            {/* Bottom lines (Roy, 2026-11-21) — the whole story is "Chat about it". */}
+            {pick && <p className="hot-detail__line"><b>Stock picker:</b> {bottomLine(pick.why)}</p>}
+            {pick?.caution && <p className="hot-detail__line"><b>Caution:</b> <span className="hot-row__caution">{bottomLine(pick.caution, 160)}</span></p>}
+            {row.avoid && <p className="hot-detail__line"><b>Avoid:</b> {bottomLine(row.avoid, 160)}</p>}
             {result && result.tone !== 'dim' && (
                 <p className="hot-detail__line"><b>Result ({COLUMN_LABEL[col] ?? col}):</b> <span className={`hot-result--${result.tone}`}>{result.title}</span></p>
             )}

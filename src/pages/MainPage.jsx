@@ -1269,9 +1269,11 @@ export function MainPage() {
     }
 
     // THE BADGE on a Hotlist row (backend proteus.md step 5): the technical analyst's read on how the name trades, in the chat.
-    function handleTechnicalsFromHotlist(symbol) {
+    // A Hotlist row's "Chat about it" (Roy, 2026-11-21: bottom lines on the page, the full story in the chat): Axl, on the
+    // name — he draws the house's work on it (get_company_view) and the news, in one voice.
+    function handleChatFromHotlist(symbol, name = null) {
         if (!symbol) return
-        talkTo('proteus', `How does ${symbol} trade?`)
+        talkTo('axl', `Tell me about ${symbol}${name ? ` (${name})` : ''} — the full picture: the analyst's view, how it trades, the timing, any events that reach it, and what's in the news.`)
     }
 
     // The Hotlist's Echo tab → the event analyst, on that event (backend echo-pipeline.md): its id rides the question, so he
@@ -1365,7 +1367,7 @@ export function MainPage() {
                                 onEarningSelect={handleBuildFromEarning}
                                 onIpoSelect={handleBuildFromIpo}
                                 onHotlistBuild={handleBuildFromHotlist}
-                                onHotlistTechnicals={handleTechnicalsFromHotlist}
+                                onHotlistChat={handleChatFromHotlist}
                                 onHotlistEcho={handleEchoFromHotlist}
                                 onHotlistEchoBuild={handleBuildFromEcho}
                                 onEditSetup={handleEditSetup}

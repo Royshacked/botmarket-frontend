@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { OwnedBadge } from '../OwnedBadge/OwnedBadge.jsx'
-import { CoverageDetail, CoverageRating } from './CoverageDetail.jsx'
+import { CoverageRating } from './CoverageDetail.jsx'
+import { bottomLine, nextCatalyst, firstRisk } from './bottomLine.utils.js'
 import { HotlistScorecard } from './HotlistScorecard.jsx'
 import { HotlistRowPage } from './HotlistRowPage.jsx'
 import { BOOK_LABEL, BOOK_SORTS, COVERED, VERDICT_WORDS, bookResult, bookProgress, bookOrigin, bookTiming, isBuy, bookRecordLine, sortBook, chainSurvivors, chainLeft, coveredRows } from './hotlist.utils.js'
@@ -128,17 +129,14 @@ export function HotlistBook({ book, column, coverage = [], isAdmin = false, focu
         const head = [r.industry, r.price_at_set != null ? `${_price(r.price_at_set)} when the target was set (${String(r.set_at).slice(0, 10)})` : null].filter(Boolean)
         return (
             <HotlistRowPage symbol={r.symbol} name={r.name ?? null} horizon={column} facts={facts}>
+                {/* BOTTOM LINES (Roy, 2026-11-21): one line each — why, timing, the risk, what is next; the whole story is
+                    "Chat about it" in the page's header. */}
                 <div className="hot-detail">
                     {head.length > 0 && <p className="hot-detail__head hot-dim">{head.join(' · ')}</p>}
-                    {r.origin?.source === 'pythia' && (
-                        <p className="hot-detail__line"><b>From the weekly chain:</b> the industry strategist’s {r.origin.verdict === 'long_term' ? 'long-term' : r.origin.verdict} call on {r.origin.subject}
-                            {r.origin.why ? <> — <b>Stock picker:</b> {r.origin.why}</> : null}
-                            {r.origin.caution ? <span className="hot-row__caution"> Caution: {r.origin.caution}</span> : null}</p>
-                    )}
-                    {timing && (
-                        <p className="hot-detail__line"><b>Timing{timing.week ? ` (${timing.week})` : ''}:</b> {timing.line}</p>
-                    )}
-                    {cov ? <CoverageDetail coverage={cov} /> : <p className="hot-detail__line hot-dim">The thesis is on the Forecasts page.</p>}
+                    {(cov?.thesis || r.origin?.why) && <p className="hot-detail__line"><b>Why:</b> {bottomLine(cov?.thesis ?? r.origin.why)}</p>}
+                    {timing && <p className="hot-detail__line"><b>Timing:</b> {bottomLine(timing.line)}</p>}
+                    {(cov?.kill_criteria?.length || r.origin?.caution) && <p className="hot-detail__line"><b>Risk:</b> {firstRisk(cov?.kill_criteria) ?? bottomLine(r.origin.caution)}</p>}
+                    {cov && nextCatalyst(cov.catalysts) && <p className="hot-detail__line"><b>Next:</b> {nextCatalyst(cov.catalysts)}</p>}
                     <div className="hot-detail__actions">
                         {/* On Covered companies a row hands off as the book it sits in. */}
                         {onBuild && <button type="button" className="floor-queued__btn" onClick={() => onBuild(r, r.book ?? column, null)}
