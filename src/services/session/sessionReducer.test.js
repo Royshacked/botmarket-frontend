@@ -55,6 +55,17 @@ test('a turn: sending → started → tokens → the reply row → done; Stop ha
     assert.deepEqual(s.lastTurn, { turnId: 't1', agent: 'axl', status: 'done', payload: { suggestions: ['A'] }, reason: null, message: null })
 })
 
+test('a reset drops what the turn streamed so far — the retry streams the reply fresh (backend STREAM_RESET, 2026-11-21)', () => {
+    let s = sessionReducer(loaded, { type: 'sending', turnId: 't1', agent: 'axl' })
+    s = fold(s,
+        { type: 'session_turn', data: { sessionId: S, turnId: 't1', agent: 'axl', status: 'started' } },
+        { type: 'session_delta', data: { sessionId: S, turnId: 't1', agent: 'axl', type: 'token', data: { text: 'Erotiske 马会' } } },
+        { type: 'session_delta', data: { sessionId: S, turnId: 't1', agent: 'axl', type: 'reset', data: {} } },
+        { type: 'session_delta', data: { sessionId: S, turnId: 't1', agent: 'axl', type: 'token', data: { text: 'TSLA first.' } } },
+    )
+    assert.equal(s.live.text, 'TSLA first.')
+})
+
 test("a specialist Axl asks streams under its own role inside his turn — its words never drawn under Axl's (modes-and-builders.md §3)", () => {
     const d = (agent, text) => ({ type: 'session_delta', data: { sessionId: S, turnId: 't1', agent, type: 'token', data: { text } } })
     let s = fold(loaded,

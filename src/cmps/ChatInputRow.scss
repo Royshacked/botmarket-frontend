@@ -209,7 +209,15 @@
         width: auto;
         min-width: 0;
         max-width: none;
-        margin: 6px 8px 10px;
+        // Off the bottom by the phone's own safe area (Roy, 2026-11-21: "too much in the bottom"): the app draws under
+        // the home indicator / gesture bar (index.html viewport-fit=cover, the installed app is standalone), and 10px
+        // left the box sitting in it. The inset is 0 in a browser tab, ~34px over an iPhone's home indicator.
+        margin: 6px 8px calc(14px + env(safe-area-inset-bottom, 0px));
+
+        // The OPENING screen (Roy, 2026-11-21: "take it more to the middle of the screen"): the greeting and the box
+        // centred together — this rule beats the desktop lift above, which the line before it overrides. The first
+        // message drops it to the bottom (the margin transition above).
+        &.chat-input-row--empty { margin-bottom: calc(28dvh + env(safe-area-inset-bottom, 0px)); }
 
         &__textarea {
             // 16px is not a taste call on a phone: iOS Safari ZOOMS THE PAGE when a field under

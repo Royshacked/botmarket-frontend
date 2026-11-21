@@ -195,6 +195,9 @@ export function sessionReducer(state, action) {
             const data = d.data ?? {}
             switch (d.type) {
                 case 'token':     return withLive(state, { ...live, status: 'running', tool: null, targets: null, text: live.text + (data.text ?? '') })
+                // The model's round was garbage (backend llmStream STREAM_RESET — a leaked tool call, 2026-11-21): what
+                // streamed so far is dropped; the retry streams the reply fresh.
+                case 'reset':     return withLive(state, { ...live, status: 'running', text: '' })
                 case 'reasoning': return withLive(state, { ...live, status: 'running', reasoning: live.reasoning + (data.text ?? '') })
                 case 'status':    return withLive(state, { ...live, status: 'running', tool: data.tool ?? null, targets: Array.isArray(data.targets) ? data.targets : null })
                 case 'phase':     return withLive(state, { ...live, status: 'running', phase: data.phase ?? null })

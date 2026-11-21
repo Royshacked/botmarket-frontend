@@ -92,19 +92,14 @@ export const AGENTS = {
             </>
         ),
     },
-    // Proteus — the technical analysis desk (backend docs/design/proteus.md, 2026-11-12): how ONE stock's price behaves,
-    // measured from its own candles (what it respects, if anything; its false breaks, its ATR; day trade or swing), and
-    // what its chart shows now. Reads behaviour only — the levels are Mentor's, the business Prometheus's.
+    // Proteus — HISTORY ONLY since 2026-11-21 (backend docs/design/proteus-v2.md): no desk, no chat, no subagent; his
+    // measured profile is the house's technical read, said by Axl and the trader. Kept so his old chat rows still read
+    // "Axl · Technical analyst" with their icon (as `idea` is kept).
     proteus: {
         tab:   'proteus',
         brand: 'Proteus',
         role:  'Technical analyst',
-        work:  'Technicals',
-        hue:   'cyan',   // the sea god — and the one hue the trade desks do not crowd
-        lead:  'How a stock trades',
-        blurb: 'What a stock respects technically, if anything — measured from its own candles.',
-        intro: "Name a stock and I'll tell you how it actually trades — measured, not assumed.",
-        hint:  'Ask how a stock behaves: does it respect a moving average or VWAP, does it false-break, is it a day-trade or a swing name, what is on its chart now.',
+        hue:   'cyan',
         // A curling wave over the swell — the sea god who changes shape, and a price swing. The 0–24 twin of ProteusBadge.
         icon: (
             <>
@@ -291,15 +286,6 @@ export const DESKS = [
         hue:      'green',
         entryTab: 'mentor',
         agentKey: 'mentor',
-    },
-    {
-        key:      'technicals',
-        label:    'See how a stock trades',
-        lead:     'Technical analysis',
-        blurb:    'How a stock trades, measured — what it respects, its false breaks, its ATR — and what its chart shows now.',
-        hue:      'cyan',
-        entryTab: 'proteus',
-        agentKey: 'proteus',
     },
     {
         key:      'events',

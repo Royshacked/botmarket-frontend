@@ -313,7 +313,7 @@ export function HotlistPanel({ onBuild, onChat = null, onAskEcho = null, onBuild
 
     return (
         <DetailPanel id={HOTLIST_PANEL_ID} kicker="Hotlist" title={title} actions={actions} className="hot-panel" container bare>
-            {/* An opened row shows how its name trades (proteus.md §8.1); "Ask the technical analyst" hands off like Build. */}
+            {/* An opened row shows how its name trades (backend proteus-v2.md §5); "Chat about it" hands off like Build. */}
             <TechnicalsProvider onChat={onChat ? handOff(onChat) : null}>
             {chartSym
                 ? (

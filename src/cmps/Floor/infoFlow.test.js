@@ -25,19 +25,14 @@ test('a trade build: the first step the trader has not settled', () => {
     assert.deepEqual(FLOWS.trade.steps, ['Direction', 'Horizon', 'Levels', 'Size', 'Confirm & arm'])
 })
 
-test('a portfolio, a coverage, a technical read — each from its own role\'s state', () => {
+test('a portfolio, a coverage — each from its own role\'s state; no technicals flow since Proteus v2', () => {
     const p = (s) => infoFlow({ floor: 'portfolio', agentState: { portfolio: s } }).current
     assert.deepEqual([p({}), p({ mandate: {} }), p({ mandate: {}, pendingPlan: {} }), p({ reviewMode: true })], [0, 1, 3, 4])
     const a = (s) => infoFlow({ floor: 'analyst', agentState: { analyst: s } }).current
     assert.deepEqual([a({}), a({ active_symbol: 'MSFT' }), a({ active_symbol: 'MSFT', standing: true })], [0, 1, 2])
-    // The technical analyst: two steps — measuring, then the profile with its example chart (Roy, 2026-11-13).
-    assert.deepEqual(FLOWS.technicals.steps, ['Measuring', 'Profile & example chart'])
-    const t = (rows) => infoFlow({ floor: 'proteus', rows }).current
-    assert.equal(t([]), 0)
-    assert.equal(t([{ agent: 'proteus', role: 'user' }]), 0, 'asked, not answered yet: measuring')
-    assert.equal(t([{ agent: 'proteus', role: 'user' }, { agent: 'proteus', role: 'assistant' }]), 1)
-    assert.equal(t([{ agent: 'proteus', role: 'assistant' }, { agent: 'proteus', role: 'user' }]), 0, 'a new question: measuring again')
-    assert.equal(t([{ agent: 'proteus', role: 'assistant' }, { agent: 'axl', role: 'user' }]), 1, 'rows of another role do not move it')
+    // Proteus is no desk since 2026-11-21 (backend proteus-v2.md): no flow of his own; an old floor on him reads as Axl's.
+    assert.equal(FLOWS.technicals, undefined)
+    assert.equal(infoFlow({ floor: 'proteus', rows: [] }).key, 'axl')
     // The event analyst (backend echo-desk.md, 2026-11-19): mapping the event, then the map.
     assert.deepEqual(FLOWS.events.steps, ['Mapping the event', 'The map'])
     const e = (rows) => infoFlow({ floor: 'echo', rows })

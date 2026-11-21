@@ -83,9 +83,9 @@ async function requestRead(board, symbol) {
 }
 
 /**
- * HOW AN OPENED ROW'S NAME TRADES (botmarket-backend hotlistBehaviour.profileRow; proteus.md §8.1) on the list's horizon →
- * `{ symbol, horizon, computed_at, headline: { text, kind }, lines: [[label, text]] }`, or `{ reason }` (no_history,
- * too_short, bad_symbol). Measured on the spot when not stored yet — a first look takes several seconds.
+ * HOW AN OPENED ROW'S NAME TRADES (botmarket-backend hotlistBehaviour.profileRow; proteus-v2.md §5) on the list's horizon
+ * → `{ symbol, horizon, computed_at, headline: { text, kind }, lines: [[label, text]] }`, or `{ reason }` (no_history,
+ * unavailable, too_short, bad_symbol). Measured on the spot when not stored yet — a first look takes a few seconds.
  */
 async function getProfile(symbol, horizon) {
     return httpService.get(`${BASE}/profile/${encodeURIComponent(String(symbol ?? '').toUpperCase())}`, { horizon: horizon ?? '' })

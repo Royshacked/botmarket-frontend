@@ -13,8 +13,6 @@ export const FLOWS = Object.freeze({
     trade:      { title: 'Building a trade',   steps: ['Direction', 'Horizon', 'Levels', 'Size', 'Confirm & arm'] },
     portfolio:  { title: 'Building a portfolio', steps: ['Mandate', 'Find names', 'Research', 'Allocate', 'Review'] },
     coverage:   { title: 'Researching a company', steps: ['Name', 'Research', 'Verdict & target'] },
-    // Two steps (Roy, 2026-11-13: "Proteus is measuring, then profiling with a chart example — only two steps").
-    technicals: { title: 'How a stock trades', steps: ['Measuring', 'Profile & example chart'] },
     // Two steps (backend echo-desk.md, 2026-11-19): the event framed and mapped, then the map.
     events:     { title: 'Who an event reaches', steps: ['Mapping the event', 'The map'] },
 })
@@ -78,15 +76,11 @@ export function infoFlow({ floor = null, agentState = {}, rows = [], hotlistOpen
         const a = st.analyst ?? {}
         return at('coverage', a.standing ? 2 : a.active_symbol ? 1 : 0)
     }
-    if (floor === 'proteus') {
-        // The newest row addressed to him: the user's question → he is measuring; his answer → the profile and its chart.
-        const last = (rows ?? []).filter(r => r?.agent === 'proteus').at(-1)
-        return at('technicals', last?.role === 'assistant' ? 1 : 0)
-    }
     if (floor === 'echo') {
         const last = (rows ?? []).filter(r => r?.agent === 'echo').at(-1)
         return at('events', last?.role === 'assistant' ? 1 : 0)
     }
-    if (!floor || floor === 'axl') return at('axl', 0)
+    // An old floor on Proteus (no desk since 2026-11-21) is Axl's — the backend gives that session's next turn to him.
+    if (!floor || floor === 'axl' || floor === 'proteus') return at('axl', 0)
     return null
 }

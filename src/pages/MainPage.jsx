@@ -1268,7 +1268,6 @@ export function MainPage() {
         openDesk('mentor')
     }
 
-    // THE BADGE on a Hotlist row (backend proteus.md step 5): the technical analyst's read on how the name trades, in the chat.
     // A Hotlist row's "Chat about it" (Roy, 2026-11-21: bottom lines on the page, the full story in the chat): Axl, on the
     // name — he draws the house's work on it (get_company_view) and the news, in one voice.
     function handleChatFromHotlist(symbol, name = null) {

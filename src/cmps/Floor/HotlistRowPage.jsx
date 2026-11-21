@@ -35,7 +35,7 @@ export function HotlistRowPage({ symbol, name = null, horizon = null, facts = []
                     ))}
                 </dl>
             )}
-            {/* How it trades on this row's horizon — the technical analyst's profile (proteus.md §8.1; it replaced the row badge). */}
+            {/* How it trades on this row's horizon's scale — the house's measured profile (backend proteus-v2.md §5). */}
             <TechnicalProfile symbol={symbol} horizon={horizon} />
             {chart
                 ? <div className="hot-page__chart"><ChartSurface ticker={symbol} timeframe="day" onClose={() => setChart(false)} /></div>

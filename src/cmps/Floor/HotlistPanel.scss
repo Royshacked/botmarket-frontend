@@ -337,9 +337,8 @@
 // The headline under Why: only on a phone, where the News column is hidden (CR 2026-11-11).
 .hot-day-fallback { margin-top: 16px; }
 
-// HOW IT TRADES in an opened row (TechnicalProfile — backend proteus.md §8.1, 2026-11-13; it replaced the row badge):
-// the technical analyst's measured profile on the row's horizon, as labelled lines. The headline chip: a line that
-// HOLDS in the accent (rare, strong), a trait ("fakes 74%") readable, "nothing" dim.
+// HOW IT TRADES in an opened row (TechnicalProfile — backend proteus-v2.md §5, 2026-11-21): the measured profile on the
+// row's horizon's scale, as labelled bottom lines. The headline chip: a lean (reverts / trends) readable, none dim.
 .hot-profile {
     margin: 12px 0;
     padding: 10px 12px;
@@ -351,9 +350,9 @@
         padding: 0 5px; border-radius: 3px; font-family: var(--font-mono); font-size: 10px; line-height: 16px;
         border: 1px solid color-mix(in srgb, currentColor 45%, transparent);
         background: color-mix(in srgb, currentColor 10%, transparent);
-        &--holds   { color: var(--accent-light); }
-        &--trait   { color: var(--text-secondary); }
-        &--nothing { color: var(--text-dim); }
+        &--reverts  { color: var(--text-secondary); }
+        &--persists { color: var(--text-secondary); }
+        &--neither  { color: var(--text-dim); }
     }
     &__ask { margin-left: auto; }
     &__lines {

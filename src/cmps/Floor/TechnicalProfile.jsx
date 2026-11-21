@@ -3,10 +3,10 @@ import PropTypes from 'prop-types'
 import { hotlistService } from '../../services/hotlist/hotlist.service.remote'
 import { HotlistPageContext } from './hotlistPage.context.js'
 
-// HOW IT TRADES — the technical analyst's measured profile in an OPENED Hotlist row (backend docs/design/proteus.md §8.1
-// decision 4, Roy 2026-11-13). Since 2026-11-21 IN BOTTOM LINES (Roy: "very long stories — I want bottom lines and a chat
-// button"): its headline and the one line on what it obeys; the whole profile is Axl's, in the chat (Chat about it). A
-// name not profiled yet is measured on the spot (several seconds on a first look).
+// HOW IT TRADES — the house's measured profile in an OPENED Hotlist row, on the row's horizon's scale (backend
+// docs/design/proteus-v2.md §5, 2026-11-21): bottom lines — how far it moves, its natural stop and target and how often the
+// target came first, whether it trends or reverts. The whole profile is Axl's, in the chat (Chat about it). A name not
+// profiled yet is measured on the spot (a few seconds on a first look).
 
 // The panel's hand-offs a row's page reads (hotlistPage.context.js): `onChat` — "Chat about it".
 export function TechnicalsProvider({ onChat = null, children }) {
@@ -32,18 +32,23 @@ export function TechnicalProfile({ symbol, horizon, _fetch = hotlistService.getP
         return () => { live = false }
     }, [symbol, horizon, _fetch])
     const { status, data } = state
-    // The one line on what it obeys — the profile's first; the rest is the chat's.
-    const first = status === 'ok' ? (data.lines ?? [])[0] ?? null : null
+    const lines = status === 'ok' ? (data.lines ?? []) : []
     return (
         <section className="hot-profile" aria-label="How it trades">
             <header className="hot-profile__head">
                 <h3 className="hot-profile__title">How it trades</h3>
                 {status === 'ok' && data.headline && <span className={`hot-profile__headline hot-profile__headline--${data.headline.kind}`}>{data.headline.text}</span>}
             </header>
-            {status === 'loading' && <p className="hot-profile__note">Measuring how {symbol} trades — a first look takes several seconds.</p>}
+            {status === 'loading' && <p className="hot-profile__note">Measuring how {symbol} trades — a first look takes a few seconds.</p>}
             {status === 'error' && <p className="hot-profile__note">The profile could not be read just now.</p>}
             {status === 'none' && <p className="hot-profile__note">{REASONS[data.reason] ?? 'No profile for this name.'}</p>}
-            {first && <p className="hot-detail__line">{first[1]}</p>}
+            {lines.length > 0 && (
+                <dl className="hot-profile__lines">
+                    {lines.map(([label, text]) => (
+                        <div key={label} className="hot-profile__line"><dt>{label}</dt><dd>{text}</dd></div>
+                    ))}
+                </dl>
+            )}
         </section>
     )
 }
