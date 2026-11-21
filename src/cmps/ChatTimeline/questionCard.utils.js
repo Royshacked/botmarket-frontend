@@ -59,6 +59,21 @@ export function initialAnswers(questions, { marked = [], main = null, accounts =
     return out
 }
 
+/** The name an answer gives (typed Other wins over a choice), upper-cased — the server's nameOf. */
+export const nameOf = (a) => String(a?.other || a?.choice || '').toUpperCase().trim()
+
+/**
+ * Is a question shown? One with `when: { id, in }` only while the answer to `id` names one of `in` — the analyst's "update
+ * it?" only for a name the house covers (Roy, 2026-11-21). The server's isShown, the same rule.
+ */
+export function isShown(q, answers) {
+    if (!q?.when) return true
+    return (q.when.in ?? []).includes(nameOf(answers?.[q.when.id]))
+}
+
+/** The questions shown for these answers. */
+export const shownQuestions = (questions, answers) => (questions ?? []).filter(q => isShown(q, answers))
+
 /** Is this question answered? An option, Other text, or an account. */
 export function isAnswered(q, a) {
     if (!a) return false
@@ -67,9 +82,9 @@ export function isAnswered(q, a) {
     return picked || !!String(a.other ?? '').trim()
 }
 
-/** Every question answered? */
+/** Every question SHOWN answered? */
 export function allAnswered(questions, answers) {
-    return (questions ?? []).every(q => isAnswered(q, answers?.[q.id]))
+    return shownQuestions(questions, answers).every(q => isAnswered(q, answers?.[q.id]))
 }
 
 /** An answered card in words — one line per question, for the row it leaves in the chat. */

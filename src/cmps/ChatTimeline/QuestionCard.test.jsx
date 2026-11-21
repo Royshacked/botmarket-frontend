@@ -111,3 +111,35 @@ describe('QuestionCard', () => {
         expect(screen.getByText(/No accounts in this workspace/)).toBeTruthy()
     })
 })
+
+// THE ANALYST'S CARD (Roy, 2026-11-21): a name; "update it?" only for a name the house covers; nothing left behind.
+describe("the analyst's card", () => {
+    const ANALYST = [
+        { id: 'name', header: 'Company', question: 'Which company?', multiSelect: false, other: true, options: [] },
+        { id: 'update', header: 'Update', question: 'We cover it already — update the coverage?', multiSelect: false, other: false,
+            when: { id: 'name', in: ['TSLA'] }, options: [{ label: 'Update it' }, { label: 'Leave it as is' }] },
+    ]
+    const acard = { seq: 9, kind: 'questions', agent: 'analyst', role: 'assistant', content: 'A few questions before I build it.', ref: { state: 'open', questions: ANALYST } }
+
+    it('"update it?" shows only once a covered name is typed — and only what is shown is sent', async () => {
+        const onSubmit = vi.fn(async () => ({ ok: true }))
+        render(<QuestionCard card={acard} role="Analyst" accounts={[]} onSubmit={onSubmit} />)
+        expect(screen.queryByText(/update the coverage/)).toBe(null)
+        const box = screen.getByLabelText('Company: other')
+        expect(box.getAttribute('placeholder')).toBe('Type a ticker')
+        fireEvent.change(box, { target: { value: 'tsla' } })
+        expect(screen.getByText(/update the coverage/)).toBeTruthy()
+        expect(screen.getByText('Build it').disabled).toBe(true, 'the update question is unanswered')
+        fireEvent.click(screen.getByText('Update it'))
+        expect(screen.getByText('Build it').disabled).toBe(false)
+        fireEvent.change(box, { target: { value: 'AMD' } })
+        expect(screen.queryByText(/update the coverage/)).toBe(null, 'a name not covered: no update question')
+        await act(async () => { fireEvent.click(screen.getByText('Build it')) })
+        expect(onSubmit.mock.calls[0][0]).toEqual({ name: { choice: null, other: 'AMD' } })
+    })
+
+    it('an answered card the server hid leaves nothing in the chat', () => {
+        expect(isOffScreen({ ...acard, ref: { ...acard.ref, state: 'answered', hidden: true } })).toBe(true)
+        expect(isOffScreen({ ...card('answered') })).toBe(false, "the trader's answered card still shows")
+    })
+})

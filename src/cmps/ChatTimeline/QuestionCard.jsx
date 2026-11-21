@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import PropTypes from 'prop-types'
-import { accountOptions, initialAnswers, isAnswered, allAnswered } from './questionCard.utils.js'
+import { accountOptions, initialAnswers, isAnswered, allAnswered, shownQuestions } from './questionCard.utils.js'
 
 // A BUILDER'S QUESTION CARD above the prompt box (docs/design/modes-and-builders.md M5/M6, step 4 — Roy, 2026-11-20:
 // "like in Claude cli"): every question the build needs, at once — the options, "Other" where it is allowed, the account
@@ -18,6 +18,8 @@ export function QuestionCard({ card, role, accounts, marked = [], main = null, o
     const [error, setError] = useState(null)
     const accountChoices = useMemo(() => accountOptions(accounts), [accounts])
     const ready = allAnswered(questions, answers)
+    // Only what these answers call for — the analyst's "update it?" appears once a covered name is picked.
+    const shown = shownQuestions(questions, answers)
 
     const set = (id, next) => setAnswers(a => ({ ...a, [id]: { ...(a[id] ?? {}), ...next } }))
     function toggle(q, label) {
@@ -40,7 +42,7 @@ export function QuestionCard({ card, role, accounts, marked = [], main = null, o
         // The account(s) as the venue picker holds them — the turn binds to these — and their words for the builder.
         const out = {}
         let picked = []
-        for (const q of questions) {
+        for (const q of shown) {
             const a = answers[q.id] ?? {}
             if (q.kind === 'account') {
                 picked = accounts.filter(x => (a.accountIds ?? []).includes(String(x.id)))
@@ -61,7 +63,7 @@ export function QuestionCard({ card, role, accounts, marked = [], main = null, o
                 <span className="question-card__role">{role}</span>
             </header>
             <div className="question-card__body">
-                {questions.map((q, i) => {
+                {shown.map((q, i) => {
                     const a = answers[q.id] ?? {}
                     const done = isAnswered(q, a)
                     const choices = q.kind === 'account' ? accountChoices : q.options
@@ -100,7 +102,7 @@ export function QuestionCard({ card, role, accounts, marked = [], main = null, o
                                     type="text"
                                     value={a.other ?? ''}
                                     onChange={e => set(q.id, q.multiSelect || !e.target.value.trim() ? { other: e.target.value } : { other: e.target.value, choice: null })}
-                                    placeholder={PLACEHOLDER[q.id] ?? 'Other — type it'}
+                                    placeholder={q.id === 'name' && !q.options.length ? 'Type a ticker' : (PLACEHOLDER[q.id] ?? 'Other — type it')}
                                     aria-label={`${q.header}: other`}
                                     maxLength={400}
                                 />
