@@ -529,7 +529,7 @@
         border: 1px solid var(--border);
         border-radius: 14px;
         background: none;
-        color: var(--text-secondary);
+        color: var(--accent-light);   // the prompt box's buttons wear the accent (Roy, 2026-11-21)
         font-size: 12px;
         white-space: nowrap;
         cursor: pointer;
@@ -547,7 +547,7 @@
             border-color: var(--border-mid);
             border-top-color: transparent;
             border-radius: 0 0 14px 14px;
-            color: var(--text-primary);
+            color: var(--accent-bright);
         }
         &:disabled { opacity: 0.4; cursor: not-allowed; }
         &.is-pending { opacity: 0.7; }

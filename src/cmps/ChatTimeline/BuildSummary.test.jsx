@@ -109,3 +109,14 @@ describe('the summary', () => {
         expect(session.commit).toHaveBeenCalledWith('portfolio', 'generate', { accounts, mainAccountId: undefined })
     })
 })
+
+// A thesis reopened for revision runs as a build (Roy, 2026-11-21): its Confirm saves over the thesis ('update'), never
+// initiates — initiating a covered name is refused ('not_new').
+describe('the analyst\'s Confirm', () => {
+    it('updates a revised thesis, initiates a new one', async () => {
+        const { confirmAction } = await import('./buildSummary.utils.js')
+        expect(confirmAction('analyst', { editing: { kind: 'coverage', entityId: 'cov_NVDA_1' } })).toBe('update')
+        expect(confirmAction('analyst', { draft: { symbol: 'AMD' } })).toBe('generate')
+        expect(confirmAction('mentor', { editing: { kind: 'setup' } })).toBe('generateArmed')
+    })
+})

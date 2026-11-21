@@ -20,13 +20,14 @@
     border: none;
     background: transparent;
     border-radius: 50%;
-    color: var(--text-secondary);
+    // Every button in the box wears the accent (Roy, 2026-11-21); hover brightens it.
+    color: var(--accent-light);
     cursor: pointer;
     transition: color 0.15s, background 0.15s, opacity 0.15s;
     // Block-level SVG drops the inline baseline descender gap that otherwise
     // pushes the icon off-centre within the circular hover background.
     svg { display: block; }
-    &:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+    &:hover:not(:disabled) { background: var(--bg-hover); color: var(--accent-bright); }
     &:disabled { opacity: 0.35; cursor: not-allowed; }
 }
 

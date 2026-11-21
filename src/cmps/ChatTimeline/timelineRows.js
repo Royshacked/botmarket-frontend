@@ -22,6 +22,8 @@ export const isOffScreen = (row) => row?.kind === 'handoff' || (row?.role === 'u
     || (row?.kind === 'questions' && row?.ref?.state !== 'answered')
     // A build's own replies are the work pane's (step 5b) — the chat stays with Axl while it builds.
     || (row?.role === 'assistant' && !!row?.ref?.build)
+    // A specialist's answer to Axl is his MATERIAL — he writes the reply (axl-one-voice.md §5, Roy 2026-11-21).
+    || (row?.role === 'assistant' && row?.ref?.material === true)
 
 // Rows that name their own speaker: a hand-off names both sides.
 const SELF_NAMED = new Set(['handoff'])
