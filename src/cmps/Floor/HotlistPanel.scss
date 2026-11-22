@@ -116,7 +116,14 @@
 .hot-horizons {
     display: flex; gap: 4px; flex-wrap: wrap; margin: 2px 0 8px;
     // &__btn's look is the shared .toggle-chip (basics/_helpers.scss) — the same chooser as the forecast filter.
+    // STUCK TO THE TOP of the panel as the list scrolls (Roy, 2026-11-22), phone and desktop: up by the bare panel's top
+    // padding (DetailPanel.scss: 10px) so no row shows above it, on the panel's own ground so none shows through it.
+    position: sticky; top: -10px; z-index: 3;
+    padding: 6px 0; margin-top: -4px; margin-bottom: 4px;
+    background: var(--bg-base);
 }
+// The anchor useStickyLead measures from — no box of its own.
+.hot-sticky-root { display: contents; }
 
 // Prometheus's catalyst target on a week row, and his read under it (§3).
 .hot-target {
@@ -175,8 +182,11 @@
         padding: 4px 6px;
         // Up by the panel body's top padding (DetailPanel.scss: 16px, 12px on a phone): sticky holds at
         // the padding edge, and the rows would show through the gap above the header.
-        position: sticky; top: -16px; z-index: 1;
-        @media (max-width: 767px) { top: -12px; }
+        // Under the stuck list bar (its height measured: --hot-bar-h, useStickyLead) — 2026-11-22; 0 with no bar.
+        position: sticky; top: calc(var(--hot-bar-h, 0px) - 10px); z-index: 1;
+        // A phone's table scrolls sideways in its own box, which is then the header's scroll box too: no offset there,
+        // or the header sat the bar's height below the table's top (the probe, 2026-11-22).
+        @media (max-width: 767px) { top: 0; }
         background: var(--bg-base);
         // The bottom rule scrolls away with a sticky cell's own border under border-collapse — a shadow stays.
         box-shadow: inset 0 -1px 0 var(--border);
@@ -306,17 +316,33 @@
 // Argus's names (the admin's view, 2026-10-29): his reason wraps — on one line it pushed the table off the panel.
 .hot-table--picks .hot-picks__why { white-space: normal; min-width: 220px; }
 
-// A PHONE (Roy, 2026-10-29: "in mobile — tables too wide"): the secondary columns go (the spark, the tape, ATR, room,
-// earnings; on the book the last price, the date, the way to target, where it came from), and a table that is still
-// wider scrolls sideways in its own box instead of being clipped at the panel's edge. The header stops sticking there —
-// a sideways scroller is its own scroll box (the note on .hot-table-wrap--list above).
+// A PHONE (Roy, 2026-10-29: "in mobile — tables too wide"): a table wider than the screen scrolls sideways in its own
+// box instead of being clipped at the panel's edge. The header stops sticking there — a sideways scroller is its own
+// scroll box (the note on .hot-table-wrap--list above). EVERY column is there, as on a desktop (Roy, 2026-11-22: with the
+// symbol stuck left, a swipe shows the rest — the secondary columns were hidden on a phone from 2026-10-29 until then).
 @media (max-width: 767px) {
-    .hot-col--more { display: none; }
     .hot-table-wrap--list { overflow-x: auto; }
-    // What is left still has to fit 390 px (the drive: the book ran 11–48 px over): tighter cells, a narrow toggle, and the
-    // book's "since set" breaks its SPY half onto a second line.
+    // Tighter cells and a narrow toggle: more of the row on the first screen.
     .hot-table--list { th, td { padding-left: 4px; padding-right: 4px; } .hot-table__star { width: 22px; } }
-    .hot-table--book .hot-result { white-space: normal; }
+
+    // THE SYMBOL STAYS as the table is swept sideways (Roy, 2026-11-22): the lead column — the symbol, or the details /
+    // pick cell and the symbol after it (pinned at that cell's measured width, --hot-lead-w) — is stuck to the left. On
+    // the panel's ground with the row's own tint laid over it (--hot-tint), so the cells swept under it never show
+    // through; a rule on its right edge. An opened row's full-width cell (hot-note-row) is not a column: left alone.
+    .hot-table--list {
+        tr:not(.hot-note-row) > :first-child,
+        tr:not(.hot-note-row) > .hot-table__star:first-child + * {
+            position: sticky; left: 0; z-index: 1;
+            background-color: var(--bg-base);
+            background-image: linear-gradient(var(--hot-tint, transparent), var(--hot-tint, transparent));
+        }
+        tr:not(.hot-note-row) > .hot-table__star:first-child + * { left: var(--hot-lead-w, 0px); }
+        tr:not(.hot-note-row) > :first-child:not(.hot-table__star),
+        tr:not(.hot-note-row) > .hot-table__star:first-child + * { box-shadow: inset -1px 0 0 var(--border); }
+        th:first-child:not(.hot-table__star), th.hot-table__star:first-child + th { box-shadow: inset -1px 0 0 var(--border), inset 0 -1px 0 var(--border); }
+    }
+    .hot-row--line:hover { --hot-tint: var(--bg-hover); }
+    .hot-row--pick { --hot-tint: var(--bg-wash-surface); }
 }
 
 // THE DAY BOARDS (Intraday tab, HotlistDayBoards — 2026-11-11): the why and the headline wrap; a report / rating flag is a

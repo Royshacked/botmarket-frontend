@@ -4,6 +4,7 @@ import { OwnedBadge } from '../OwnedBadge/OwnedBadge.jsx'
 import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
 import { useDetailPanel, setReturnTo, takeResume } from '../DetailPanel/detailPanel.store.js'
 import { useBackGesture } from '../../customHooks/useBackGesture.js'
+import { useStickyLead } from '../../customHooks/useStickyLead.js'
 import { isHandheld } from '../EntityCard/entityPopup.js'
 import { hotlistService } from '../../services/hotlist/hotlist.service.remote.js'
 import { apiError } from '../../services/http.service.js'
@@ -310,11 +311,15 @@ export function HotlistPanel({ onBuild, onChat = null, onAskEcho = null, onBuild
         </>
     )
     const retryLoad = () => setRetry(n => n + 1)
+    const [stickyRoot, stickyRef] = useState(null)
+    useStickyLead(stickyRoot)
 
     return (
         <DetailPanel id={HOTLIST_PANEL_ID} kicker="Hotlist" title={title} actions={actions} className="hot-panel" container bare>
             {/* An opened row shows how its name trades (backend proteus-v2.md §5); "Chat about it" hands off like Build. */}
             <TechnicalsProvider onChat={onChat ? handOff(onChat) : null}>
+            {/* No box of its own: only the anchor the sticky bar and columns are measured from (useStickyLead). */}
+            <div ref={stickyRef} className="hot-sticky-root">
             {chartSym
                 ? (
                     <div className="hot-chart">
@@ -342,6 +347,7 @@ export function HotlistPanel({ onBuild, onChat = null, onAskEcho = null, onBuild
                             </section>
                         )}
                     </>}
+            </div>
             </TechnicalsProvider>
         </DetailPanel>
     )
