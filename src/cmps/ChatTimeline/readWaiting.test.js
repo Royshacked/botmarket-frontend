@@ -1,17 +1,21 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { readWaitingLines, STALE_MS } from './readWaiting.js'
+import { readWaitingLines, behindLines, STALE_MS } from './readWaiting.js'
 import { sessionReducer, emptySession } from '../../services/session/sessionReducer.js'
 
 const NOW = Date.parse('2026-11-14T10:00:00Z')
 
 describe('the reads the chat is waiting on (Roy, 2026-11-14)', () => {
     it('background work that says itself — the event analyst mapping (modes-and-builders.md step 2) — in its own words, stale ones dropped', () => {
-        const lines = readWaitingLines({
-            'echo|ev_1': { kind: 'echo_map', text: 'The event analyst is mapping "Anthropic IPO" through the supply chain.', since: NOW - 30_000 },
+        // Said UNDER the prompt box since 2026-11-22 (Roy: "the echo pulsing building was in chat box") — never in the thread.
+        const waiting = {
+            'echo|ev_1': { kind: 'echo_map', text: 'The event analyst is mapping "Anthropic IPO" through the supply chain.', label: '"Anthropic IPO"', since: NOW - 30_000 },
             'echo|ev_0': { kind: 'echo_map', text: 'old', since: NOW - STALE_MS - 1 },
-        }, NOW)
-        assert.deepEqual(lines, [{ key: 'echo|ev_1', text: 'The event analyst is mapping "Anthropic IPO" through the supply chain.' }])
+            'NVDA|coverage': { symbol: 'NVDA', kind: 'coverage', since: NOW },
+        }
+        assert.deepEqual(behindLines(waiting, NOW), [{ key: 'echo|ev_1', text: 'Event analyst · mapping "Anthropic IPO"', title: 'The event analyst is mapping "Anthropic IPO" through the supply chain.' }])
+        assert.deepEqual(readWaitingLines(waiting, NOW).map(l => l.key), ['NVDA|coverage'], 'the thread keeps only the reads')
+        assert.equal(behindLines({ x: { text: 'Working on it.', since: NOW } }, NOW)[0].text, 'Working on it.', 'no label: its own words')
     })
 
     it('says each read by role — the name, the horizon, where it stands in line, when it was asked — oldest first', () => {

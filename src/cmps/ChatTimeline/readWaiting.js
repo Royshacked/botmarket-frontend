@@ -9,14 +9,25 @@ export const STALE_MS = 6 * 3_600_000
 
 const _time = (ms) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
-/** `waiting` (the session's map) → `[{ key, text }]`, oldest first. Pure but for the clock's locale. */
+const _fresh = (now) => ([, w]) => !(Number.isFinite(w?.since) && now - w.since > STALE_MS)
+const _oldest = ([, a], [, b]) => (a.since ?? 0) - (b.since ?? 0)
+
+/**
+ * Background work that says ITSELF (the event analyst mapping an event — modes-and-builders.md step 2) → the line UNDER
+ * the prompt box, with a build's (Roy, 2026-11-22: "the echo pulsing building was in chat box and not under user prompt
+ * box"). `[{ key, text, title }]` — a short line by role; the backend's whole sentence as its title. Oldest first. Pure.
+ */
+export function behindLines(waiting, now = Date.now()) {
+    return Object.entries(waiting ?? {})
+        .filter(([, w]) => w?.text && !w.symbol).filter(_fresh(now)).sort(_oldest)
+        .map(([key, w]) => ({ key, text: w.kind === 'echo_map' && w.label ? `Event analyst · mapping ${w.label}` : w.text, title: w.text }))
+}
+
+/** `waiting` (the session's map) → the analyst's reads, said in the thread: `[{ key, text }]`, oldest first. Pure but for the clock's locale. */
 export function readWaitingLines(waiting, now = Date.now()) {
     return Object.entries(waiting ?? {})
-        .filter(([, w]) => (w?.symbol || w?.text) && !(Number.isFinite(w.since) && now - w.since > STALE_MS))
-        .sort(([, a], [, b]) => (a.since ?? 0) - (b.since ?? 0))
+        .filter(([, w]) => w?.symbol).filter(_fresh(now)).sort(_oldest)
         .map(([key, w]) => {
-            // Background work that says itself (the event analyst mapping an event — modes-and-builders.md step 2).
-            if (w.text) return { key, text: w.text }
             const what = w.kind === 'catalyst' ? 'its catalyst' : 'the business'
             const on = w.horizon ? ` for the ${w.horizon} trade` : ''
             const where = w.running && !w.ahead ? 'reading it now'

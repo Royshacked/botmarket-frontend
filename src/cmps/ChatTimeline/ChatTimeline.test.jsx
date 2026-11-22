@@ -471,6 +471,20 @@ describe('builds and the saved line (Roy, 2026-11-20)', () => {
         expect(container.querySelector('.chat-timeline__behind').textContent).toBe('Trader · building RDW trade')
     })
 
+    it("the event analyst's map is said under the prompt box too, never in the thread (Roy, 2026-11-22)", () => {
+        const text = 'The event analyst is mapping "China attacks Taiwan" through the supply chain — two to three minutes.'
+        const waiting = { 'echo|ev_1': { kind: 'echo_map', text, label: '"China attacks Taiwan"', since: Date.now() } }
+        session = base({ rows: [row(1, { role: 'user', content: 'hi' })], waiting })
+        const { container } = render(<ChatTimeline />)
+        expect(container.querySelector('.chat-timeline__thread').textContent).not.toMatch(/mapping/)
+        const line = container.querySelector('.chat-timeline__behind-text')
+        expect(line.textContent).toBe('Event analyst · mapping "China attacks Taiwan"')
+        expect(line.getAttribute('title')).toBe(text)
+        session = base({ rows: [row(1, { role: 'user', content: 'hi' })], waiting, agentState: building })
+        const both = render(<ChatTimeline />)
+        expect(both.container.querySelector('.chat-timeline__behind-text').textContent).toBe('Trader · building RDW trade  ·  Event analyst · mapping "China attacks Taiwan"')
+    })
+
     it("a desk's message waiting behind a build's step says what it waits for, not just sending…", () => {
         session = base({ rows: [row(1, { role: 'user', content: 'cover NVDA' })], agentState: building, floor: 'analyst',
             live: { turnId: 't', agent: 'analyst', text: '', status: 'queued' } })

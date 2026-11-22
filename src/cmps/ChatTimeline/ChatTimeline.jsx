@@ -12,7 +12,7 @@ import { ChatBubble } from '../ChatBubble.jsx'
 import { ChatInputRow } from '../ChatInputRow.jsx'
 import { SuggestionChips } from '../SuggestionChips.jsx'
 import { ToolStatusChip } from '../ToolStatusChip/ToolStatusChip.jsx'
-import { readWaitingLines } from './readWaiting.js'
+import { readWaitingLines, behindLines } from './readWaiting.js'
 import { ChatChartDock } from '../ChatChartDock.jsx'
 import { TimelineRow, SpeakerTag } from './TimelineRow.jsx'
 import { startsRun, isEndedLine, isFreshEndedLine, isOffScreen } from './timelineRows.js'
@@ -74,9 +74,14 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
     const behindAgent = buildingAgent ?? session.background?.agent ?? null
     const behindTool = session.background?.agent === behindAgent && session.background?.tool ? toolStatusLabel(session.background.tool, session.background.targets) : null
     // Said UNDER the prompt box, on its right (Roy, 2026-11-20: pulsing at the bottom of the thread it was in the way).
-    const behind = behindAgent
+    const buildLine = behindAgent
         ? `${speakerOf(behindAgent).role ?? 'Desk'} · ${buildingAgent ? `building ${session.agentState[buildingAgent].build.title}` : 'working'}${behindTool ? ` — ${behindTool}` : ''}`
         : null
+    // The event analyst's map in the background says itself on the same line (Roy, 2026-11-22) — one line, both joined.
+    const selfLines = behindLines(session.waiting)
+    const behindParts = [buildLine, ...selfLines.map(l => l.text)].filter(Boolean)
+    const behind = behindParts.length ? behindParts.join('  ·  ') : null
+    const behindTitle = [buildLine, ...selfLines.map(l => l.title)].filter(Boolean).join('\n')
     const [draft, setDraft]             = useState('')
     const [historyOpen, setHistoryOpen] = useState(false)
     // Info over the chat — a phone's (ChatInfo; the desktop Floor has its Info column). Stable: the sheet's Esc binds on it.
@@ -386,7 +391,7 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
             {behind && (
                 <div className="chat-timeline__behind" role="status">
                     <span className="chat-timeline__behind-dot" aria-hidden="true" />
-                    <span className="chat-timeline__behind-text" title={behind}>{behind}</span>
+                    <span className="chat-timeline__behind-text" title={behindTitle}>{behind}</span>
                 </div>
             )}
 
