@@ -29,7 +29,12 @@ columns:
 ```
 
 The Lists column's desks, in order (2026-10-21): Awaiting orders · Your trades · Your portfolios · Watchlists ·
-Hotlist · Calendar · Forecasts · Research queue (admin, last). The Hotlist (`cmps/Floor/HotlistPanel.jsx`, a
+Hotlist · Calendar · Forecasts · Research queue (admin, last). **Situation** (2026-11-23, last) is the situation network's
+board (`cmps/Floor/SituationPanel.jsx`; backend docs/design/situation-network.md) — for an ALLOW-LIST of users only
+(`useSituationAccess` asks `/api/situation/access` once; a desk with `allowList: true` is filtered by it in the column, the
+phone menu and Info): tabs Network (the dated state, the connections between trees and a Mermaid diagram per tree —
+`MermaidDiagram.jsx`, Mermaid loaded on first use) · Questions (numbers, reasoning, links, history; the admin overrides) ·
+Industries · Updates · Scorecard. The Hotlist (`cmps/Floor/HotlistPanel.jsx`, a
 DetailPanel like the Calendar) is the screener's board — since 2026-10-25 **This week's run-up names**, built
 overnight (the day tabs Open · Mid-day · Into close · Tomorrow and the Boards view are archived; they show only on a past
 day that still has day names), and four tabs **This week · Swing · Long term · Covered companies** (2026-10-28). This

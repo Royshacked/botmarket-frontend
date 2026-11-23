@@ -15,7 +15,7 @@ import { infoFlow } from './infoFlow.js'
 export function FloorInfo({ floor = null, agentState = {}, rows = [] }) {
     // The open LIST owns Info — it covers the chat (Roy, 2026-11-13); nothing open → the chat's flow.
     const active = useActivePanel()
-    const list = active ? menuDesks(true).find(d => d.panel === active) ?? null : null
+    const list = active ? menuDesks(true, true).find(d => d.panel === active) ?? null : null
     const flow = infoFlow({ floor, agentState, rows, list })
     const more = list ? (list.key === 'hotlist' ? <HotlistInfo /> : null) : floor === 'mentor' ? <RiskBasedInfo /> : null
     return (

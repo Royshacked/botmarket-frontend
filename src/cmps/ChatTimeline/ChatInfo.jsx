@@ -22,7 +22,7 @@ export function ChatInfo({ floor = 'axl', agentState = {}, rows = [], onClose })
     const closeRef = useRef(null)
     // The open LIST owns Info — it covers the chat (Roy, 2026-11-13).
     const active = useActivePanel()
-    const list = active ? menuDesks(true).find(d => d.panel === active) ?? null : null
+    const list = active ? menuDesks(true, true).find(d => d.panel === active) ?? null : null
     const agent = floor && floor !== 'axl' ? AGENTS[floor] ?? null : null
     const desks = DESKS.filter(d => !d.adminOnly || isAdmin)
     const flow = infoFlow({ floor, agentState, rows, list })

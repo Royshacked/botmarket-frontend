@@ -10,6 +10,7 @@ import { initials } from '../services/util.service.js'
 import { useDesign } from '../customHooks/useDesign.js'
 import { openPanel } from './DetailPanel/detailPanel.store.js'
 import { menuDesks } from './Floor/FloorLists.jsx'
+import { useSituationAccess } from '../customHooks/useSituationAccess.js'
 import { useEscapeLayer } from '../customHooks/useEscapeLayer.js'
 
 // ── AppHeader · "axl" style (trial) ───────────────────────────────────────────
@@ -52,7 +53,8 @@ export function AppHeaderAxl() {
     const onProfile    = pathname === '/profile'
     // The lists, in the phone's menu (Roy, 2026-10-29) — only in the Floor design: its Menu column's windows are what they
     // open. The main page stays mounted under the profile (RootCmp), so from there a list goes home and opens.
-    const lists        = useDesign() === 'floor' ? menuDesks(isAdmin) : []
+    const situation    = useSituationAccess()
+    const lists        = useDesign() === 'floor' ? menuDesks(isAdmin, situation) : []
 
     const streamRef = useRef(null)
     const msgRef    = useRef(null)

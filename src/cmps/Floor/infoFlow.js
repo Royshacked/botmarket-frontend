@@ -27,6 +27,8 @@ export const LIST_FLOWS = Object.freeze({
     portfolio: { title: 'Your portfolios', steps: ['Built in the chat', 'Waiting — not activated yet', 'Activated — its holdings are watched', 'Holdings enter and close'] },
     calendar:  { title: 'Calendar',        steps: ['Each day: earnings, Fed, IPOs', 'Open a day for its names', 'A ticker opens its chart'] },
     forecasts: { title: 'Forecasts',       steps: ["Colour: each industry's move against the S&P", "Letter: the strategist's verdict", 'Open an industry for its companies'] },
+    // The situation network (situation-network.md; allow-listed users only, 2026-11-23).
+    situation: { title: 'Situation network', steps: ['The current state, dated', 'Questions about what is next, with probabilities', 'Links spread each change', 'Industries scored over every path', 'Graded forward'] },
 })
 
 /** The trader's build record: what is SETTLED on the name being built (the server's ledger, mentorBuild.util). */

@@ -14,6 +14,8 @@ import { RowHost } from './RowHost.jsx'
 import { CalendarPanel, CALENDAR_PANEL_ID } from './CalendarPanel.jsx'
 import { ForecastPanel, FORECAST_PANEL_ID } from './ForecastPanel.jsx'
 import { HotlistPanel, HOTLIST_PANEL_ID } from './HotlistPanel.jsx'
+import { SituationPanel, SITUATION_PANEL_ID } from './SituationPanel.jsx'
+import { useSituationAccess } from '../../customHooks/useSituationAccess.js'
 import { IndustryView } from '../Radar/IndustryView.jsx'
 import { useActivePanel, useUnderPanel, togglePanel, openPanel } from '../DetailPanel/detailPanel.store.js'
 import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
@@ -80,6 +82,10 @@ const DESKS = [
     // COLUMN, not in the map's panel, because every one of its rows opens a panel of its own — inside the
     // map's panel the first click would replace the panel holding the board, and close it.
     { key: 'board', label: 'Forecast board', onRequest: true, panel: 'floor:board' },
+    // THE SITUATION NETWORK (docs/design/situation-network.md, Roy 2026-11-23): the state, the trees and their
+    // probabilities, the industries over every path. ALLOW-LISTED users only (`allowList`: Roy and Marce during the
+    // forward test) — for everyone else it is not in the Menu at all, and the server answers 404.
+    { key: 'situation', label: 'Situation', panel: SITUATION_PANEL_ID, allowList: true },
     // A `research_queue` desk sat here — the house research backlog, admin-only. Removed with the queue's manual side
     // (Roy, 2026-10-31: "we dont need anymore the research queue mechanism and list"); the house still researches
     // through it, unseen.
@@ -94,8 +100,8 @@ const DESKS = [
  * The windows themselves are this component's: the menu only opens them, so it works where the Floor is mounted.
  */
 // eslint-disable-next-line react-refresh/only-export-components -- read by the header's menu; plain data from DESKS, no state
-export const menuDesks = (isAdmin = false) => DESKS
-    .filter(d => d.panel && !d.hidden && !d.onRequest && (!d.adminOnly || isAdmin))
+export const menuDesks = (isAdmin = false, situation = false) => DESKS
+    .filter(d => d.panel && !d.hidden && !d.onRequest && (!d.adminOnly || isAdmin) && (!d.allowList || situation))
     .map(({ key, label, panel }) => ({ key, label, panel }))
 
 function openFor(item) {
@@ -597,6 +603,8 @@ export function FloorLists({
     // also why it is the state a fresh load lands in. Opening a desk is a choice the reader makes,
     // not one a refresh makes for them.
     const [requestedKey, setOpenKey] = useState(initialDesk)
+    // The situation network's allow-list (asked once; false until the server says yes).
+    const situation = useSituationAccess()
     // A panel desk toggles its DetailPanel and leaves the column alone: the list you had open stays
     // open beside the calendar.
     // What the last outside ask pointed the Forecasts map at (`{ symbol }`), handed to its panel.
@@ -610,7 +618,7 @@ export function FloorLists({
     const underPanelId = useUnderPanel()
     // An initial desk with a window opens the window (tests, a deep link) — the column has nothing to open for it.
     useEffect(() => {
-        const panel = DESKS.find(d => d.key === initialDesk && !d.hidden && (!d.adminOnly || isAdmin))?.panel
+        const panel = DESKS.find(d => d.key === initialDesk && !d.hidden && (!d.adminOnly || isAdmin) && (!d.allowList || situation))?.panel
         if (panel) openPanel(panel)
     }, []) // eslint-disable-line react-hooks/exhaustive-deps -- once, on mount
 
@@ -623,7 +631,7 @@ export function FloorLists({
     useEffect(() => {
         if (!deskRequest?.key) return
         // Only a list this reader has: an admin's list asked for by anyone else opens nothing (and leaves no stale id).
-        const panel = DESKS.find(d => d.key === deskRequest.key && !d.hidden && (!d.adminOnly || isAdmin))?.panel
+        const panel = DESKS.find(d => d.key === deskRequest.key && !d.hidden && (!d.adminOnly || isAdmin) && (!d.allowList || situation))?.panel
         if (!panel) { setOpenKey(deskRequest.key); return }
         // Forecasts can be asked for ON a company (an Open coverage card) or an industry (Pythia's changed card).
         if (deskRequest.key === 'forecasts') setForecastFocus(deskRequest.symbol ? { symbol: deskRequest.symbol } : deskRequest.code ? { code: deskRequest.code } : null)
@@ -658,7 +666,7 @@ export function FloorLists({
     // failing were right.
 
     // An `onRequest` desk (the board) joins the column only while it is the one asked for.
-    const shown = DESKS.filter(d => !d.hidden && (!d.adminOnly || isAdmin))
+    const shown = DESKS.filter(d => !d.hidden && (!d.adminOnly || isAdmin) && (!d.allowList || situation))
     const visibleDesks = shown.filter(d => !d.onRequest || d.key === requestedKey || (d.panel && [activePanelId, underPanelId].includes(d.panel)))
     // Only a desk on screen can be open: an initialDesk or desk request naming a hidden (or
     // admin-only) desk would otherwise fold every header away around a desk that never renders.
@@ -747,6 +755,7 @@ export function FloorLists({
             {/* Always mounted: it renders nothing until its panel opens, and portals into the chat
                 column when it does. */}
             <CalendarPanel onEarningSelect={onEarningSelect} onIpoSelect={onIpoSelect} onSymbolClick={onSymbolClick} />
+            {situation && <SituationPanel />}
             <HotlistPanel onBuild={onHotlistBuild} onChat={onHotlistChat} onAskEcho={onHotlistEcho} onBuildEcho={onHotlistEchoBuild} onSymbolClick={onSymbolClick} coverage={coverage} isAdmin={isAdmin} />
             <ForecastPanel coverage={coverage} themes={themes} focus={forecastFocus} onOpenBoard={() => openPanel('floor:board')}
                 onEditCoverage={onEditCoverage} onRetireCoverage={onRetireCoverage} onDeleteCoverage={onDeleteCoverage} />

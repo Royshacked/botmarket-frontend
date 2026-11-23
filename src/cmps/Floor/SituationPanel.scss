@@ -1,0 +1,43 @@
+// The situation network's board (SituationPanel.jsx) — a reading surface: tables, folds and diagrams, no cards.
+
+.situation {
+    &__body { display: flex; flex-direction: column; gap: 1rem; padding-bottom: 1rem; }
+    &__sec { display: flex; flex-direction: column; gap: 0.4rem; }
+    &__h { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text-primary); }
+    &__note { color: var(--text-secondary); margin: 0.4rem 0; }
+    &__dim { color: var(--text-dim); }
+    &__warn { color: var(--color-warning); }
+    &__src { color: var(--text-dim); font-size: 0.85em; }
+    &__link { background: none; border: 0; padding: 0; color: var(--accent-light); cursor: pointer; text-decoration: underline; font: inherit; margin-right: 0.8rem; }
+    &__fold { background: none; border: 0; padding: 0.2rem 0; color: var(--text-primary); cursor: pointer; font: inherit; text-align: left; }
+    &__items { margin: 0.2rem 0 0.4rem; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.25rem; color: var(--text-secondary); }
+    &__tag {
+        font-family: var(--font-mono); font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.04em;
+        padding: 0 0.3em; border-radius: 3px; border: 1px solid var(--border); color: var(--text-dim);
+        &--reading { color: var(--accent-light); }
+    }
+    &__diagram { overflow-x: auto; max-width: 100%; svg { max-width: none; height: auto; } }
+    &__table { width: 100%; border-collapse: collapse; font-size: 0.9rem;
+        th { text-align: left; color: var(--text-dim); font-weight: 500; padding: 0.3rem 0.4rem; border-bottom: 1px solid var(--border); }
+        td { padding: 0.35rem 0.4rem; border-bottom: 1px solid var(--border); vertical-align: top; color: var(--text-secondary); }
+    }
+    &__row { cursor: pointer; &:hover td { background: var(--bg-hover); }
+        &--settled td:first-child { color: var(--text-dim); }
+        &--resolved td { opacity: 0.7; }
+    }
+    &__detail td { background: var(--bg-wash-surface); p { margin: 0.25rem 0; } }
+    &__opt { position: relative; display: block; padding: 0 0.3rem; margin: 0.1rem 0; white-space: nowrap; z-index: 0;
+        &--dormant { color: var(--text-dim); font-style: italic; }
+    }
+    &__bar { position: absolute; left: 0; top: 0; bottom: 0; background: var(--hot-tint, var(--bg-hover)); z-index: -1; border-radius: 2px; }
+    &__num { font-family: var(--font-mono); white-space: nowrap;
+        &--win { color: var(--color-long); }
+        &--lose { color: var(--color-short); }
+    }
+    &__chip { margin-left: 0.4rem; font-size: 0.72em; padding: 0 0.35em; border-radius: 3px; border: 1px solid var(--border); color: var(--text-dim);
+        &--warn { color: var(--color-warning); border-color: var(--color-warning); }
+    }
+    &__form { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin: 0.4rem 0;
+        input { width: 4rem; margin: 0 0.2rem; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border); border-radius: 3px; padding: 0.1rem 0.3rem; }
+    }
+}
