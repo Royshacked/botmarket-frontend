@@ -45,6 +45,8 @@ export function boxLabel(n) {
 }
 
 const cls = (n) => (n.status === 'resolved' ? 'resolved' : n.kind === 'settled' ? 'settled' : 'open')
+/** A tree's outline in the connections diagram: no fill, a thin dashed grey edge, its name in the settled grey. */
+const OUTLINE = 'fill:transparent,stroke:#8a919e,stroke-width:1px,stroke-dasharray:3 3,color:#8a919e'
 const CLASSES = [
     'classDef open stroke:#5b8def,stroke-width:2px',
     'classDef settled stroke:#8a919e,stroke-width:1px',
@@ -73,8 +75,10 @@ export function treeDiagram(treeNodes, links = []) {
 }
 
 /**
- * The connections BETWEEN trees: each tree a box holding the nodes that take part, a thick arrow per cross-tree link,
- * labelled with the branch it starts on and the option it moves. → null when no link crosses a tree. Pure.
+ * The connections BETWEEN trees: each tree an outline holding the nodes that take part, and a link drawn as the trees
+ * draw theirs — a dotted arrow said in the options' words ("Strikes raises Rises"). The outline is see-through with a
+ * thin dashed edge (Roy, 2026-11-23: Mermaid's filled grey boxes clashed with the boxes inside them). → null when no
+ * link crosses a tree. Pure.
  */
 export function crossDiagram(nodes = [], links = []) {
     const live = new Map(drawn(nodes).map(n => [n.node_id, n]))
@@ -87,15 +91,17 @@ export function crossDiagram(nodes = [], links = []) {
     const out = ['flowchart LR']
     let s = 0
     for (const [tree, ns] of byTree) {
-        out.push(`  subgraph s${s++}["${safe(TREE_LABEL(tree), 40)}"]`)
+        const sid = `s${s++}`
+        out.push(`  subgraph ${sid}["${safe(TREE_LABEL(tree), 40)}"]`)
         for (const n of ns) out.push(`    ${ids.get(n.node_id)}["${safe(n.question, 60)}"]:::${cls(n)}`)
         out.push('  end')
+        out.push(`  style ${sid} ${OUTLINE}`)
     }
     for (const l of cross) {
         const f = live.get(l.from.node_id), t = live.get(l.to.node_id)
         const fl = f.options.find(o => o.key === l.from.option)?.label ?? l.from.option
         const tl = t.options.find(o => o.key === l.to.option)?.label ?? l.to.option
-        out.push(`  ${ids.get(l.from.node_id)} ==>|"${safe(fl, 26)} → ${l.shift > 0 ? '+' : '−'} ${safe(tl, 26)}"| ${ids.get(l.to.node_id)}`)
+        out.push(`  ${ids.get(l.from.node_id)} -.->|"${safe(fl, 26)} ${l.shift > 0 ? 'raises' : 'lowers'} ${safe(tl, 26)}"| ${ids.get(l.to.node_id)}`)
     }
     return [...out, ...CLASSES.map(c => `  ${c}`)].join('\n')
 }

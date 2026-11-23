@@ -54,7 +54,7 @@ describe('SituationPanel', () => {
         expect(screen.getByText(/weekly run of 2025-01-14/)).toBeTruthy()
         fireEvent.click(screen.getByRole('button', { name: /Regime/ }))
         expect(screen.getByText(/10-year 4.79%/)).toBeTruthy()
-        expect(screen.getByLabelText('Connections between the trees').textContent).toMatch(/Strikes → \+ Rises/)
+        expect(screen.getByLabelText('Connections between the trees').textContent).toMatch(/Strikes raises Rises/)
         expect(screen.getByLabelText('The Geopolitics tree')).toBeTruthy()
     })
 
@@ -111,7 +111,7 @@ describe('SituationPanel', () => {
         fireEvent.click(screen.getByRole('button', { name: /Prices/ }))
         expect(screen.getByText(/Biotechnology: against the S&P/)).toBeTruthy()
         expect(screen.getByLabelText('The Health Care · Drug pricing tree')).toBeTruthy()
-        expect(screen.getByLabelText('Connections between the trees').textContent).toMatch(/Rises → \+ Blocked/)
+        expect(screen.getByLabelText('Connections between the trees').textContent).toMatch(/Rises raises Blocked/)
         fireEvent.click(screen.getByRole('tab', { name: 'Questions' }))
         expect(screen.getByText('Does the MFN rule take effect?')).toBeTruthy()
         expect(screen.queryByText('Does the US strike Iran?')).toBeNull()
