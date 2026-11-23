@@ -435,15 +435,33 @@ export const SCORE_SOURCE = Object.freeze({ forward: 'Since the scorecard', back
 
 /**
  * One scorecard summary `{ n, mean, median, beat, judge }` → a cell `{ text, tone, title }`, or null with nothing graded.
- * "+0.4% · 52% beat · 77" — the mean vs SPY, the share beating it, how many; dim while under the bar to judge.
+ * "+0.4% · 52% beat · 77" — the mean vs the yardstick, the share beating it, how many; dim while under the bar to judge.
+ * `bench` names the yardstick in the title: SPY, or the call's own sector fund (2026-11-22).
  */
-export function scoreCell(s, minJudge = 20) {
+export function scoreCell(s, minJudge = 20, bench = 'SPY') {
     if (!s?.n) return null
     const tone = !s.judge ? 'dim' : s.mean > 0 ? 'good' : s.mean < 0 ? 'bad' : 'dim'
     return {
         text: `${_sp(s.mean)} · ${Math.round(s.beat)}% beat · ${s.n}`,
         tone,
-        title: `Mean ${_sp(s.mean)} vs SPY, median ${_sp(s.median)}; ${Math.round(s.beat)}% of ${s.n} beat SPY${s.judge ? '' : ` — under ${minJudge}, too few to judge`}`,
+        title: `Mean ${_sp(s.mean)} vs ${bench}, median ${_sp(s.median)}; ${Math.round(s.beat)}% of ${s.n} beat ${bench}${s.judge ? '' : ` — under ${minJudge}, too few to judge`}`,
+    }
+}
+
+/**
+ * BUYS MINUS SELLS (2026-11-22) — one mark's spread `{ mean, buys, sells, buy_mean, sell_mean, judge }` → a cell, or null.
+ * "+5.0% · 40 / 12" — how far the buys beat the sells, and how many of each; dim without both sides or under the bar
+ * (each side needs `minJudge`).
+ */
+export function spreadCell(s, minJudge = 20, bench = 'SPY') {
+    if (!s?.n) return null
+    const tone = !s.judge || !Number.isFinite(s.mean) ? 'dim' : s.mean > 0 ? 'good' : s.mean < 0 ? 'bad' : 'dim'
+    return {
+        text: `${_sp(s.mean)} · ${s.buys} / ${s.sells}`,
+        tone,
+        title: `The ${s.buys} buys averaged ${_sp(s.buy_mean)} vs ${bench}, the ${s.sells} sells ${_sp(s.sell_mean)}`
+            + (Number.isFinite(s.mean) ? ` — the buys beat the sells by ${_sp(s.mean)}` : ' — no spread without both sides')
+            + (s.judge ? '' : ` · under ${minJudge} a side, too few to judge`),
     }
 }
 
