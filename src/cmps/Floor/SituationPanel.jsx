@@ -8,6 +8,7 @@ import { MermaidDiagram } from './MermaidDiagram.jsx'
 import {
     pct, usd, SECTION_LABEL, DECISION_LABEL, REASON_LABEL, TREE_LABEL,
     drawn, treesOf, treeDiagram, crossDiagram, industryTable, historyLines,
+    layersOf, nodesForLayer, droppedByLayer, layerOf, treeKey, LAYER_LABEL, SECTOR_SECTION_LABEL,
 } from './situation.utils.js'
 import './SituationPanel.scss'
 
@@ -19,6 +20,9 @@ import './SituationPanel.scss'
 // with its numbers, its reasoning, its history; Roy can override), the INDUSTRIES (chances over every path, the branches
 // behind them, early warnings, would-be entries), the UPDATES (what each run decided, the dropped list, outside events,
 // the runs) and the SCORECARD (the forward test against its declared rule). A forward test: nothing here is advice.
+//
+// THE LAYERS (situation-network-layers.md): a macro layer and one per sector under it. The network and the questions
+// are shown for all of them, or for one layer — a sector with the questions linked to it from other layers.
 
 export const SITUATION_PANEL_ID = 'situation'
 const TABS = [['network', 'Network'], ['questions', 'Questions'], ['industries', 'Industries'], ['updates', 'Updates'], ['scorecard', 'Scorecard']]
@@ -28,6 +32,7 @@ export function SituationPanel() {
     const [tab, setTab] = useState('network')
     const [data, setData] = useState({ status: 'idle', run: null })
     const [retry, setRetry] = useState(0)
+    const [layer, setLayer] = useState('all')
 
     useEffect(() => {
         if (!isOpen) return
@@ -58,8 +63,9 @@ export function SituationPanel() {
             {data.status === 'ok' && !r?.run && <p className="situation__note">The network has not been built yet. It builds on its own once the loop is on (SITUATION_NETWORK).</p>}
             {data.status === 'ok' && r?.run && (
                 <div className="situation__body">
-                    {tab === 'network' && <NetworkTab run={r} />}
-                    {tab === 'questions' && <QuestionsTab run={r} onChanged={() => setRetry(n => n + 1)} />}
+                    {(tab === 'network' || tab === 'questions') && <LayerPicker run={r} layer={layer} onPick={setLayer} />}
+                    {tab === 'network' && <NetworkTab run={r} layer={layer} />}
+                    {tab === 'questions' && <QuestionsTab run={r} layer={layer} onChanged={() => setRetry(n => n + 1)} />}
                     {tab === 'industries' && <IndustriesTab run={r} />}
                     {tab === 'updates' && <UpdatesTab run={r} />}
                     {tab === 'scorecard' && <ScorecardTab />}
@@ -69,15 +75,35 @@ export function SituationPanel() {
     )
 }
 
-function NetworkTab({ run }) {
-    const cross = crossDiagram(run.nodes, run.links)
+/** The layer filter: all, macro, or one sector (only the layers this run has). */
+function LayerPicker({ run, layer, onPick }) {
+    const layers = layersOf(run.nodes)
+    if (layers.length < 2) return null
+    return (
+        <div className="cal-nav situation__layers" role="tablist" aria-label="Layer">
+            {[['all', drawn(run.nodes).length], ...layers].map(([k, n]) => (
+                <button key={k} type="button" role="tab" aria-selected={layer === k} className={`cal-nav__btn${layer === k ? ' cal-nav__btn--on' : ''}`} onClick={() => onPick(k)}>
+                    {k === 'all' ? 'All' : LAYER_LABEL(k)} <span className="situation__dim">{n}</span>
+                </button>
+            ))}
+        </div>
+    )
+}
+LayerPicker.propTypes = { run: PropTypes.object.isRequired, layer: PropTypes.string.isRequired, onPick: PropTypes.func.isRequired }
+
+function NetworkTab({ run, layer = 'all' }) {
+    const nodes = nodesForLayer(run.nodes, run.links, layer)
+    const cross = crossDiagram(nodes, run.links)
     const [open, setOpen] = useState(null)
+    const sector = layer !== 'all' && layer !== 'macro' ? (run.sector_states ?? []).find(x => x.sector === layer) : null
+    const state = sector ?? run.state
+    const labels = sector ? SECTOR_SECTION_LABEL : SECTION_LABEL
     return (
         <>
             <section className="situation__sec">
-                <h3 className="situation__h">The current state · {run.state?.as_of ?? run.run.as_of}</h3>
-                {Object.entries(SECTION_LABEL).map(([k, label]) => {
-                    const items = run.state?.sections?.[k] ?? []
+                <h3 className="situation__h">{sector ? `${LAYER_LABEL(layer)} · its state` : 'The current state'} · {state?.as_of ?? run.run.as_of}</h3>
+                {Object.entries(labels).map(([k, label]) => {
+                    const items = state?.sections?.[k] ?? []
                     return (
                         <div key={k} className="situation__state">
                             <button type="button" className="situation__fold" aria-expanded={open === k} onClick={() => setOpen(o => (o === k ? null : k))}>
@@ -99,20 +125,20 @@ function NetworkTab({ run }) {
                 <h3 className="situation__h">Connections between the trees</h3>
                 {cross ? <MermaidDiagram code={cross} label="Connections between the trees" /> : <p className="situation__note">No link crosses a tree in this run.</p>}
             </section>
-            {treesOf(run.nodes).map(([tree, nodes]) => (
+            {treesOf(nodes).map(([tree, ns]) => (
                 <section key={tree} className="situation__sec">
-                    <h3 className="situation__h">{TREE_LABEL(tree)} <span className="situation__dim">({nodes.length})</span></h3>
-                    <MermaidDiagram code={treeDiagram(nodes, run.links)} label={`The ${TREE_LABEL(tree)} tree`} />
+                    <h3 className="situation__h">{TREE_LABEL(tree)} <span className="situation__dim">({ns.length})</span></h3>
+                    <MermaidDiagram code={treeDiagram(ns, run.links)} label={`The ${TREE_LABEL(tree)} tree`} />
                 </section>
             ))}
         </>
     )
 }
-NetworkTab.propTypes = { run: PropTypes.object.isRequired }
+NetworkTab.propTypes = { run: PropTypes.object.isRequired, layer: PropTypes.string }
 
-function QuestionsTab({ run, onChanged }) {
+function QuestionsTab({ run, layer = 'all', onChanged }) {
     const [openId, setOpenId] = useState(null)
-    const nodes = drawn(run.nodes)
+    const nodes = drawn(run.nodes).filter(n => layer === 'all' || layerOf(n) === layer)
     return (
         <table className="situation__table">
             <thead><tr><th>Question</th><th>Tree</th><th>Numbers</th><th>Resolve by</th></tr></thead>
@@ -124,7 +150,7 @@ function QuestionsTab({ run, onChanged }) {
         </table>
     )
 }
-QuestionsTab.propTypes = { run: PropTypes.object.isRequired, onChanged: PropTypes.func.isRequired }
+QuestionsTab.propTypes = { run: PropTypes.object.isRequired, layer: PropTypes.string, onChanged: PropTypes.func.isRequired }
 
 function QuestionRow({ n, run, open, onToggle, onChanged }) {
     const [history, setHistory] = useState(null)
@@ -150,8 +176,8 @@ function QuestionRow({ n, run, open, onToggle, onChanged }) {
     return (
         <>
             <tr className={`situation__row situation__row--${n.status === 'resolved' ? 'resolved' : n.kind}`} onClick={onToggle} aria-expanded={open}>
-                <td>{n.question}{n.set_by === 'roy' && <span className="situation__chip">yours</span>}{(n.woken ?? []).length > 0 && <span className="situation__chip situation__chip--warn">woken</span>}</td>
-                <td className="situation__dim">{TREE_LABEL(n.tree)}</td>
+                <td>{n.question}{n.set_by === 'roy' && <span className="situation__chip">yours</span>}{n.origin && n.origin !== layerOf(n) && <span className="situation__chip">from {LAYER_LABEL(n.origin)}</span>}{(n.woken ?? []).length > 0 && <span className="situation__chip situation__chip--warn">woken</span>}</td>
+                <td className="situation__dim">{TREE_LABEL(treeKey(n))}</td>
                 <td>{n.options.map(o => (
                     <span key={o.key} className={`situation__opt${o.dormant ? ' situation__opt--dormant' : ''}`}>
                         <span className="situation__bar" style={{ width: `${Math.round(o.p * 100)}%` }} />{o.label} {pct(o.p)}
@@ -195,11 +221,11 @@ function IndustriesTab({ run }) {
     const entries = run.run.stats?.entries ?? []
     return (
         <>
-            <p className="situation__note">Chances over every path through the network; a split industry gets no call. Calls are at 60% or more. A forward test, not advice.</p>
+            <p className="situation__note">Chances over every path through the network; a split industry gets no call. Calls are at 60% or more. Macro alone is the macro layer without the sectors. A forward test, not advice.</p>
             <p><b>Calls:</b> {calls.length ? calls.map(r => `${r.name} ${r.p_win >= 0.6 ? `wins ${pct(r.p_win)}` : `loses ${pct(r.p_lose)}`}`).join(' · ') : 'none this run'}</p>
             {entries.length > 0 && <p className="situation__dim">Would-be entries this run (the record only, no trades): {entries.map(e => `${e.name} ${e.side} ≥ ${pct(e.level)}`).join('; ')}</p>}
             <table className="situation__table">
-                <thead><tr><th>Industry</th><th>Wins</th><th>Loses</th><th>Size</th><th>Agreement</th></tr></thead>
+                <thead><tr><th>Industry</th><th>Wins</th><th>Loses</th><th>Size</th><th>Agreement</th><th>Macro alone</th></tr></thead>
                 <tbody>
                     {rows.map(r => (
                         <IndustryRow key={r.code} r={r} open={openCode === r.code} onToggle={() => setOpenCode(c => (c === r.code ? null : r.code))} />
@@ -220,9 +246,10 @@ function IndustryRow({ r, open, onToggle }) {
                 <td className="situation__num situation__num--lose">{pct(r.p_lose)}</td>
                 <td className="situation__dim">{r.bucket ?? '—'}</td>
                 <td className="situation__num">{pct(r.agreement)}</td>
+                <td className="situation__dim">{r.macro ? `${pct(r.macro.p_win)} / ${pct(r.macro.p_lose)}` : '—'}</td>
             </tr>
             {open && (
-                <tr className="situation__detail"><td colSpan={5}>
+                <tr className="situation__detail"><td colSpan={6}>
                     <ul className="situation__items">
                         {(r.paths ?? []).map(p => <li key={`${p.node_id}|${p.option}`}>“{p.question}” → {p.label}: {p.weight >= 0 ? 'helps' : 'hurts'}</li>)}
                     </ul>
@@ -244,11 +271,14 @@ function UpdatesTab({ run }) {
                     <ul className="situation__items">{s.decisions.map((d, i) => <li key={i}><b>{DECISION_LABEL[d.decision] ?? d.decision}</b>{d.applied ? '' : ' (not applied)'}: {d.summary}</li>)}</ul>
                 ) : <p className="situation__dim">A build: every question was set fresh.</p>}
                 {(s.changes ?? []).length > 0 && <p className="situation__dim">Spread through the links in {s.rounds} rounds; {s.changes.length} numbers moved.</p>}
+                {(s.layers ?? []).length > 0 && <p className="situation__dim">Layers run: {s.layers.filter(x => x.ran).map(x => `${LAYER_LABEL(x.layer)} (${x.articles} articles)`).join(' · ') || 'none'}</p>}
+                {(s.promoted ?? s.sectors?.promoted ?? []).length > 0 && <p className="situation__dim">Moved up to the macro layer: {(s.promoted ?? s.sectors.promoted).map(p => run.nodes.find(n => n.node_id === p.node_id)?.question ?? p.node_id).join('; ')}</p>}
             </section>
             {dropped && (
                 <section className="situation__sec">
                     <h3 className="situation__h">Questions: {dropped.considered} considered · {dropped.open} open · {dropped.settled} settled · {dropped.resolved ?? 0} resolved · {dropped.dropped.length} dropped</h3>
-                    <ul className="situation__items">{dropped.dropped.map((d, i) => <li key={i}>{d.flagged ? '⚑ ' : ''}{d.question} — <span className="situation__dim">{REASON_LABEL[d.reason] ?? d.reason}{d.note ? `: ${d.note}` : ''}</span></li>)}</ul>
+                    {droppedByLayer(dropped.dropped).length > 1 && <p className="situation__dim">Dropped by layer: {droppedByLayer(dropped.dropped).map(([l, n]) => `${LAYER_LABEL(l)} ${n}`).join(' · ')}</p>}
+                    <ul className="situation__items">{dropped.dropped.map((d, i) => <li key={i}>{d.flagged ? '⚑ ' : ''}{(d.layer ?? 'macro') !== 'macro' ? `[${LAYER_LABEL(d.layer)}] ` : ''}{d.question} — <span className="situation__dim">{REASON_LABEL[d.reason] ?? d.reason}{d.note ? `: ${d.note}` : ''}</span></li>)}</ul>
                 </section>
             )}
             {(run.outside ?? []).length > 0 && (
@@ -283,7 +313,8 @@ function ScorecardTab() {
             <p><b>Since</b> {x.started_on ?? 'not started'} · {x.verdict.months} months · {x.runs} runs · {x.verdict.pass ? 'PASSED' : 'not passed'}</p>
             <ul className="situation__items">{Object.entries(x.verdict.checks).map(([k, v]) => <li key={k}>{v ? '✓' : '✗'} {k.replace(/^\d_/, '').replace(/_/g, ' ')}</li>)}</ul>
             <p>Questions resolved: {a.questions} · Brier {a.brier?.toFixed(3) ?? '—'} against equal odds {a.equal_odds?.toFixed(3) ?? '—'}</p>
-            <p>Industry long − short at 6 months: {x.industries.m6.n} dates, mean {pct(x.industries.m6.mean)}, t {x.industries.m6.t?.toFixed(1) ?? '—'} · the plain question: {pct(x.control.m6.mean)}</p>
+            <p>Industry long − short at 6 months: {x.industries.m6.n} dates, mean {pct(x.industries.m6.mean)}, t {x.industries.m6.t?.toFixed(1) ?? '—'} · the macro layer alone: {pct(x.macro_only?.m6?.mean)} · the plain question: {pct(x.control.m6.mean)}</p>
+            {x.layers && <p className="situation__dim">By layer: macro {x.layers.macro.questions} resolved (Brier {x.layers.macro.brier?.toFixed(3) ?? '—'}) · sectors {x.layers.sectors.questions} resolved (Brier {x.layers.sectors.brier?.toFixed(3) ?? '—'})</p>}
             <p className="situation__dim">Groups: yours {x.nodes.roy.questions} questions (Brier {x.nodes.roy.brier?.toFixed(3) ?? '—'}), the model’s you overrode {x.nodes.overridden.brier?.toFixed(3) ?? '—'}, the model’s you let stand {x.nodes.accepted.brier?.toFixed(3) ?? '—'}.</p>
         </>
     )

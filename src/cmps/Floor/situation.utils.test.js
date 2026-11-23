@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { pct, safe, drawn, treesOf, boxLabel, treeDiagram, crossDiagram, industryTable, historyLines } from './situation.utils.js'
+import { pct, safe, drawn, treesOf, boxLabel, treeDiagram, crossDiagram, industryTable, historyLines, layersOf, nodesForLayer, droppedByLayer, treeKey, TREE_LABEL, LAYER_LABEL } from './situation.utils.js'
 
 const node = (node_id, tree, opts, over = {}) => ({ node_id, tree, question: `Q ${node_id}?`, status: 'live', kind: 'open', woken: [],
     options: Object.entries(opts).map(([key, p]) => ({ key, label: key, p })), ...over })
@@ -54,4 +54,18 @@ test('industryTable: the most one-sided first; calls at 60%+', () => {
 test('historyLines: one line per run', () => {
     assert.deepEqual(historyLines([{ run_id: 'r1', as_of: '2025-01-07', kind: 'build', set_by: 'llm', options: [{ label: 'Yes', p: 0.85 }, { label: 'No', p: 0.15 }] }]),
         [{ key: 'r1', when: '2025-01-07', kind: 'build', by: 'llm', text: 'Yes 85% / No 15%' }])
+})
+
+test('the layers: present layers macro first; a layer with the nodes linked to it; dropped counted per layer; sector trees keyed apart', () => {
+    const m = node('m', 'energy', { a: 0.5 }), h = node('h', 'drug_pricing', { a: 0.5 }, { layer: '35' }), t = node('t', 'chips', { a: 0.5 }, { layer: '45' })
+    assert.deepEqual(layersOf([t, h, m]), [['macro', 1], ['35', 1], ['45', 1]])
+    const links = [{ from: { node_id: 'm', option: 'a' }, to: { node_id: 'h', option: 'a' }, shift: 1 }]
+    assert.deepEqual(nodesForLayer([m, h, t], links, '35').map(n => n.node_id), ['m', 'h'])
+    assert.equal(nodesForLayer([m, h, t], links, 'all').length, 3)
+    assert.deepEqual(droppedByLayer([{ layer: '35' }, {}, { layer: '35' }]), [['35', 2], ['macro', 1]])
+    assert.equal(treeKey(h), '35:drug_pricing')
+    assert.equal(TREE_LABEL(treeKey(h)), 'Health Care · Drug pricing')
+    assert.equal(TREE_LABEL('energy'), 'Energy')
+    assert.equal(LAYER_LABEL('macro'), 'Macro')
+    assert.deepEqual(treesOf([m, node('m2', 'drug_pricing', { a: 1 }), h]).map(([k]) => k), ['energy', 'drug_pricing', '35:drug_pricing'])
 })

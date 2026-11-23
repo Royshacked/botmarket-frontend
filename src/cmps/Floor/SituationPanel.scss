@@ -5,6 +5,7 @@
     &__sec { display: flex; flex-direction: column; gap: 0.4rem; }
     &__h { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text-primary); }
     &__note { color: var(--text-secondary); margin: 0.4rem 0; }
+    &__layers { flex-wrap: wrap; margin: 0 0 0.6rem; }
     &__dim { color: var(--text-dim); }
     &__warn { color: var(--color-warning); }
     &__src { color: var(--text-dim); font-size: 0.85em; }

@@ -7,8 +7,15 @@ export const usd = (v) => (typeof v === 'number' && Number.isFinite(v) ? `$${v.t
 
 export const SECTION_LABEL = Object.freeze({ regime: 'Regime', policy: 'Policy', money: 'Big money', stories: 'Stories and geopolitics', prices: 'Prices', calendar: 'Calendar' })
 export const DECISION_LABEL = Object.freeze({ moves_option: 'Moves an option', new_option: 'New option', new_question: 'New question', resolves: 'Resolves', outside: 'Outside the network', none: 'No change' })
-export const REASON_LABEL = Object.freeze({ low_impact: 'low impact', nearly_settled: 'nearly settled', duplicate: 'duplicate', too_far_out: 'too far out', cap: 'the cap of 20' })
-export const TREE_LABEL = (t) => String(t ?? 'other').replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())
+export const REASON_LABEL = Object.freeze({ low_impact: 'low impact', nearly_settled: 'nearly settled', duplicate: 'duplicate', too_far_out: 'too far out', cap: 'the cap of its layer' })
+const word = (t) => String(t ?? 'other').replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())
+/** A tree's label; a sector's tree (key `35:drug_pricing`) says its sector. Pure. */
+export const TREE_LABEL = (t) => {
+    const m = /^(\d{2}):(.+)$/.exec(String(t ?? ''))
+    return m ? `${SECTOR_NAMES[m[1]] ?? m[1]} · ${word(m[2])}` : word(t)
+}
+/** The key a node's tree is grouped by: its tree, inside its sector when it has one. Pure. */
+export const treeKey = (n) => ((n?.layer ?? 'macro') === 'macro' ? n.tree : `${n.layer}:${n.tree}`)
 
 /** Mermaid-safe text: no quotes, brackets or pipes; short. Pure. */
 export function safe(s, max = 90) {
@@ -24,7 +31,7 @@ export function drawn(nodes = []) {
 /** Nodes grouped by tree, trees in first-seen order → `[[tree, nodes]]`. Pure. */
 export function treesOf(nodes = []) {
     const m = new Map()
-    for (const n of drawn(nodes)) { if (!m.has(n.tree)) m.set(n.tree, []); m.get(n.tree).push(n) }
+    for (const n of drawn(nodes)) { const k = treeKey(n); if (!m.has(k)) m.set(k, []); m.get(k).push(n) }
     return [...m.entries()]
 }
 
@@ -71,12 +78,12 @@ export function treeDiagram(treeNodes, links = []) {
  */
 export function crossDiagram(nodes = [], links = []) {
     const live = new Map(drawn(nodes).map(n => [n.node_id, n]))
-    const cross = links.filter(l => live.has(l.from.node_id) && live.has(l.to.node_id) && live.get(l.from.node_id).tree !== live.get(l.to.node_id).tree)
+    const cross = links.filter(l => live.has(l.from.node_id) && live.has(l.to.node_id) && treeKey(live.get(l.from.node_id)) !== treeKey(live.get(l.to.node_id)))
     if (!cross.length) return null
     const used = [...new Set(cross.flatMap(l => [l.from.node_id, l.to.node_id]))]
     const ids = new Map(used.map((id, i) => [id, `c${i}`]))
     const byTree = new Map()
-    for (const id of used) { const t = live.get(id).tree; if (!byTree.has(t)) byTree.set(t, []); byTree.get(t).push(live.get(id)) }
+    for (const id of used) { const t = treeKey(live.get(id)); if (!byTree.has(t)) byTree.set(t, []); byTree.get(t).push(live.get(id)) }
     const out = ['flowchart LR']
     let s = 0
     for (const [tree, ns] of byTree) {
@@ -102,4 +109,44 @@ export function industryTable(industries = []) {
 /** One node's history as a compact line per run. Pure. */
 export function historyLines(history = []) {
     return history.map(h => ({ key: h.run_id, when: h.as_of, kind: h.kind, by: h.set_by, text: h.options.map(o => `${o.label} ${pct(o.p)}`).join(' / ') }))
+}
+
+// ─── THE LAYERS (docs/design/situation-network-layers.md): a macro layer and one per sector under it ───
+
+export const SECTOR_NAMES = Object.freeze({
+    10: 'Energy', 15: 'Materials', 20: 'Industrials', 25: 'Consumer Discretionary', 30: 'Consumer Staples', 35: 'Health Care',
+    40: 'Financials', 45: 'Information Technology', 50: 'Communication Services', 55: 'Utilities', 60: 'Real Estate',
+})
+export const SECTOR_SECTION_LABEL = Object.freeze({ backdrop: 'Macro backdrop', prices: 'Prices', news: 'Its news', policy: 'Its policy', calendar: 'Its calendar' })
+/** A node's layer: 'macro' or a sector code (a node from before the layers is macro). Pure. */
+export const layerOf = (n) => n?.layer ?? 'macro'
+export const LAYER_LABEL = (l) => (l === 'macro' ? 'Macro' : SECTOR_NAMES[l] ?? l)
+
+/** The layers present in a run, macro first, then sectors by code → `[[layer, count of drawn nodes]]`. Pure. */
+export function layersOf(nodes = []) {
+    const m = new Map([['macro', 0]])
+    for (const n of drawn(nodes)) m.set(layerOf(n), (m.get(layerOf(n)) ?? 0) + 1)
+    return [...m.entries()].sort((a, b) => (a[0] === 'macro' ? -1 : b[0] === 'macro' ? 1 : a[0].localeCompare(b[0])))
+}
+
+/**
+ * The nodes to show for a layer: all of them ('all'), or the layer's own nodes plus the nodes OTHER layers link into them
+ * from or out to (as context, so a sector is seen with its macro parents). Pure.
+ */
+export function nodesForLayer(nodes = [], links = [], layer = 'all') {
+    if (layer === 'all') return nodes
+    const own = new Set(nodes.filter(n => layerOf(n) === layer).map(n => n.node_id))
+    const near = new Set(own)
+    for (const l of links) {
+        if (own.has(l.to.node_id)) near.add(l.from.node_id)
+        if (own.has(l.from.node_id)) near.add(l.to.node_id)
+    }
+    return nodes.filter(n => near.has(n.node_id))
+}
+
+/** The dropped list counted per layer → `[[layer, n]]`. Pure. */
+export function droppedByLayer(dropped = []) {
+    const m = new Map()
+    for (const d of dropped) m.set(d.layer ?? 'macro', (m.get(d.layer ?? 'macro') ?? 0) + 1)
+    return [...m.entries()]
 }

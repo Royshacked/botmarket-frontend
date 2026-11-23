@@ -93,6 +93,37 @@ describe('SituationPanel', () => {
         expect(screen.getByText(/not passed/)).toBeTruthy()
     })
 
+    it('the layers: a picker when a sector has questions; a sector shows its own state and the macro questions linked to it', async () => {
+        const promoted = { node_id: 'p1', tree: 'ai_capex', layer: 'macro', origin: '45', question: 'Do hyperscalers cut capex?', status: 'live', kind: 'open', set_by: 'llm', woken: [],
+            options: [{ key: 'yes', label: 'Cut', p: 0.3 }, { key: 'no', label: 'Hold', p: 0.7 }] }
+        const health = { node_id: 'h1', tree: 'drug_pricing', layer: '35', question: 'Does the MFN rule take effect?', status: 'live', kind: 'open', set_by: 'llm', woken: [],
+            options: [{ key: 'yes', label: 'Takes effect', p: 0.4 }, { key: 'no', label: 'Blocked', p: 0.6 }] }
+        situationService.getLatest.mockResolvedValueOnce({
+            ...run, nodes: [...run.nodes, health, promoted],
+            links: [...run.links, { from: { node_id: 'n2', option: 'rises' }, to: { node_id: 'h1', option: 'no' }, shift: 0.4 }],
+            sector_states: [{ sector: '35', as_of: '2025-01-14', sections: { backdrop: [], prices: [{ text: 'Biotechnology: against the S&P 3m -5.0%', tag: 'fact', source: 'engine', as_of: '2025-01-13' }], news: [], policy: [], calendar: [] } }],
+            industries: [{ ...run.industries[0], macro: { p_win: 0.55, p_lose: 0.1 } }],
+            dropped: { ...run.dropped, dropped: [...run.dropped.dropped, { question: 'PBM reform?', reason: 'cap', layer: '35', flagged: true }] },
+        })
+        await open()
+        fireEvent.click(screen.getByRole('tab', { name: /Health Care/ }))
+        expect(screen.getByText(/Health Care · its state · 2025-01-14/)).toBeTruthy()
+        fireEvent.click(screen.getByRole('button', { name: /Prices/ }))
+        expect(screen.getByText(/Biotechnology: against the S&P/)).toBeTruthy()
+        expect(screen.getByLabelText('The Health Care · Drug pricing tree')).toBeTruthy()
+        expect(screen.getByLabelText('Connections between the trees').textContent).toMatch(/Rises → \+ Blocked/)
+        fireEvent.click(screen.getByRole('tab', { name: 'Questions' }))
+        expect(screen.getByText('Does the MFN rule take effect?')).toBeTruthy()
+        expect(screen.queryByText('Does the US strike Iran?')).toBeNull()
+        fireEvent.click(screen.getByRole('tab', { name: /^Macro/ }))
+        expect(screen.getByText('from Information Technology')).toBeTruthy()
+        fireEvent.click(screen.getByRole('tab', { name: 'Industries' }))
+        expect(screen.getByText('55% / 10%')).toBeTruthy()
+        fireEvent.click(screen.getByRole('tab', { name: 'Updates' }))
+        expect(screen.getByText(/Dropped by layer: Macro 1 · Health Care 1/)).toBeTruthy()
+        expect(screen.getByText(/\[Health Care\] PBM reform\?/)).toBeTruthy()
+    })
+
     it('a network not built yet says so; a failed read offers a retry', async () => {
         situationService.getLatest.mockResolvedValueOnce({ run: null, runs: [] })
         await open()
