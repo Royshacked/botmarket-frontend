@@ -122,6 +122,11 @@ export const sessionService = {
         return httpService.post(`${BASE}/${encodeURIComponent(sessionId)}/build`, { agent, action, text })
     },
 
+    /** "Not now" on a builder's question card (Roy, 2026-11-24): closed unanswered; a mid-build card drops its build. */
+    async dismissCard(sessionId, seq) {
+        return httpService.post(`${BASE}/${encodeURIComponent(sessionId)}/answers`, { seq, dismiss: true })
+    },
+
     async answer(sessionId, { seq, answers, accounts = [], mainAccountId = null }) {
         return httpService.post(`${BASE}/${encodeURIComponent(sessionId)}/answers`, {
             seq, answers, accounts, mainAccountId,

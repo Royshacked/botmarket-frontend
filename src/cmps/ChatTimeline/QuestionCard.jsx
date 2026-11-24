@@ -11,7 +11,7 @@ import { accountOptions, initialAnswers, isAnswered, allAnswered, shownQuestions
 // aside — ChatTimeline), and the questions are a numbered list. The class names keep "question-card" for the drives.
 const PLACEHOLDER = { name: 'Or type a ticker', size: 'e.g. $10,000', risk: 'e.g. $100, or 0.75% of the account', rr: 'e.g. 2.5' }
 
-export function QuestionCard({ card, role, accounts, marked = [], main = null, onSubmit, busy = false }) {
+export function QuestionCard({ card, role, accounts, marked = [], main = null, onSubmit, onDismiss = null, busy = false }) {
     const questions = card.ref.questions
     const [answers, setAnswers] = useState(() => initialAnswers(questions, { marked, main, accounts }))
     const [sending, setSending] = useState(false)
@@ -33,6 +33,16 @@ export function QuestionCard({ card, role, accounts, marked = [], main = null, o
         const cur = answers[q.id]?.accountIds ?? []
         const next = q.multiSelect ? (cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id]) : [id]
         set(q.id, { accountIds: next })
+    }
+
+    // NOT NOW (Roy, 2026-11-24, on mobile: no way back to Axl from the analyst's questions): closed unanswered,
+    // nothing built — the server drops the card (and a mid-build card's build) and gives the chat back to Axl.
+    async function dismiss() {
+        if (!onDismiss || sending) return
+        setSending(true)
+        setError(null)
+        const r = await onDismiss()
+        if (!r?.ok) { setError(r?.message ?? 'Could not close the questions'); setSending(false) }
     }
 
     async function submit() {
@@ -61,6 +71,9 @@ export function QuestionCard({ card, role, accounts, marked = [], main = null, o
             <header className="question-card__head">
                 <span className="question-card__title">{card.content}</span>
                 <span className="question-card__role">{role}</span>
+                {onDismiss && (
+                    <button type="button" className="question-card__close" onClick={dismiss} disabled={sending} aria-label="Not now — close the questions">×</button>
+                )}
             </header>
             <div className="question-card__body">
                 {shown.map((q, i) => {
@@ -114,6 +127,9 @@ export function QuestionCard({ card, role, accounts, marked = [], main = null, o
             <footer className="question-card__foot">
                 {error && <span className="question-card__error">{error}</span>}
                 <span className="question-card__hint">{ready ? 'Ready.' : 'Answer each question — or just type in the chat instead.'}</span>
+                {onDismiss && (
+                    <button type="button" className="question-card__dismiss" onClick={dismiss} disabled={sending}>Not now</button>
+                )}
                 <button type="button" className="question-card__submit" onClick={submit} disabled={!ready || sending || busy}>
                     {sending ? 'Sending…' : card.ref.mid ? 'Send' : 'Build it'}
                 </button>
@@ -129,5 +145,6 @@ QuestionCard.propTypes = {
     marked:   PropTypes.array,
     main:     PropTypes.string,
     onSubmit: PropTypes.func.isRequired,
+    onDismiss: PropTypes.func,
     busy:     PropTypes.bool,
 }

@@ -232,6 +232,16 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
         }
     }, [api, _outcome, ready])
 
+    /** "Not now" on a builder's question card: closed unanswered, nothing built, the chat back with Axl. @returns {Promise<object>} an outcome */
+    const dismissCard = useCallback(async (seq) => {
+        if (!(await ready())) return { ok: false, reason: 'not_found', message: 'The chat is not open yet', extra: {} }
+        try {
+            return { ok: true, result: await api.dismissCard(ref.current.sessionId, seq) }
+        } catch (err) {
+            return _outcome(null, err, 'Could not close the questions')
+        }
+    }, [api, _outcome, ready])
+
     /** Send a build back to work — the summary's Change, a failed build's Retry, a Recheck. @returns {Promise<object>} an outcome */
     const reworkBuild = useCallback(async (agent, action, text = null) => {
         if (!(await ready())) return { ok: false, reason: 'not_found', message: 'The chat is not open yet', extra: {} }
@@ -242,5 +252,5 @@ export function useSession(scope = 'main', { ws = chatWsService, api = sessionSe
         }
     }, [api, _outcome, ready])
 
-    return { ...state, send, stop, cancelQueued, choose, startNew, resume, commit, edit, reopen, setMode, answer, reworkBuild }
+    return { ...state, send, stop, cancelQueued, choose, startNew, resume, commit, edit, reopen, setMode, answer, dismissCard, reworkBuild }
 }

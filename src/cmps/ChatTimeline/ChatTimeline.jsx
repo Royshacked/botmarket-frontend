@@ -145,6 +145,7 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
         if (picked.length) onPickAccounts?.(picked.map(a => String(a.id)), String(picked[0].id))
         return session.answer(card.seq, answers, { accounts: picked, mainAccountId: picked[0] ? String(picked[0].id) : null })
     }, [session, card, onPickAccounts])
+    const dismissCard = useCallback(() => session.dismissCard(card.seq), [session, card])
 
     const pickMode = useCallback(async (m) => {
         setPendingMode(m)
@@ -363,6 +364,7 @@ function TimelineView({ scope = 'main', accounts = [], allAccounts = null, onPic
                     marked={accounts.map(a => String(a.id))}
                     main={mainAccountId}
                     onSubmit={answerCard}
+                    onDismiss={dismissCard}
                     busy={busy}
                 />
             )}

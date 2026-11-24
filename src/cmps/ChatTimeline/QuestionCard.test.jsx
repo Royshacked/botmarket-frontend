@@ -106,6 +106,24 @@ describe('QuestionCard', () => {
         expect(onSubmit).toHaveBeenCalledWith({ answer: { choice: '$402' } }, [])
     })
 
+    // Roy, 2026-11-24, on mobile: no way out of the analyst's questions back to Axl.
+    it('Not now and the × close the card unanswered; a failure says so; no handler, no buttons', async () => {
+        const onSubmit = vi.fn()
+        const onDismiss = vi.fn(async () => ({ ok: true }))
+        render(<QuestionCard card={card()} role="Trader" accounts={ACCOUNTS} onSubmit={onSubmit} onDismiss={onDismiss} />)
+        await act(async () => { fireEvent.click(screen.getByText('Not now')) })
+        expect(onDismiss).toHaveBeenCalledTimes(1)
+        expect(onSubmit).not.toHaveBeenCalled()
+        cleanup()
+        const failing = vi.fn(async () => ({ ok: false, message: 'That card is no longer the open one' }))
+        render(<QuestionCard card={card()} role="Trader" accounts={ACCOUNTS} onSubmit={onSubmit} onDismiss={failing} />)
+        await act(async () => { fireEvent.click(screen.getByLabelText('Not now — close the questions')) })
+        expect(screen.getByText('That card is no longer the open one')).toBeTruthy()
+        cleanup()
+        render(<QuestionCard card={card()} role="Trader" accounts={ACCOUNTS} onSubmit={onSubmit} />)
+        expect(screen.queryByText('Not now')).toBe(null)
+    })
+
     it('a workspace with no accounts says so', () => {
         render(<QuestionCard card={card()} role="Trader" accounts={[]} onSubmit={vi.fn()} />)
         expect(screen.getByText(/No accounts in this workspace/)).toBeTruthy()

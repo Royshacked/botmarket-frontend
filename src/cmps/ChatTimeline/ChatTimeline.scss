@@ -630,8 +630,33 @@
         flex-shrink: 0;
         padding: 20px 0 10px;    // clear of the chat header
     }
-    &__title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+    &__title { flex: 1; font-size: 15px; font-weight: 600; color: var(--text-primary); }
     &__role  { font-size: 12px; color: var(--text-secondary); }
+    // Not now — closed unanswered, back to Axl (Roy, 2026-11-24): the × up here, the words beside Send.
+    &__close {
+        align-self: center;
+        margin: 0;
+        padding: 0 4px;
+        border: none;
+        background: none;
+        color: var(--text-secondary);
+        font-size: 20px;
+        line-height: 1;
+        cursor: pointer;
+        &:hover { color: var(--text-primary); }
+        &:disabled { opacity: 0.4; cursor: not-allowed; }
+    }
+    &__dismiss {
+        margin: 0;
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        &:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+        &:disabled { opacity: 0.4; cursor: not-allowed; }
+    }
 
     &__body {
         flex: 1 1 auto;
@@ -736,6 +761,10 @@
     .question-card { padding: 0 16px; }
     // 16px in a phone's field — iOS zooms the page on a smaller one (ChatInputRow.scss).
     .question-card__other { font-size: 16px; }
+    // A phone: the hint gives way so Not now and Send stay on one line, big enough to tap.
+    .question-card__hint { display: none; }
+    .question-card__foot { justify-content: flex-end; }
+    .question-card__close { font-size: 24px; padding: 4px 8px; }
 }
 
 // An answered card in the thread: what the user said, one line a question.
