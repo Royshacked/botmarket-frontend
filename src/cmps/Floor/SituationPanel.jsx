@@ -8,7 +8,7 @@ import { MermaidDiagram } from './MermaidDiagram.jsx'
 import {
     pct, usd, SECTION_LABEL, DECISION_LABEL, REASON_LABEL, TREE_LABEL,
     drawn, treesOf, treeDiagram, crossDiagram, industryTable, historyLines,
-    layersOf, nodesForLayer, droppedByLayer, layerOf, treeKey, LAYER_LABEL, SECTOR_SECTION_LABEL,
+    layersOf, nodesForLayer, droppedByLayer, layerOf, treeKey, LAYER_LABEL, SECTOR_SECTION_LABEL, outcomesLine,
 } from './situation.utils.js'
 import './SituationPanel.scss'
 
@@ -183,7 +183,7 @@ function QuestionRow({ n, run, open, onToggle, onChanged }) {
                         <span className="situation__bar" style={{ width: `${Math.round(o.p * 100)}%` }} />{o.label} {pct(o.p)}
                     </span>
                 ))}</td>
-                <td className="situation__dim">{n.status === 'resolved' ? `resolved: ${n.resolved?.option}` : n.resolve_by ?? '—'}</td>
+                <td className="situation__dim">{n.status === 'resolved' ? `resolved: ${n.resolved?.option}${n.resolved?.unforeseen ? ' ⚑ not foreseen' : ''}` : n.resolve_by ?? '—'}</td>
             </tr>
             {open && (
                 <tr className="situation__detail"><td colSpan={4}>
@@ -273,6 +273,8 @@ function UpdatesTab({ run }) {
                 {(s.changes ?? []).length > 0 && <p className="situation__dim">Spread through the links in {s.rounds} rounds; {s.changes.length} numbers moved.</p>}
                 {(s.layers ?? []).length > 0 && <p className="situation__dim">Layers run: {s.layers.filter(x => x.ran).map(x => `${LAYER_LABEL(x.layer)} (${x.articles} articles)`).join(' · ') || 'none'}</p>}
                 {(s.promoted ?? s.sectors?.promoted ?? []).length > 0 && <p className="situation__dim">Moved up to the macro layer: {(s.promoted ?? s.sectors.promoted).map(p => run.nodes.find(n => n.node_id === p.node_id)?.question ?? p.node_id).join('; ')}</p>}
+                {s.outcomes?.ran && <p className="situation__dim">The outcomes review: {outcomesLine(s.outcomes, run.nodes)}</p>}
+                {(s.unforeseen ?? []).length > 0 && <p className="situation__dim">⚑ Not foreseen: {s.unforeseen.map(id => run.nodes.find(n => n.node_id === id)?.question ?? id).join('; ')} — what happened was not what its options assumed.</p>}
             </section>
             {dropped && (
                 <section className="situation__sec">
@@ -284,7 +286,7 @@ function UpdatesTab({ run }) {
             {(run.outside ?? []).length > 0 && (
                 <section className="situation__sec">
                     <h3 className="situation__h">Outside the network</h3>
-                    <ul className="situation__items">{run.outside.map(o => <li key={o.event_id}>{o.date}: {o.text} — {o.industries.join(', ')}</li>)}</ul>
+                    <ul className="situation__items">{run.outside.map(o => <li key={o.event_id}>{o.date}: {o.text} — {o.industries.join(', ')}{(o.routed_to ?? []).length ? <span className="situation__dim"> · sent to {o.routed_to.map(LAYER_LABEL).join(', ')}</span> : null}</li>)}</ul>
                 </section>
             )}
             <section className="situation__sec">
@@ -314,6 +316,7 @@ function ScorecardTab() {
             <ul className="situation__items">{Object.entries(x.verdict.checks).map(([k, v]) => <li key={k}>{v ? '✓' : '✗'} {k.replace(/^\d_/, '').replace(/_/g, ' ')}</li>)}</ul>
             <p>Questions resolved: {a.questions} · Brier {a.brier?.toFixed(3) ?? '—'} against equal odds {a.equal_odds?.toFixed(3) ?? '—'}</p>
             <p>Industry long − short at 6 months: {x.industries.m6.n} dates, mean {pct(x.industries.m6.mean)}, t {x.industries.m6.t?.toFixed(1) ?? '—'} · the macro layer alone: {pct(x.macro_only?.m6?.mean)} · the plain question: {pct(x.control.m6.mean)}</p>
+            {x.unforeseen?.of > 0 && <p className="situation__dim">Not foreseen: {x.unforeseen.questions} of {x.unforeseen.of} resolved questions were won by an outcome their options did not have when forecast</p>}
             {x.layers && <p className="situation__dim">By layer: macro {x.layers.macro.questions} resolved (Brier {x.layers.macro.brier?.toFixed(3) ?? '—'}) · sectors {x.layers.sectors.questions} resolved (Brier {x.layers.sectors.brier?.toFixed(3) ?? '—'})</p>}
             <p className="situation__dim">Groups: yours {x.nodes.roy.questions} questions (Brier {x.nodes.roy.brier?.toFixed(3) ?? '—'}), the model’s you overrode {x.nodes.overridden.brier?.toFixed(3) ?? '—'}, the model’s you let stand {x.nodes.accepted.brier?.toFixed(3) ?? '—'}.</p>
         </>

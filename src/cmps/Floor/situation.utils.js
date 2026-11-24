@@ -7,7 +7,7 @@ export const usd = (v) => (typeof v === 'number' && Number.isFinite(v) ? `$${v.t
 
 export const SECTION_LABEL = Object.freeze({ regime: 'Regime', policy: 'Policy', money: 'Big money', stories: 'Stories and geopolitics', prices: 'Prices', calendar: 'Calendar' })
 export const DECISION_LABEL = Object.freeze({ moves_option: 'Moves an option', new_option: 'New option', new_question: 'New question', resolves: 'Resolves', outside: 'Outside the network', none: 'No change' })
-export const REASON_LABEL = Object.freeze({ low_impact: 'low impact', nearly_settled: 'nearly settled', duplicate: 'duplicate', too_far_out: 'too far out', cap: 'the cap of its layer' })
+export const REASON_LABEL = Object.freeze({ low_impact: 'low impact', nearly_settled: 'nearly settled', duplicate: 'duplicate', too_far_out: 'too far out', cap: 'the cap of its layer', reworded: 'reworded' })
 const word = (t) => String(t ?? 'other').replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())
 /** A tree's label; a sector's tree (key `35:drug_pricing`) says its sector. Pure. */
 export const TREE_LABEL = (t) => {
@@ -155,4 +155,14 @@ export function droppedByLayer(dropped = []) {
     const m = new Map()
     for (const d of dropped) m.set(d.layer ?? 'macro', (m.get(d.layer ?? 'macro') ?? 0) + 1)
     return [...m.entries()]
+}
+
+/** The missing-outcomes review's line on the Updates tab: what it added and reworded. Pure. */
+export function outcomesLine(o, nodes = []) {
+    const q = (id) => nodes.find(n => n.node_id === id)
+    const parts = [
+        ...(o.added ?? []).map(a => `added "${a.label}" to ${q(a.node_id)?.question ?? a.node_id}`),
+        ...(o.reworded ?? []).map(r => `reworded as ${r.question}`),
+    ]
+    return parts.length ? parts.join('; ') : "every question's options stood"
 }

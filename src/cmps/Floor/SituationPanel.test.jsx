@@ -124,6 +124,26 @@ describe('SituationPanel', () => {
         expect(screen.getByText(/\[Health Care\] PBM reform\?/)).toBeTruthy()
     })
 
+    it('the outcomes review, a resolution not foreseen, a routed story and the scorecard count', async () => {
+        const resolvedCeo = { node_id: 'c1', tree: 'tech', question: 'Does Nvidia name a permanent CEO?', status: 'resolved', kind: 'open', set_by: 'llm', woken: [],
+            resolved: { option: 'huang_returns', unforeseen: true }, options: [{ key: 'yes', label: 'Yes', p: 0 }, { key: 'no', label: 'No', p: 0 }, { key: 'huang_returns', label: 'Huang returns', p: 1 }] }
+        situationService.getLatest.mockResolvedValueOnce({
+            ...run, nodes: [...run.nodes, resolvedCeo],
+            run: { ...run.run, stats: { ...run.run.stats, unforeseen: ['c1'], outcomes: { ran: true, added: [{ node_id: 'n1', option: 'limited', label: 'A limited strike' }], reworded: [], skipped: [] } } },
+            outside: [{ event_id: 'o1', date: '2025-01-14', text: 'A 10% card rate cap', industries: ['card issuers'], sectors: ['40'], routed_to: ['40'] }],
+        })
+        situationService.getScorecard.mockResolvedValueOnce({ started_on: '2025-01-07', runs: 2, nodes: { all: { questions: 1 }, roy: { questions: 0 }, overridden: {}, accepted: {} }, unforeseen: { questions: 1, of: 1 },
+            industries: { m6: { n: 0 } }, control: { m6: {} }, verdict: { months: 0.2, pass: false, checks: { '1_brier_beats_equal_odds': false } } })
+        await open()
+        fireEvent.click(screen.getByRole('tab', { name: 'Updates' }))
+        expect(screen.getByText(/The outcomes review: added “?"?A limited strike"?”? to Does the US strike Iran\?/)).toBeTruthy()
+        expect(screen.getByText(/⚑ Not foreseen: Does Nvidia name a permanent CEO\?/)).toBeTruthy()
+        expect(screen.getByText(/sent to Financials/)).toBeTruthy()
+        fireEvent.click(screen.getByRole('tab', { name: 'Scorecard' }))
+        await flush()
+        expect(screen.getByText(/Not foreseen: 1 of 1 resolved questions/)).toBeTruthy()
+    })
+
     it('a network not built yet says so; a failed read offers a retry', async () => {
         situationService.getLatest.mockResolvedValueOnce({ run: null, runs: [] })
         await open()
