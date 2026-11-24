@@ -7,7 +7,7 @@ export const usd = (v) => (typeof v === 'number' && Number.isFinite(v) ? `$${v.t
 
 export const SECTION_LABEL = Object.freeze({ regime: 'Regime', policy: 'Policy', money: 'Big money', stories: 'Stories and geopolitics', prices: 'Prices', calendar: 'Calendar' })
 export const DECISION_LABEL = Object.freeze({ moves_option: 'Moves an option', new_option: 'New option', new_question: 'New question', resolves: 'Resolves', outside: 'Outside the network', none: 'No change' })
-export const REASON_LABEL = Object.freeze({ low_impact: 'low impact', nearly_settled: 'nearly settled', duplicate: 'duplicate', too_far_out: 'too far out', cap: 'the cap of its layer', reworded: 'reworded' })
+export const REASON_LABEL = Object.freeze({ low_impact: 'low impact', nearly_settled: 'nearly settled', duplicate: 'duplicate', too_far_out: 'too far out', cap: 'the cap of its layer', reworded: 'reworded', parent_resolved: 'its parent resolved another way' })
 const word = (t) => String(t ?? 'other').replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())
 /** A tree's label; a sector's tree (key `35:drug_pricing`) says its sector. Pure. */
 export const TREE_LABEL = (t) => {
@@ -157,12 +157,13 @@ export function droppedByLayer(dropped = []) {
     return [...m.entries()]
 }
 
-/** The missing-outcomes review's line on the Updates tab: what it added and reworded. Pure. */
+/** The missing-outcomes review's line on the Updates tab: what it added, reworded and followed up. Pure. */
 export function outcomesLine(o, nodes = []) {
     const q = (id) => nodes.find(n => n.node_id === id)
     const parts = [
         ...(o.added ?? []).map(a => `added "${a.label}" to ${q(a.node_id)?.question ?? a.node_id}`),
         ...(o.reworded ?? []).map(r => `reworded as ${r.question}`),
+        ...(o.followUps ?? []).map(f => { const p = q(f.parent); return `follow-up ${f.question}, if "${p?.options?.find(x => x.key === f.option)?.label ?? f.option}"` }),
     ]
     return parts.length ? parts.join('; ') : "every question's options stood"
 }

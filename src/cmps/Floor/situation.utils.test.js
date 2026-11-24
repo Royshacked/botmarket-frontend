@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { pct, safe, drawn, treesOf, boxLabel, treeDiagram, crossDiagram, industryTable, historyLines, layersOf, nodesForLayer, droppedByLayer, treeKey, TREE_LABEL, LAYER_LABEL } from './situation.utils.js'
+import { pct, safe, drawn, treesOf, boxLabel, treeDiagram, crossDiagram, industryTable, historyLines, layersOf, nodesForLayer, droppedByLayer, treeKey, TREE_LABEL, LAYER_LABEL, outcomesLine, REASON_LABEL } from './situation.utils.js'
 
 const node = (node_id, tree, opts, over = {}) => ({ node_id, tree, question: `Q ${node_id}?`, status: 'live', kind: 'open', woken: [],
     options: Object.entries(opts).map(([key, p]) => ({ key, label: key, p })), ...over })
@@ -69,4 +69,12 @@ test('the layers: present layers macro first; a layer with the nodes linked to i
     assert.equal(TREE_LABEL('energy'), 'Energy')
     assert.equal(LAYER_LABEL('macro'), 'Macro')
     assert.deepEqual(treesOf([m, node('m2', 'drug_pricing', { a: 1 }), h]).map(([k]) => k), ['energy', 'drug_pricing', '35:drug_pricing'])
+})
+
+test('outcomesLine: added, reworded and follow-ups (named by the option they hang under); a follow-up dropped says why', () => {
+    const ceo = { node_id: 'ceo', question: 'Does Nvidia name a permanent CEO?', options: [{ key: 'yes', label: 'Yes' }, { key: 'no', label: 'No' }] }
+    const line = outcomesLine({ added: [{ node_id: 'ceo', label: 'Huang returns' }], reworded: [], followUps: [{ node_id: 'who', parent: 'ceo', option: 'yes', question: 'Who becomes CEO?' }] }, [ceo])
+    assert.equal(line, 'added "Huang returns" to Does Nvidia name a permanent CEO?; follow-up Who becomes CEO?, if "Yes"')
+    assert.equal(outcomesLine({ added: [], reworded: [] }), "every question's options stood")
+    assert.equal(REASON_LABEL.parent_resolved, 'its parent resolved another way')
 })
