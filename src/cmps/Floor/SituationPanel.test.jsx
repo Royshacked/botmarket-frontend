@@ -80,7 +80,8 @@ describe('SituationPanel', () => {
         expect(screen.getByText(/Oil & Gas wins 62%/)).toBeTruthy()
         expect(screen.getByText(/Gold win ≥ 70%/)).toBeTruthy()
         fireEvent.click(screen.getByText('Oil & Gas'))
-        expect(screen.getByText(/“Does the US strike Iran\?” → Strikes: helps/)).toBeTruthy()
+        expect(screen.getByText(/“Does the US strike Iran\?” \(by 2025-03-31\) → Strikes: helps/)).toBeTruthy()
+        expect(screen.getByText(/Size is how big the average push/)).toBeTruthy()
     })
 
     it('updates and the scorecard', async () => {

@@ -219,16 +219,17 @@ function IndustriesTab({ run }) {
     const { rows, calls } = industryTable(run.industries)
     const [openCode, setOpenCode] = useState(null)
     const entries = run.run.stats?.entries ?? []
+    const byId = new Map((run.nodes ?? []).map(n => [n.node_id, n]))
     return (
         <>
-            <p className="situation__note">Chances over every path through the network; a split industry gets no call. Calls are at 60% or more. Macro alone is the macro layer without the sectors. A forward test, not advice.</p>
+            <p className="situation__note">Chances over every path through the network; a split industry gets no call. Calls are at 60% or more. Size is how big the average push on the industry is (small, medium, large), not a position size. There is no single horizon: each branch is decided by its question's resolve-by date (open a row), and the forward test grades the calls at 3 and 6 months. Macro alone is the macro layer without the sectors. A forward test, not advice.</p>
             <p><b>Calls:</b> {calls.length ? calls.map(r => `${r.name} ${r.p_win >= 0.6 ? `wins ${pct(r.p_win)}` : `loses ${pct(r.p_lose)}`}`).join(' · ') : 'none this run'}</p>
             {entries.length > 0 && <p className="situation__dim">Would-be entries this run (the record only, no trades): {entries.map(e => `${e.name} ${e.side} ≥ ${pct(e.level)}`).join('; ')}</p>}
             <table className="situation__table">
-                <thead><tr><th>Industry</th><th>Wins</th><th>Loses</th><th>Size</th><th>Agreement</th><th>Macro alone</th></tr></thead>
+                <thead><tr><th>Industry</th><th>Wins</th><th>Loses</th><th title="How big the average push on the industry is, over every path — not a position size">Size</th><th>Agreement</th><th>Macro alone</th></tr></thead>
                 <tbody>
                     {rows.map(r => (
-                        <IndustryRow key={r.code} r={r} open={openCode === r.code} onToggle={() => setOpenCode(c => (c === r.code ? null : r.code))} />
+                        <IndustryRow key={r.code} r={r} byId={byId} open={openCode === r.code} onToggle={() => setOpenCode(c => (c === r.code ? null : r.code))} />
                     ))}
                 </tbody>
             </table>
@@ -237,7 +238,7 @@ function IndustriesTab({ run }) {
 }
 IndustriesTab.propTypes = { run: PropTypes.object.isRequired }
 
-function IndustryRow({ r, open, onToggle }) {
+function IndustryRow({ r, byId, open, onToggle }) {
     return (
         <>
             <tr className="situation__row" onClick={onToggle} aria-expanded={open}>
@@ -251,14 +252,17 @@ function IndustryRow({ r, open, onToggle }) {
             {open && (
                 <tr className="situation__detail"><td colSpan={6}>
                     <ul className="situation__items">
-                        {(r.paths ?? []).map(p => <li key={`${p.node_id}|${p.option}`}>“{p.question}” → {p.label}: {p.weight >= 0 ? 'helps' : 'hurts'}</li>)}
+                        {(r.paths ?? []).map(p => {
+                            const by = p.resolve_by ?? byId?.get(p.node_id)?.resolve_by ?? null
+                            return <li key={`${p.node_id}|${p.option}`}>“{p.question}”{by ? ` (by ${by})` : ''} → {p.label}: {p.weight >= 0 ? 'helps' : 'hurts'}</li>
+                        })}
                     </ul>
                 </td></tr>
             )}
         </>
     )
 }
-IndustryRow.propTypes = { r: PropTypes.object.isRequired, open: PropTypes.bool, onToggle: PropTypes.func.isRequired }
+IndustryRow.propTypes = { r: PropTypes.object.isRequired, byId: PropTypes.instanceOf(Map), open: PropTypes.bool, onToggle: PropTypes.func.isRequired }
 
 function UpdatesTab({ run }) {
     const s = run.run.stats ?? {}
