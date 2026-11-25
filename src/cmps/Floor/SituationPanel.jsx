@@ -7,7 +7,7 @@ import { apiError } from '../../services/http.service.js'
 import { MermaidDiagram } from './MermaidDiagram.jsx'
 import {
     pct, usd, SECTION_LABEL, DECISION_LABEL, REASON_LABEL, TREE_LABEL,
-    drawn, treesOf, treeDiagram, crossDiagram, industryTable, inWindow, hasFar, WINDOWS, historyLines,
+    drawn, treesOf, treeDiagram, crossDiagram, industryTable, inWindow, hasFar, isLong, WINDOWS, historyLines,
     layersOf, nodesForLayer, droppedByLayer, layerOf, treeKey, LAYER_LABEL, SECTOR_SECTION_LABEL, outcomesLine,
 } from './situation.utils.js'
 import './SituationPanel.scss'
@@ -176,7 +176,7 @@ function QuestionRow({ n, run, open, onToggle, onChanged }) {
     return (
         <>
             <tr className={`situation__row situation__row--${n.status === 'resolved' ? 'resolved' : n.kind}`} onClick={onToggle} aria-expanded={open}>
-                <td>{n.question}{n.set_by === 'roy' && <span className="situation__chip">yours</span>}{n.origin && n.origin !== layerOf(n) && <span className="situation__chip">from {LAYER_LABEL(n.origin)}</span>}{(n.woken ?? []).length > 0 && <span className="situation__chip situation__chip--warn">woken</span>}</td>
+                <td>{n.question}{n.set_by === 'roy' && <span className="situation__chip">yours</span>}{n.origin && n.origin !== layerOf(n) && <span className="situation__chip">from {LAYER_LABEL(n.origin)}</span>}{n.status === 'live' && isLong(n, run.run.as_of) && <span className="situation__chip">long</span>}{(run.run.stats?.long?.unlinked ?? []).includes(n.node_id) && <span className="situation__chip situation__chip--warn" title="No near question moves it on the way">no checkpoint</span>}{(n.woken ?? []).length > 0 && <span className="situation__chip situation__chip--warn">woken</span>}</td>
                 <td className="situation__dim">{TREE_LABEL(treeKey(n))}</td>
                 <td>{n.options.map(o => (
                     <span key={o.key} className={`situation__opt${o.dormant ? ' situation__opt--dormant' : ''}`}>
@@ -322,7 +322,7 @@ function ScorecardTab() {
     return (
         <>
             <p className="situation__note">The pass rule was declared before the start and does not change during the test.</p>
-            <p><b>Since</b> {x.started_on ?? 'not started'} · {x.verdict.months} months · {x.runs} runs · {x.verdict.pass ? 'PASSED' : 'not passed'}</p>
+            <p><b>{x.started_on ? 'Since' : 'The test has not started'}</b> {x.started_on ?? '(a trial: nothing here counts)'} · {x.verdict.months} months · {x.runs} runs · {x.verdict.pass ? 'PASSED' : 'not passed'}</p>
             <ul className="situation__items">{Object.entries(x.verdict.checks).map(([k, v]) => <li key={k}>{v ? '✓' : '✗'} {k.replace(/^\d_/, '').replace(/_/g, ' ')}</li>)}</ul>
             <p>Questions resolved: {a.questions} · Brier {a.brier?.toFixed(3) ?? '—'} against equal odds {a.equal_odds?.toFixed(3) ?? '—'}</p>
             <p>Industry long − short at 6 months: {x.industries.m6.n} dates, mean {pct(x.industries.m6.mean)}, t {x.industries.m6.t?.toFixed(1) ?? '—'} · the macro layer alone: {pct(x.macro_only?.m6?.mean)} · the plain question: {pct(x.control.m6.mean)}</p>

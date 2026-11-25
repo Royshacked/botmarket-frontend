@@ -7,7 +7,7 @@ export const usd = (v) => (typeof v === 'number' && Number.isFinite(v) ? `$${v.t
 
 export const SECTION_LABEL = Object.freeze({ regime: 'Regime', policy: 'Policy', money: 'Big money', stories: 'Stories and geopolitics', prices: 'Prices', calendar: 'Calendar' })
 export const DECISION_LABEL = Object.freeze({ moves_option: 'Moves an option', new_option: 'New option', new_question: 'New question', resolves: 'Resolves', outside: 'Outside the network', none: 'No change' })
-export const REASON_LABEL = Object.freeze({ low_impact: 'low impact', nearly_settled: 'nearly settled', duplicate: 'duplicate', too_far_out: 'too far out', cap: 'the cap of its layer', story_full: 'its story is full', reworded: 'reworded', parent_resolved: 'its parent resolved another way' })
+export const REASON_LABEL = Object.freeze({ low_impact: 'low impact', nearly_settled: 'nearly settled', duplicate: 'duplicate', too_far_out: 'too far out', cap: 'the cap of its layer', story_full: 'its story is full', long_full: 'the long places are full', reworded: 'reworded', parent_resolved: 'its parent resolved another way' })
 const word = (t) => String(t ?? 'other').replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())
 /** A tree's label; a sector's tree (key `35:drug_pricing`) says its sector. Pure. */
 export const TREE_LABEL = (t) => {
@@ -105,6 +105,9 @@ export function crossDiagram(nodes = [], links = []) {
     }
     return [...out, ...CLASSES.map(c => `  ${c}`)].join('\n')
 }
+
+/** A long question of a run: answered more than 240 days after it (the backend's horizon.isLong). Pure. */
+export const isLong = (n, asOf) => Boolean(n?.resolve_by && asOf) && (Date.parse(n.resolve_by) - Date.parse(asOf)) / 864e5 > 240
 
 /** The two windows of the industry scores: near (the row's own numbers) and far (situation-network-horizons.md). */
 export const WINDOWS = Object.freeze([['near', 'Near (0–6 months)'], ['far', 'Far (6–24 months)']])
