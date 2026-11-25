@@ -74,6 +74,17 @@ describe('SituationPanel', () => {
         expect(situationService.override).toHaveBeenCalledWith('n1', { strikes: 0.5, standoff: 0.5 })
     })
 
+    it('industries: Near and Far are two tables', async () => {
+        const row = run.industries[0]
+        situationService.getLatest.mockResolvedValue({ ...run, industries: [{ ...row, far: { p_win: 0, p_lose: 0, bucket: 'small', agreement: null, paths: [] } }, { ...row, code: 'GOLD', name: 'Gold', p_win: 0, p_lose: 0, paths: [], far: { p_win: 0.7, p_lose: 0, bucket: 'medium', agreement: 1, paths: row.paths } }] })
+        await open()
+        fireEvent.click(screen.getByRole('tab', { name: 'Industries' }))
+        expect(screen.queryByText('Gold')).toBeNull()
+        fireEvent.click(screen.getByRole('tab', { name: /Far/ }))
+        expect(screen.getByText('Gold')).toBeTruthy()
+        expect(screen.queryByText('Oil & Gas')).toBeNull()
+    })
+
     it('industries: the calls at 60%+, the would-be entries, the branches behind', async () => {
         await open()
         fireEvent.click(screen.getByRole('tab', { name: 'Industries' }))

@@ -7,7 +7,7 @@ import { apiError } from '../../services/http.service.js'
 import { MermaidDiagram } from './MermaidDiagram.jsx'
 import {
     pct, usd, SECTION_LABEL, DECISION_LABEL, REASON_LABEL, TREE_LABEL,
-    drawn, treesOf, treeDiagram, crossDiagram, industryTable, historyLines,
+    drawn, treesOf, treeDiagram, crossDiagram, industryTable, inWindow, hasFar, WINDOWS, historyLines,
     layersOf, nodesForLayer, droppedByLayer, layerOf, treeKey, LAYER_LABEL, SECTOR_SECTION_LABEL, outcomesLine,
 } from './situation.utils.js'
 import './SituationPanel.scss'
@@ -216,15 +216,21 @@ function QuestionRow({ n, run, open, onToggle, onChanged }) {
 QuestionRow.propTypes = { n: PropTypes.object.isRequired, run: PropTypes.object.isRequired, open: PropTypes.bool, onToggle: PropTypes.func.isRequired, onChanged: PropTypes.func.isRequired }
 
 function IndustriesTab({ run }) {
-    const { rows, calls } = industryTable(run.industries)
+    const [win, setWin] = useState('near')
+    const { rows, calls } = industryTable(inWindow(run.industries, win))
     const [openCode, setOpenCode] = useState(null)
     const entries = run.run.stats?.entries ?? []
     const byId = new Map((run.nodes ?? []).map(n => [n.node_id, n]))
     return (
         <>
-            <p className="situation__note">Chances over every path through the network; a split industry gets no call. Calls are at 60% or more. Size is how big the average push on the industry is (small, medium, large), not a position size. There is no single horizon: each branch is decided by its question's resolve-by date (open a row), and the forward test grades the calls at 3 and 6 months. Macro alone is the macro layer without the sectors. A forward test, not advice.</p>
+            <p className="situation__note">Chances over every path through the network; a split industry gets no call. Calls are at 60% or more. Size is how big the average push on the industry is (small, medium, large), not a position size. {hasFar(run.industries) ? 'Near holds the effects that start within 6 months, and the forward test is judged on it (3 and 6 months). Far holds those that start 6 to 24 months out.' : 'There is no single horizon: each branch is decided by its question’s resolve-by date (open a row), and the forward test grades the calls at 3 and 6 months.'} Macro alone is the macro layer without the sectors. A forward test, not advice.</p>
+            {hasFar(run.industries) && (
+                <div className="cal-nav situation__layers" role="tablist" aria-label="Window">
+                    {WINDOWS.map(([k, label]) => <button key={k} type="button" role="tab" aria-selected={win === k} className={`cal-nav__btn${win === k ? ' cal-nav__btn--on' : ''}`} onClick={() => setWin(k)}>{label}</button>)}
+                </div>
+            )}
             <p><b>Calls:</b> {calls.length ? calls.map(r => `${r.name} ${r.p_win >= 0.6 ? `wins ${pct(r.p_win)}` : `loses ${pct(r.p_lose)}`}`).join(' · ') : 'none this run'}</p>
-            {entries.length > 0 && <p className="situation__dim">Would-be entries this run (the record only, no trades): {entries.map(e => `${e.name} ${e.side} ≥ ${pct(e.level)}`).join('; ')}</p>}
+            {win === 'near' && entries.length > 0 && <p className="situation__dim">Would-be entries this run (the record only, no trades): {entries.map(e => `${e.name} ${e.side} ≥ ${pct(e.level)}`).join('; ')}</p>}
             <table className="situation__table">
                 <thead><tr><th>Industry</th><th>Wins</th><th>Loses</th><th title="How big the average push on the industry is, over every path — not a position size">Size</th><th>Agreement</th><th>Macro alone</th></tr></thead>
                 <tbody>

@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { pct, safe, drawn, treesOf, boxLabel, treeDiagram, crossDiagram, industryTable, historyLines, layersOf, nodesForLayer, droppedByLayer, treeKey, TREE_LABEL, LAYER_LABEL, outcomesLine, REASON_LABEL } from './situation.utils.js'
+import { pct, safe, drawn, treesOf, boxLabel, treeDiagram, crossDiagram, industryTable, inWindow, hasFar, historyLines, layersOf, nodesForLayer, droppedByLayer, treeKey, TREE_LABEL, LAYER_LABEL, outcomesLine, REASON_LABEL } from './situation.utils.js'
 
 const node = (node_id, tree, opts, over = {}) => ({ node_id, tree, question: `Q ${node_id}?`, status: 'live', kind: 'open', woken: [],
     options: Object.entries(opts).map(([key, p]) => ({ key, label: key, p })), ...over })
@@ -44,6 +44,16 @@ test('crossDiagram: only links that cross trees, in tree boxes; none → null', 
     assert.match(d, /style s0 fill:transparent/)
     assert.ok(!d.includes('Q c?'), 'a link inside one tree is not drawn here')
     assert.equal(crossDiagram([a, b], []), null)
+})
+
+test('inWindow: near and far are separate tables; an industry no path moves in a window is not in it; an old run is as it was', () => {
+    const P = [{ node_id: 'n' }]
+    const rows = [{ code: 'A', p_win: 0.7, p_lose: 0, paths: P, far: { p_win: 0, p_lose: 0, paths: [] } }, { code: 'B', p_win: 0, p_lose: 0, paths: [], far: { p_win: 0.1, p_lose: 0.8, paths: P } }]
+    assert.deepEqual(inWindow(rows, 'near').map(r => r.code), ['A'])
+    assert.deepEqual(inWindow(rows, 'far').map(r => [r.code, r.p_lose]), [['B', 0.8]])
+    const old = [{ code: 'A', p_win: 0.7, p_lose: 0 }]
+    assert.equal(hasFar(old), false)
+    assert.deepEqual(inWindow(old, 'near'), old)
 })
 
 test('industryTable: the most one-sided first; calls at 60%+', () => {

@@ -106,6 +106,17 @@ export function crossDiagram(nodes = [], links = []) {
     return [...out, ...CLASSES.map(c => `  ${c}`)].join('\n')
 }
 
+/** The two windows of the industry scores: near (the row's own numbers) and far (situation-network-horizons.md). */
+export const WINDOWS = Object.freeze([['near', 'Near (0–6 months)'], ['far', 'Far (6–24 months)']])
+/** Does this run carry the far window? (A run from before it does not.) Pure. */
+export const hasFar = (industries = []) => industries.some(r => r.far)
+/** The industries as one window scores them; an industry no path moves there is left out of it. Pure. */
+export function inWindow(industries = [], w = 'near') {
+    if (!hasFar(industries)) return industries
+    const rows = w === 'far' ? industries.filter(r => r.far).map(r => ({ ...r, ...r.far })) : industries
+    return rows.filter(r => r.paths?.length)
+}
+
 /** The industries, the most one-sided first; `calls` are those at 60%+. Pure. */
 export function industryTable(industries = []) {
     const rows = [...industries].sort((a, b) => Math.max(b.p_win, b.p_lose) - Math.max(a.p_win, a.p_lose))
