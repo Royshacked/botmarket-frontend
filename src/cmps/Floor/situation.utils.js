@@ -7,7 +7,7 @@ export const usd = (v) => (typeof v === 'number' && Number.isFinite(v) ? `$${v.t
 
 export const SECTION_LABEL = Object.freeze({ regime: 'Regime', policy: 'Policy', money: 'Big money', stories: 'Stories and geopolitics', prices: 'Prices', calendar: 'Calendar' })
 export const DECISION_LABEL = Object.freeze({ moves_option: 'Moves an option', new_option: 'New option', new_question: 'New question', resolves: 'Resolves', outside: 'Outside the network', none: 'No change' })
-export const REASON_LABEL = Object.freeze({ low_impact: 'low impact', nearly_settled: 'nearly settled', duplicate: 'duplicate', too_far_out: 'too far out', cap: 'the cap of its layer', reworded: 'reworded', parent_resolved: 'its parent resolved another way' })
+export const REASON_LABEL = Object.freeze({ low_impact: 'low impact', nearly_settled: 'nearly settled', duplicate: 'duplicate', too_far_out: 'too far out', cap: 'the cap of its layer', story_full: 'its story is full', reworded: 'reworded', parent_resolved: 'its parent resolved another way' })
 const word = (t) => String(t ?? 'other').replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())
 /** A tree's label; a sector's tree (key `35:drug_pricing`) says its sector. Pure. */
 export const TREE_LABEL = (t) => {
