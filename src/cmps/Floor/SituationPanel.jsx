@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { DetailPanel } from '../DetailPanel/DetailPanel.jsx'
 import { useDetailPanel } from '../DetailPanel/detailPanel.store.js'
@@ -67,6 +67,7 @@ export function SituationPanel() {
                     {tab === 'network' && <NetworkTab run={r} layer={layer} />}
                     {tab === 'questions' && <QuestionsTab run={r} layer={layer} onChanged={() => setRetry(n => n + 1)} />}
                     {tab === 'industries' && <IndustriesTab run={r} />}
+                    {tab === 'updates' && r.canOverride && <RunNow onDone={() => setRetry(n => n + 1)} />}
                     {tab === 'updates' && <UpdatesTab run={r} />}
                     {tab === 'scorecard' && <ScorecardTab />}
                 </div>
@@ -74,6 +75,57 @@ export function SituationPanel() {
         </DetailPanel>
     )
 }
+
+/** Run the network now (the admin): a fresh build or the weekly update, after a confirm; the server runs it. */
+const RUN_POLL_MS = 15000
+const RUN_KINDS = {
+    weekly: { label: 'Weekly update', ask: 'Update the current questions with the news since the last run. About $3, several minutes.' },
+    build: { label: 'Fresh build', ask: 'Start over: new questions replace the current ones, which stay only as history with your numbers on them. About $10, up to an hour. It can use up the week’s budget, so event updates may wait.' },
+}
+export function RunNow({ onDone }) {
+    const [st, setSt] = useState(null)
+    const [ask, setAsk] = useState(null)
+    const [msg, setMsg] = useState(null)
+    const [tries, setTries] = useState(0)
+    const wasRunning = useRef(false)
+    const running = st?.running ?? null
+    useEffect(() => {
+        let live = true
+        situationService.runStatus().then(x => {
+            if (!live) return
+            setSt(x)
+            if (wasRunning.current && !x.running) onDone()
+            wasRunning.current = Boolean(x.running)
+        }, e => { if (live) setMsg(apiError(e, 'Could not read the run')) })
+        const t = setTimeout(() => setTries(n => n + 1), RUN_POLL_MS)
+        return () => { live = false; clearTimeout(t) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tries])
+    async function start() {
+        const kind = ask
+        setAsk(null); setMsg(null)
+        try {
+            await situationService.runNow(kind)
+            wasRunning.current = true
+            setSt(s => ({ ...s, running: { kind, since: null } }))
+        } catch (e) { setMsg(apiError(e, 'Could not start it')) }
+    }
+    const last = st?.last
+    return (
+        <div className="situation__form">
+            {running ? <p className="situation__note">Running now: {RUN_KINDS[running.kind]?.label ?? running.kind}. You can close this; it goes on.</p> : ask ? (
+                <>
+                    <p className="situation__note">{RUN_KINDS[ask].ask}</p>
+                    <button type="button" className="situation__link" onClick={start}>Run it</button>
+                    <button type="button" className="situation__link" onClick={() => setAsk(null)}>Cancel</button>
+                </>
+            ) : Object.entries(RUN_KINDS).map(([k, x]) => <button key={k} type="button" className="situation__link" disabled={!st} onClick={() => setAsk(k)}>Run now: {x.label}</button>)}
+            {!running && last && <p className="situation__dim">Last run by hand: {RUN_KINDS[last.kind]?.label ?? last.kind}, {last.finished_at ? (last.ok ? `saved, ${usd(last.cost_usd)}` : `failed: ${last.reason}`) : 'started and did not finish'}.</p>}
+            {msg && <p className="situation__dim">{msg}</p>}
+        </div>
+    )
+}
+RunNow.propTypes = { onDone: PropTypes.func.isRequired }
 
 /** The layer filter: all, macro, or one sector (only the layers this run has). */
 function LayerPicker({ run, layer, onPick }) {

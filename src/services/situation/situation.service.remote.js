@@ -6,7 +6,7 @@ import { httpService } from '../http.service.js'
 
 const BASE = 'api/situation'
 
-export const situationService = { access, getLatest, getRun, getNodeHistory, getScorecard, override }
+export const situationService = { access, getLatest, getRun, getNodeHistory, getScorecard, override, runStatus, runNow }
 
 /** May this user see the board? → true / false (a 404 or any failure is false). */
 async function access() {
@@ -36,4 +36,14 @@ async function getScorecard() {
 /** Roy's numbers for one node (`{ option: number }`) → a new run. Admin only. */
 async function override(id, p) {
     return httpService.post(`${BASE}/nodes/${encodeURIComponent(id)}/override`, { p })
+}
+
+/** What runs now, and the last run by hand → `{ running, last }`. Admin only. */
+async function runStatus() {
+    return httpService.get(`${BASE}/run`)
+}
+
+/** Start a run now: 'build' or 'weekly'. Answers once it has STARTED. Admin only. */
+async function runNow(kind) {
+    return httpService.post(`${BASE}/run`, { kind })
 }

@@ -7,7 +7,7 @@ import { situationService } from '../../services/situation/situation.service.rem
 // The situation network's board (situation-network.md §11.6): the state, the trees, the questions, the industries.
 
 vi.mock('../../services/situation/situation.service.remote.js', () => ({
-    situationService: { getLatest: vi.fn(), getNodeHistory: vi.fn(), getScorecard: vi.fn(), override: vi.fn(), access: vi.fn() },
+    situationService: { getLatest: vi.fn(), getNodeHistory: vi.fn(), getScorecard: vi.fn(), override: vi.fn(), access: vi.fn(), runNow: vi.fn(), runStatus: vi.fn() },
 }))
 // Mermaid does not draw in jsdom: the diagram is its text here.
 vi.mock('./MermaidDiagram.jsx', () => ({ MermaidDiagram: ({ code, label }) => <pre aria-label={label}>{code}</pre> }))
@@ -34,6 +34,8 @@ beforeEach(() => {
     situationService.getScorecard.mockResolvedValue({ started_on: '2025-01-07', runs: 2, nodes: { all: { questions: 0 }, roy: { questions: 0 }, overridden: {}, accepted: {} },
         industries: { m6: { n: 0 } }, control: { m6: {} }, verdict: { months: 0.2, pass: false, checks: { '1_brier_beats_equal_odds': false } } })
     situationService.override.mockResolvedValue({ ok: true })
+    situationService.runStatus.mockResolvedValue({ running: null, last: null })
+    situationService.runNow.mockResolvedValue({ ok: true })
 })
 afterEach(() => { cleanup(); closePanel(); vi.clearAllMocks() })
 
@@ -72,6 +74,27 @@ describe('SituationPanel', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Save my numbers' }))
         await flush()
         expect(situationService.override).toHaveBeenCalledWith('n1', { strikes: 0.5, standoff: 0.5 })
+    })
+
+    it('run now: the admin only, after a confirm; a running one is said', async () => {
+        situationService.getLatest.mockResolvedValue({ ...run, canOverride: true })
+        await open()
+        fireEvent.click(screen.getByRole('tab', { name: 'Updates' }))
+        await flush()
+        fireEvent.click(screen.getByRole('button', { name: /Fresh build/ }))
+        expect(situationService.runNow).not.toHaveBeenCalled()
+        fireEvent.click(screen.getByRole('button', { name: 'Run it' }))
+        await flush()
+        expect(situationService.runNow).toHaveBeenCalledWith('build')
+        expect(screen.getByText(/Running now: Fresh build/)).toBeTruthy()
+    })
+
+    it('run now: not for a trader on the list', async () => {
+        situationService.getLatest.mockResolvedValue({ ...run, canOverride: false })
+        await open()
+        fireEvent.click(screen.getByRole('tab', { name: 'Updates' }))
+        expect(screen.queryByRole('button', { name: /Run now/ })).toBeNull()
+        expect(situationService.runStatus).not.toHaveBeenCalled()
     })
 
     it('industries: Near and Far are two tables', async () => {
